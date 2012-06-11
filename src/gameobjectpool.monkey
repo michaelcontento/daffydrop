@@ -15,7 +15,7 @@ Class GameObjectPool
 
     Method OnRender:Void()
         If Not list Then Return
-        For Local obj := EachIn list
+        For Local obj:GameObject = EachIn list
             obj.OnRender()
         End
     End
