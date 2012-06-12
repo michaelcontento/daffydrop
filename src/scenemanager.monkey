@@ -19,7 +19,10 @@ Class SceneManager
     Method Goto:Void(name:String)
         If nextScene And nextScene.name = name Then Return
         nextScene = scenes.Get(name)
+
+        If current Then current.OnLeave()
         nextScene.OnEnter()
+
         current = nextScene
     End
 End
