@@ -11,12 +11,10 @@ Class GameObjectPool Extends GameObject
 
     Method Add:Void(obj:GameObject)
         list.AddLast(obj)
-        obj.pool = Self
     End
 
     Method Remove:Void(obj:GameObject)
         list.RemoveEach(obj)
-        obj.pool = Null
     End
 
     Method OnRender:Void()

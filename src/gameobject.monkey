@@ -1,10 +1,6 @@
 Strict
 
-Import gameobjectpool
-
 Class GameObject Abstract
-    Field pool:GameObjectPool
-
     Method OnCreate:Void()
     End
 
