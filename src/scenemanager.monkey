@@ -12,7 +12,12 @@ Class SceneManager
     End
 
     Method Add:Void(scene:Scene)
-        If scenes.IsEmpty() Then current = scene
+        If scenes.IsEmpty()
+            current = scene
+        ElseIf scenes.Contains(scene.name)
+            Error("Scenemanager already contains a scene name " + scene.name)
+        End
+
         scenes.Set(scene.name, scene)
     End
 
