@@ -13,6 +13,9 @@ Class Scene Abstract
 
     Method OnCreate:String() Abstract
 
+    Method OnLoading:Void()
+    End
+
     Method OnUpdate:Void()
         pool.OnUpdate()
     End

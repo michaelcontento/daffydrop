@@ -38,6 +38,11 @@ Class Game Extends App
         Return 0
     End
 
+    Method OnLoading:Int()
+        If scenes.current Then scenes.current.OnLoading()
+        Return 0
+    End
+
     Method OnUpdate:Int()
         If scenes.current Then scenes.current.OnUpdate()
         Return 0
