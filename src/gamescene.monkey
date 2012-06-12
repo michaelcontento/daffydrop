@@ -231,6 +231,10 @@ Class ShapeMaster Implements Animationable
     End
 
     Method OnUpdate:Void()
+        lowerObjectPool.OnUpdate()
+        upperObjectPool.OnUpdate()
+        slider.OnUpdate()
+        chute.OnUpdate()
         CheckShapeCollisions()
 
         If Millisecs() <= nextTick Then Return
@@ -240,6 +244,10 @@ Class ShapeMaster Implements Animationable
     End
 
     Method OnRender:Void()
+        lowerObjectPool.OnRender()
+        slider.OnRender()
+        upperObjectPool.OnRender()
+        chute.OnRender()
     End
 
     Method RandomType:Int()
@@ -253,20 +261,14 @@ End
 
 Class GameScene Extends Scene
     Field shapeMaster:ShapeMaster
-    Field slider:Slider
-    Field chute:Chute
 
     Method OnCreate:String()
-        chute = New Chute()
-        slider = New Slider()
+        Local chute:Chute = New Chute()
+        Local slider:Slider = New Slider()
         shapeMaster = New ShapeMaster(chute, slider)
 
         pool.Add(New Sprite("bg_960x640.png"))
         pool.Add(shapeMaster)
-        pool.Add(shapeMaster.lowerObjectPool)
-        pool.Add(slider)
-        pool.Add(shapeMaster.upperObjectPool)
-        pool.Add(chute)
 
         Return "game"
     End
