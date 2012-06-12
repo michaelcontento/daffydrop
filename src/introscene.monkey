@@ -21,7 +21,7 @@ Class IntroScene Extends Scene
     End
 
     Method OnUpdate:Void()
-        If Millisecs() > timer Then CurrentGame().sceneManager.Goto("menu")
+        If Millisecs() > timer Then CurrentGame().scenes.Goto("menu")
     End
 
     Method OnRender:Void()

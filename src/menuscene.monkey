@@ -57,7 +57,7 @@ Class MenuScene Extends Scene
     End
 
     Method OnUpdate:Void()
-        If KeyDown(KEY_P) Then CurrentGame().sceneManager.Goto("game")
+        If KeyDown(KEY_P) Then CurrentGame().scenes.Goto("game")
         gameObjectPool.OnUpdate()
     End
 

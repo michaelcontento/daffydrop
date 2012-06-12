@@ -11,9 +11,9 @@ Import src.gamescene
 
 Function Main:Int()
     Local game:Game = CurrentGame()
-    game.sceneManager.Add(New IntroScene())
-    game.sceneManager.Add(New MenuScene())
-    game.sceneManager.Add(New GameScene())
+    game.scenes.Add(New IntroScene())
+    game.scenes.Add(New MenuScene())
+    game.scenes.Add(New GameScene())
     game.Run()
     Return 0
 End

@@ -19,10 +19,10 @@ End
 Class Game Extends App
     Field scaleFactorX:Float
     Field scaleFactorY:Float
-    Field sceneManager:SceneManager
+    Field scenes:SceneManager
 
     Method New()
-        sceneManager = New SceneManager()
+        scenes = New SceneManager()
     End
 
     Method Width:Int()
@@ -41,28 +41,28 @@ Class Game Extends App
     End
 
     Method OnUpdate:Int()
-        If sceneManager.current Then sceneManager.current.OnUpdate()
+        If scenes.current Then scenes.current.OnUpdate()
         Return 0
     End
 
     Method OnResume:Int()
-        If sceneManager.current Then sceneManager.current.OnResume()
+        If scenes.current Then scenes.current.OnResume()
         Return 0
     End
 
     Method OnSuspend:Int()
-        If sceneManager.current Then sceneManager.current.OnSuspend()
+        If scenes.current Then scenes.current.OnSuspend()
         Return 0
     End
 
     Method OnRender:Int()
         Scale(scaleFactorX, scaleFactorY)
-        If sceneManager.current Then sceneManager.current.OnRender()
+        If scenes.current Then scenes.current.OnRender()
         Return 0
     End
 
     Method Run:Void()
-        If Not sceneManager.current Then Error("No scenes found!")
-        sceneManager.current.OnEnter()
+        If Not scenes.current Then Error("No scenes found!")
+        scenes.current.OnEnter()
     End
 End
