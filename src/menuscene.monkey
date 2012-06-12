@@ -9,14 +9,9 @@ Import monkey
 Import scene
 Import sprite
 Import game
-Import gameobjectpool
 
 Class MenuScene Extends Scene
-    Field gameObjectPool:GameObjectPool
-
-    Method New()
-        name = "menu"
-
+    Method OnCreate:String()
         Local easy:Sprite = Sprite("01_02-easy.png")
         easy.y = 270
         Local gameCenterX:Int = CurrentGame().Width2() - easy.Width2()
@@ -34,20 +29,16 @@ Class MenuScene Extends Scene
         highscore.y = advanced.y + 140
         highscore.x = gameCenterX
 
-        gameObjectPool = New GameObjectPool()
-        gameObjectPool.Add(New Sprite("01_main.jpg"))
-        gameObjectPool.Add(easy)
-        gameObjectPool.Add(normal)
-        gameObjectPool.Add(advanced)
-        gameObjectPool.Add(highscore)
+        pool.Add(New Sprite("01_main.jpg"))
+        pool.Add(easy)
+        pool.Add(normal)
+        pool.Add(advanced)
+        pool.Add(highscore)
+
+        Return "menu"
     End
 
     Method OnUpdate:Void()
         If KeyDown(KEY_P) Then CurrentGame().scenes.Goto("game")
-        gameObjectPool.OnUpdate()
-    End
-
-    Method OnRender:Void()
-        gameObjectPool.OnRender()
     End
 End

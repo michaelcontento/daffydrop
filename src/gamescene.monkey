@@ -247,32 +247,22 @@ Class ShapeMaster Extends GameObject
 End
 
 Class GameScene Extends Scene
-    Field gameObjectPool:GameObjectPool
     Field shapeMaster:ShapeMaster
     Field slider:Slider
     Field chute:Chute
 
-    Method New()
-        name = "game"
-
+    Method OnCreate:String()
         chute = New Chute()
         slider = New Slider()
-        gameObjectPool = New GameObjectPool()
         shapeMaster = New ShapeMaster(chute, slider)
 
-        gameObjectPool.Add(New Sprite("bg_960x640.png"))
-        gameObjectPool.Add(shapeMaster)
-        gameObjectPool.Add(shapeMaster.lowerObjectPool)
-        gameObjectPool.Add(slider)
-        gameObjectPool.Add(shapeMaster.upperObjectPool)
-        gameObjectPool.Add(chute)
-    End
+        pool.Add(New Sprite("bg_960x640.png"))
+        pool.Add(shapeMaster)
+        pool.Add(shapeMaster.lowerObjectPool)
+        pool.Add(slider)
+        pool.Add(shapeMaster.upperObjectPool)
+        pool.Add(chute)
 
-    Method OnUpdate:Void()
-        gameObjectPool.OnUpdate()
-    End
-
-    Method OnRender:Void()
-        gameObjectPool.OnRender()
+        Return "game"
     End
 End
