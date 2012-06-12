@@ -5,15 +5,15 @@ Import mojo
 Import game
 Import scene
 Import sprite
-Import gameobject
-Import gameobjectpool
+Import animationable
+Import animationablepool
 
 Const TYPE_CIRCLE:Int = 0
 Const TYPE_PLUS:Int = 1
 Const TYPE_STAR:Int = 2
 Const TYPE_TIRE:Int = 3
 
-Class Shape Extends GameObject
+Class Shape Implements Animationable
     Global images:Image[]
     Field type:Int
     Field lane:Int
@@ -50,7 +50,7 @@ Class Shape Extends GameObject
     End
 End
 
-Class Chute Extends GameObject
+Class Chute Implements Animationable
     Field bottom:Image
     Field bg:Image
     Field height:Int = 50
@@ -84,7 +84,7 @@ Class Chute Extends GameObject
     End
 End
 
-Class Slider Extends GameObject
+Class Slider Implements Animationable
     Field images:Image[]
     Field config:IntList
     Field arrowRight:Sprite
@@ -194,9 +194,9 @@ Class Slider Extends GameObject
     End
 End
 
-Class ShapeMaster Extends GameObject
-    Field upperObjectPool:GameObjectPool
-    Field lowerObjectPool:GameObjectPool
+Class ShapeMaster Implements Animationable
+    Field upperObjectPool:AnimationablePool
+    Field lowerObjectPool:AnimationablePool
     Field chute:Chute
     Field slider:Slider
 
@@ -207,13 +207,13 @@ Class ShapeMaster Extends GameObject
     Method New(chute:Chute, slider:Slider)
         Self.chute = chute
         Self.slider = slider
-        upperObjectPool = New GameObjectPool()
-        lowerObjectPool = New GameObjectPool()
+        upperObjectPool = New AnimationablePool()
+        lowerObjectPool = New AnimationablePool()
         nextTick = Millisecs() + dropStartDelay
     End
 
     Method CheckShapeCollisions:Void()
-        For Local obj:GameObject = EachIn upperObjectPool.list
+        For Local obj:Animationable = EachIn upperObjectPool.list
             Local shape:Shape = Shape(obj)
             Local checkPosY:Int = CurrentGame().HEIGHT - (slider.images[0].Height() / 2) - 15
             Local match:Bool = slider.Match(shape)
@@ -234,6 +234,9 @@ Class ShapeMaster Extends GameObject
         nextTick = Millisecs() + dropTime
 
         upperObjectPool.Add(New Shape(RandomType(), RandomLane(), chute))
+    End
+
+    Method OnRender:Void()
     End
 
     Method RandomType:Int()

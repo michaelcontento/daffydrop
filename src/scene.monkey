@@ -1,13 +1,14 @@
 Strict
 
-Import gameobjectpool
+Import animationable
+Import animationablepool
 
-Class Scene Abstract
+Class Scene Implements Animationable Abstract
     Field name:String
-    Field pool:GameObjectPool
+    Field pool:AnimationablePool
 
     Method New()
-        pool = New GameObjectPool()
+        pool = New AnimationablePool()
         name = OnCreate()
 
         If name.Length() = 0

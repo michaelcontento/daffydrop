@@ -3,9 +3,9 @@ Strict
 Import mojo
 
 Import game
-Import gameobject
+Import animationable
 
-Class Sprite Extends GameObject
+Class Sprite Implements Animationable
     Field image:Image
 
     Field x:Float
@@ -37,6 +37,9 @@ Class Sprite Extends GameObject
 
     Method OnRender:Void()
         DrawImage(image, x, y, rotation, scaleX, scaleY, frame)
+    End
+
+    Method OnUpdate:Void()
     End
 
     Method CenterGameX:Void()
