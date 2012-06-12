@@ -12,22 +12,13 @@ Import game
 
 Class MenuScene Extends Scene
     Method OnCreate:String()
-        Local easy:Sprite = Sprite("01_02-easy.png")
-        easy.y = 270
-        Local gameCenterX:Int = CurrentGame().Width2() - easy.Width2()
-        easy.x = gameCenterX
+        Local easy:Sprite = New Sprite("01_02-easy.png", 0, 270)
+        Local centerX:Int = CurrentGame().Width2() - easy.Width2()
+        easy.x = centerX
 
-        Local normal:Sprite = Sprite("01_02-normal.png")
-        normal.y = easy.y + 140
-        normal.x = gameCenterX
-
-        Local advanced:Sprite = Sprite("01_02-advanced.png")
-        advanced.y = normal.y + 140
-        advanced.x = gameCenterX
-
-        Local highscore:Sprite = Sprite("01_04button-highscore.png")
-        highscore.y = advanced.y + 140
-        highscore.x = gameCenterX
+        Local normal:Sprite = New Sprite("01_02-normal.png", centerX, easy.y + 140)
+        Local advanced:Sprite = New Sprite("01_02-advanced.png", centerX, normal.y + 140)
+        Local highscore:Sprite = New Sprite("01_04button-highscore.png", centerX, advanced.y + 140)
 
         pool.Add(New Sprite("01_main.jpg"))
         pool.Add(easy)

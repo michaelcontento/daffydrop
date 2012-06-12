@@ -15,7 +15,7 @@ Class IntroScene Extends Scene
     Method OnCreate:String()
         timer = Millisecs() + DURATION
 
-        background = Sprite("logo.jpg")
+        background = New Sprite("logo.jpg")
         background.x = CurrentGame().Width2() - background.Width2()
         background.y = CurrentGame().Height2() - background.Height2()
 

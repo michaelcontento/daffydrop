@@ -9,8 +9,10 @@ Class Sprite Extends GameObject
     Field y:Float
     Field image:Image
 
-    Method New(imageName:String)
+    Method New(imageName:String, x:Float=0, y:Float=0)
         image = LoadImage(imageName)
+        Self.x = x
+        Self.y = y
     End
 
     Method OnRender:Void()

@@ -106,7 +106,6 @@ Class Slider Extends GameObject
         config.AddLast(TYPE_TIRE)
 
         arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.x = 0
         arrowRight.y = CurrentGame().Height() - arrowRight.image.Height()
 
         arrowLeft = New Sprite("arrow_ingame2.png")
