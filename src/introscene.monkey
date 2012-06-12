@@ -5,9 +5,10 @@ Import mojo.app
 
 Import scene
 Import game
+Import sprite
 
 Class IntroScene Extends Scene
-    Field background:Image
+    Field background:Sprite
     Field timer:Int
     Const DURATION:Int = 3000
 
@@ -16,7 +17,9 @@ Class IntroScene Extends Scene
     End
 
     Method OnEnter:Void()
-        background = LoadImage("logo.jpg")
+        background = Sprite("logo.jpg")
+        background.x = (CurrentGame().Width() / 2) - (background.image.Width() / 2)
+        background.y = (CurrentGame().Height() / 2) - (background.image.Height() / 2)
         timer = Millisecs() + DURATION
     End
 
@@ -25,9 +28,7 @@ Class IntroScene Extends Scene
     End
 
     Method OnRender:Void()
-        Local centerX:Int = (CurrentGame().Width() / 2) - (background.Width() / 2)
-        Local centerY:Int = (CurrentGame().Height() / 2) - (background.Height() / 2)
         Cls(255, 255, 255)
-        DrawImage(background, centerX, centerY)
+        background.OnRender()
     End
 End
