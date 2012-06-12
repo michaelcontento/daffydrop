@@ -10,7 +10,7 @@ Import src.gamescene
 #IOS_ACCELEROMETER_ENABLED="false"
 
 Function Main:Int()
-    Local game:Game = Game.GetInstance()
+    Local game:Game = CurrentGame()
     game.sceneManager.Add(New IntroScene())
     game.sceneManager.Add(New MenuScene())
     game.sceneManager.Add(New GameScene())

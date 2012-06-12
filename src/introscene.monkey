@@ -21,12 +21,12 @@ Class IntroScene Extends Scene
     End
 
     Method OnUpdate:Void()
-        If Millisecs() > timer Then Game.GetInstance().sceneManager.Goto("menu")
+        If Millisecs() > timer Then CurrentGame().sceneManager.Goto("menu")
     End
 
     Method OnRender:Void()
-        Local centerX:Int = (Game.GetInstance().Width() / 2) - (background.Width() / 2)
-        Local centerY:Int = (Game.GetInstance().Height() / 2) - (background.Height() / 2)
+        Local centerX:Int = (CurrentGame().Width() / 2) - (background.Width() / 2)
+        Local centerY:Int = (CurrentGame().Height() / 2) - (background.Height() / 2)
         Cls(255, 255, 255)
         DrawImage(background, centerX, centerY)
     End

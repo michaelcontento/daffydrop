@@ -5,14 +5,18 @@ Import mojo.graphics
 
 Import scenemanager
 
+Global globalGameInstance:Game
+
+Function CurrentGame:Game()
+    If Not globalGameInstance Then globalGameInstance = New Game()
+    Return globalGameInstance
+End
+
+Function CurrentGameReset:Void()
+    globalGameInstance = Null
+End
+
 Class Game Extends App
-    Global instance:Game
-
-    Function GetInstance:Game()
-        If Not instance Then instance = New Game()
-        Return instance
-    End
-
     Field scaleFactorX:Float
     Field scaleFactorY:Float
     Field sceneManager:SceneManager
