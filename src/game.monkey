@@ -33,6 +33,14 @@ Class Game Extends App
         Return 960
     End
 
+    Method Width2:Int()
+        Return Width() / 2
+    End
+
+    Method Height2:Int()
+        Return Height() / 2
+    End
+
     Method OnCreate:Int()
         SetUpdateRate(30)
         scaleFactorX = Float(DeviceWidth()) / Float(Width())

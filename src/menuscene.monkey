@@ -15,7 +15,7 @@ Import gameobjectpool
 Class HighscoreButton Extends Sprite
     Method New()
         Super.New("01_04button-highscore.png")
-        x = (CurrentGame().Width() / 2) - (image.Width() / 2)
+        x = CurrentGame().Width2() - Width2()
         y = 690
     End
 End
@@ -28,7 +28,7 @@ Class PlayButtons Extends GameObject
 
     Method New()
         images = [LoadImage("01_02-easy.png"), LoadImage("01_02-normal.png"), LoadImage("01_02-advanced.png")]
-        posX = (CurrentGame().Width() / 2) - (images[0].Width() / 2)
+        posX = CurrentGame().Width2() - (images[0].Width() / 2)
         startPosY = 270
         offsetPosY = 140
     End

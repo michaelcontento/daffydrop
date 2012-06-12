@@ -18,8 +18,8 @@ Class IntroScene Extends Scene
 
     Method OnEnter:Void()
         background = Sprite("logo.jpg")
-        background.x = (CurrentGame().Width() / 2) - (background.image.Width() / 2)
-        background.y = (CurrentGame().Height() / 2) - (background.image.Height() / 2)
+        background.x = CurrentGame().Width2() - background.Width2()
+        background.y = CurrentGame().Height2() - background.Height2()
         timer = Millisecs() + DURATION
     End
 
