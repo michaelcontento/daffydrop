@@ -2,7 +2,7 @@ Strict
 
 Import gameobject
 
-Class GameObjectPool
+Class GameObjectPool Extends GameObject
     Field list:List<GameObject>
 
     Method New()
@@ -11,6 +11,12 @@ Class GameObjectPool
 
     Method Add:Void(obj:GameObject)
         list.AddLast(obj)
+        obj.pool = Self
+    End
+
+    Method Remove:Void(obj:GameObject)
+        list.RemoveEach(obj)
+        obj.pool = Null
     End
 
     Method OnRender:Void()
