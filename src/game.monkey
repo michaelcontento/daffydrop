@@ -17,34 +17,24 @@ Function CurrentGameReset:Void()
 End
 
 Class Game Extends App
+    Field scenes:SceneManager
+
     Field scaleFactorX:Float
     Field scaleFactorY:Float
-    Field scenes:SceneManager
+
+    Field WIDTH:Int = 640
+    Field WIDTH2:Int = 320
+    Field HEIGHT:Int = 960
+    Field HEIGHT2:Int = 480
 
     Method New()
         scenes = New SceneManager()
     End
 
-    Method Width:Int()
-        Return 640
-    End
-
-    Method Height:Int()
-        Return 960
-    End
-
-    Method Width2:Int()
-        Return Width() / 2
-    End
-
-    Method Height2:Int()
-        Return Height() / 2
-    End
-
     Method OnCreate:Int()
         SetUpdateRate(30)
-        scaleFactorX = Float(DeviceWidth()) / Float(Width())
-        scaleFactorY = Float(DeviceHeight()) / Float(Height())
+        scaleFactorX = Float(DeviceWidth()) / WIDTH
+        scaleFactorY = Float(DeviceHeight()) / HEIGHT
         Return 0
     End
 

@@ -6,42 +6,41 @@ Import game
 Import gameobject
 
 Class Sprite Extends GameObject
+    Field image:Image
+
     Field x:Float
     Field y:Float
-    Field image:Image
+
+    Field WIDTH:Int
+    Field WIDTH2:Int
+    Field HEIGHT:Int
+    Field HEIGHT2:Int
 
     Method New(imageName:String, x:Float=0, y:Float=0)
         image = LoadImage(imageName)
+        CalculateDimensions()
         Self.x = x
         Self.y = y
+    End
+
+    Method CalculateDimensions:Void()
+        HEIGHT = image.Height()
+        HEIGHT2 = HEIGHT / 2
+
+        WIDTH = image.Width()
+        WIDTH2 = WIDTH / 2
     End
 
     Method OnRender:Void()
         DrawImage(image, x, y)
     End
 
-    Method Height:Int()
-        Return image.Height()
-    End
-
-    Method Width:Int()
-        Return image.Width()
-    End
-
-    Method Height2:Int()
-        Return Height() / 2
-    End
-
-    Method Width2:Int()
-        Return Width() / 2
-    End
-
     Method CenterGameX:Void()
-        x = CurrentGame().Width2() - Width2()
+        x = CurrentGame().WIDTH2 - WIDTH2
     End
 
     Method CenterGameY:Void()
-        y = CurrentGame().Height2() - Height2()
+        y = CurrentGame().HEIGHT2 - HEIGHT2
     End
 
     Method CenterGame:Void()

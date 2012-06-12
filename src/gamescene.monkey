@@ -106,11 +106,11 @@ Class Slider Extends GameObject
         config.AddLast(TYPE_TIRE)
 
         arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.y = CurrentGame().Height() - arrowRight.image.Height()
+        arrowRight.y = CurrentGame().HEIGHT - arrowRight.HEIGHT
 
         arrowLeft = New Sprite("arrow_ingame2.png")
-        arrowLeft.x = CurrentGame().Width() - arrowLeft.image.Width()
-        arrowLeft.y = CurrentGame().Height() - arrowLeft.image.Height()
+        arrowLeft.x = CurrentGame().WIDTH - arrowLeft.WIDTH
+        arrowLeft.y = CurrentGame().HEIGHT - arrowLeft.HEIGHT
     End
 
     Method Match:Bool(shape:Shape)
@@ -172,7 +172,7 @@ Class Slider Extends GameObject
 
     Method OnRender:Void()
         Local posX:Int = 45 + GetMovementOffset()
-        Local posY:Int = CurrentGame().Height() - images[0].Height() - 60
+        Local posY:Int = CurrentGame().HEIGHT - images[0].Height() - 60
 
         If posX > 45
             Local img:Image = images[config.Last()]
@@ -215,7 +215,7 @@ Class ShapeMaster Extends GameObject
     Method CheckShapeCollisions:Void()
         For Local obj:GameObject = EachIn upperObjectPool.list
             Local shape:Shape = Shape(obj)
-            Local checkPosY:Int = CurrentGame().Height() - (slider.images[0].Height() / 2) - 15
+            Local checkPosY:Int = CurrentGame().HEIGHT - (slider.images[0].Height() / 2) - 15
             Local match:Bool = slider.Match(shape)
 
             If shape.posY + shape.images[0].Height() >= checkPosY
