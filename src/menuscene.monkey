@@ -48,9 +48,6 @@ Class MenuScene Extends Scene
     Method New()
         name = "menu"
         gameObjectPool = New GameObjectPool()
-    End
-
-    Method OnEnter:Void()
         gameObjectPool.Add(New Sprite("01_main.jpg"))
         gameObjectPool.Add(New PlayButtons())
         gameObjectPool.Add(New HighscoreButton())

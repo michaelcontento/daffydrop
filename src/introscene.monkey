@@ -14,9 +14,7 @@ Class IntroScene Extends Scene
 
     Method New()
         name = "intro"
-    End
 
-    Method OnEnter:Void()
         background = Sprite("logo.jpg")
         background.x = CurrentGame().Width2() - background.Width2()
         background.y = CurrentGame().Height2() - background.Height2()
