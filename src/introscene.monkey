@@ -16,8 +16,7 @@ Class IntroScene Extends Scene
         timer = Millisecs() + DURATION
 
         background = New Sprite("logo.jpg")
-        background.x = CurrentGame().Width2() - background.Width2()
-        background.y = CurrentGame().Height2() - background.Height2()
+        background.CenterGame()
 
         Return "intro"
     End
