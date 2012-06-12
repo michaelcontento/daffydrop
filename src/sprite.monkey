@@ -10,6 +10,10 @@ Class Sprite Extends GameObject
 
     Field x:Float
     Field y:Float
+    Field rotation:Float
+    Field scaleX:Float = 1
+    Field scaleY:Float = 1
+    Field frame:Int
 
     Field WIDTH:Int
     Field WIDTH2:Int
@@ -32,7 +36,7 @@ Class Sprite Extends GameObject
     End
 
     Method OnRender:Void()
-        DrawImage(image, x, y)
+        DrawImage(image, x, y, rotation, scaleX, scaleY, frame)
     End
 
     Method CenterGameX:Void()
