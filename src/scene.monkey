@@ -9,6 +9,10 @@ Class Scene Abstract
     Method New()
         pool = New GameObjectPool()
         name = OnCreate()
+
+        If name.Length() = 0
+            Error("Scenes need to return a name in OnCreate()")
+        End
     End
 
     Method OnCreate:String() Abstract
