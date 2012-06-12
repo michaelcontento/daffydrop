@@ -13,12 +13,14 @@ Class IntroScene Extends Scene
     Const DURATION:Int = 3000
 
     Method OnCreate:String()
-        timer = Millisecs() + DURATION
-
         background = New Sprite("logo.jpg")
         background.CenterGame()
 
         Return "intro"
+    End
+
+    Method OnEnter:Void()
+        timer = Millisecs() + DURATION
     End
 
     Method OnUpdate:Void()

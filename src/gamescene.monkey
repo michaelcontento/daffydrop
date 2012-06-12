@@ -207,6 +207,9 @@ Class ShapeMaster Implements Animationable
     Method New(chute:Chute, slider:Slider)
         Self.chute = chute
         Self.slider = slider
+    End
+
+    Method Restart:Void()
         upperObjectPool = New AnimationablePool()
         lowerObjectPool = New AnimationablePool()
         nextTick = Millisecs() + dropStartDelay
@@ -266,5 +269,9 @@ Class GameScene Extends Scene
         pool.Add(chute)
 
         Return "game"
+    End
+
+    Method OnEnter:Void()
+        shapeMaster.Restart()
     End
 End
