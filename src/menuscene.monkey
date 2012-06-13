@@ -22,11 +22,11 @@ Class MenuScene Extends Scene
         advanced.CenterGameX()
         highscore.CenterGameX()
 
-        pool.Add(New Sprite("01_main.jpg"))
-        pool.Add(easy)
-        pool.Add(normal)
-        pool.Add(advanced)
-        pool.Add(highscore)
+        layer.Add(New Sprite("01_main.jpg"))
+        layer.Add(easy)
+        layer.Add(normal)
+        layer.Add(advanced)
+        layer.Add(highscore)
 
         Return "menu"
     End

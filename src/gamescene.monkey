@@ -6,7 +6,7 @@ Import game
 Import scene
 Import sprite
 Import animationable
-Import animationablepool
+Import layer
 
 Const TYPE_CIRCLE:Int = 0
 Const TYPE_PLUS:Int = 1
@@ -195,8 +195,8 @@ Class Slider Implements Animationable
 End
 
 Class ShapeMaster Implements Animationable
-    Field upperObjectPool:AnimationablePool
-    Field lowerObjectPool:AnimationablePool
+    Field upperObjectPool:Layer
+    Field lowerObjectPool:Layer
     Field chute:Chute
     Field slider:Slider
 
@@ -210,13 +210,13 @@ Class ShapeMaster Implements Animationable
     End
 
     Method Restart:Void()
-        upperObjectPool = New AnimationablePool()
-        lowerObjectPool = New AnimationablePool()
+        upperObjectPool = New Layer()
+        lowerObjectPool = New Layer()
         nextTick = Millisecs() + dropStartDelay
     End
 
     Method CheckShapeCollisions:Void()
-        For Local obj:Animationable = EachIn upperObjectPool.list
+        For Local obj:Animationable = EachIn upperObjectPool.objects
             Local shape:Shape = Shape(obj)
             Local checkPosY:Int = CurrentGame().HEIGHT - (slider.images[0].Height() / 2) - 15
             Local match:Bool = slider.Match(shape)
@@ -267,8 +267,8 @@ Class GameScene Extends Scene
         Local slider:Slider = New Slider()
         shapeMaster = New ShapeMaster(chute, slider)
 
-        pool.Add(New Sprite("bg_960x640.png"))
-        pool.Add(shapeMaster)
+        layer.Add(New Sprite("bg_960x640.png"))
+        layer.Add(shapeMaster)
 
         Return "game"
     End

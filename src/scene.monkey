@@ -1,14 +1,14 @@
 Strict
 
 Import animationable
-Import animationablepool
+Import layer
 
 Class Scene Implements Animationable Abstract
     Field name:String
-    Field pool:AnimationablePool
+    Field layer:Layer
 
     Method New()
-        pool = New AnimationablePool()
+        layer = New Layer()
         name = OnCreate()
 
         If name.Length() = 0
@@ -22,11 +22,11 @@ Class Scene Implements Animationable Abstract
     End
 
     Method OnUpdate:Void()
-        pool.OnUpdate()
+        layer.OnUpdate()
     End
 
     Method OnRender:Void()
-        pool.OnRender()
+        layer.OnRender()
     End
 
     Method OnResume:Void()
