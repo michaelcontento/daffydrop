@@ -1,6 +1,6 @@
 Strict
 
-Import src.game
+Import src.bono.game
 Import src.introscene
 Import src.menuscene
 Import src.gamescene

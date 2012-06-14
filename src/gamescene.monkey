@@ -1,13 +1,7 @@
 Strict
 
 Import mojo
-
-Import game
-Import scene
-Import sprite
-Import animationable
-Import layer
-Import vector2d
+Import bono
 
 Const TYPE_CIRCLE:Int = 0
 Const TYPE_PLUS:Int = 1

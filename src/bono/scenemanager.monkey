@@ -1,6 +1,6 @@
 Strict
 
-Import scene
+Import bono
 
 Class SceneManager
     Field scenes:StringMap<Scene> = New StringMap<Scene>

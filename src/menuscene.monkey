@@ -5,11 +5,7 @@ Strict
 
 Import mojo
 Import monkey
-
-Import scene
-Import sprite
-Import game
-Import vector2d
+Import bono
 
 Class MenuScene Extends Scene
     Method New()

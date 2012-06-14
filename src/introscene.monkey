@@ -1,11 +1,7 @@
 Strict
 
-Import mojo.graphics
-Import mojo.app
-
-Import scene
-Import game
-Import sprite
+Import mojo
+Import bono
 
 Class IntroScene Extends Scene
     Field background:Sprite
