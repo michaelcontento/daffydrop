@@ -4,6 +4,7 @@ Import mojo.app
 Import mojo.graphics
 
 Import scenemanager
+Import vector2d
 
 Global globalGameInstance:Game
 
@@ -18,9 +19,7 @@ End
 
 Class Game Extends App
     Field scenes:SceneManager
-
-    Field scaleFactorX:Float
-    Field scaleFactorY:Float
+    Field scale:Vector2D
 
     Field WIDTH:Int = 640
     Field WIDTH2:Int = 320
@@ -33,8 +32,9 @@ Class Game Extends App
 
     Method OnCreate:Int()
         SetUpdateRate(30)
-        scaleFactorX = Float(DeviceWidth()) / WIDTH
-        scaleFactorY = Float(DeviceHeight()) / HEIGHT
+        scale = New Vector2D()
+        scale.x = Float(DeviceWidth()) / WIDTH
+        scale.y = Float(DeviceHeight()) / HEIGHT
         Return 0
     End
 
@@ -59,7 +59,7 @@ Class Game Extends App
     End
 
     Method OnRender:Int()
-        Scale(scaleFactorX, scaleFactorY)
+        Scale(scale.x, scale.y)
         If scenes.current Then scenes.current.OnRender()
         Return 0
     End

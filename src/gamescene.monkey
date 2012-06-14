@@ -7,6 +7,7 @@ Import scene
 Import sprite
 Import animationable
 Import layer
+Import vector2d
 
 Const TYPE_CIRCLE:Int = 0
 Const TYPE_PLUS:Int = 1
@@ -18,10 +19,10 @@ Class Shape Implements Animationable
     Field type:Int
     Field lane:Int
     Field chute:Chute
-    Field posY:Int
+    Field pos:Vector2D
 
-    Field speedSlow:Int = 4
-    Field speedFast:Int = 12
+    Field speedSlow:Vector2D
+    Field speedFast:Vector2D
     Field isFast:Bool = False
 
     Method New(type:Int, lane:Int, chute:Chute)
@@ -29,7 +30,9 @@ Class Shape Implements Animationable
         Self.lane = lane
         Self.chute = chute
         LoadSharedImages()
-        posY = chute.height - images[type].Height()
+        pos = New Vector2D(lane * chute.bg.Width(), chute.height - images[type].Height())
+        speedSlow = New Vector2D(0, 4)
+        speedFast = New Vector2D(0, 12)
     End
 
     Method LoadSharedImages:Void()
@@ -39,14 +42,14 @@ Class Shape Implements Animationable
 
     Method OnUpdate:Void()
         If isFast
-            posY += speedFast
+            pos.Add(speedFast)
         Else
-            posY += speedSlow
+            pos.Add(speedSlow)
         End
     End
 
     Method OnRender:Void()
-        DrawImage(images[type], lane * chute.bg.Width(), posY)
+        DrawImage(images[type], pos.x, pos.y)
     End
 End
 
@@ -106,11 +109,11 @@ Class Slider Implements Animationable
         config.AddLast(TYPE_TIRE)
 
         arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.y = CurrentGame().HEIGHT - arrowRight.HEIGHT
+        arrowRight.pos.y = CurrentGame().HEIGHT - arrowRight.HEIGHT
 
         arrowLeft = New Sprite("arrow_ingame2.png")
-        arrowLeft.x = CurrentGame().WIDTH - arrowLeft.WIDTH
-        arrowLeft.y = CurrentGame().HEIGHT - arrowLeft.HEIGHT
+        arrowLeft.pos.x = CurrentGame().WIDTH - arrowLeft.WIDTH
+        arrowLeft.pos.y = CurrentGame().HEIGHT - arrowLeft.HEIGHT
     End
 
     Method Match:Bool(shape:Shape)
@@ -221,7 +224,7 @@ Class ShapeMaster Implements Animationable
             Local checkPosY:Int = CurrentGame().HEIGHT - (slider.images[0].Height() / 2) - 15
             Local match:Bool = slider.Match(shape)
 
-            If shape.posY + shape.images[0].Height() >= checkPosY
+            If shape.pos.y + shape.images[0].Height() >= checkPosY
                 upperObjectPool.Remove(shape)
                 If match Then lowerObjectPool.Add(shape)
             End

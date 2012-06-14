@@ -9,13 +9,15 @@ Import monkey
 Import scene
 Import sprite
 Import game
+Import vector2d
 
 Class MenuScene Extends Scene
     Method OnCreate:String()
-        Local easy:Sprite = New Sprite("01_02-easy.png", 0, 270)
-        Local normal:Sprite = New Sprite("01_02-normal.png", 0, easy.y + 140)
-        Local advanced:Sprite = New Sprite("01_02-advanced.png", 0, normal.y + 140)
-        Local highscore:Sprite = New Sprite("01_04button-highscore.png", 0, advanced.y + 140)
+        Local offset:Vector2D = New Vector2D(0, 140)
+        Local easy:Sprite = New Sprite("01_02-easy.png", New Vector2D(0, 270))
+        Local normal:Sprite = New Sprite("01_02-normal.png", Vector2D.Add(easy.pos, offset))
+        Local advanced:Sprite = New Sprite("01_02-advanced.png", Vector2D.Add(normal.pos, offset))
+        Local highscore:Sprite = New Sprite("01_04button-highscore.png", Vector2D.Add(advanced.pos, offset))
 
         easy.CenterGameX()
         normal.CenterGameX()
