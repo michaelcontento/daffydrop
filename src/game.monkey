@@ -24,12 +24,15 @@ Class Game Extends App
     Field scale:Vector2D
     Field size:Vector2D
 
+    Method New()
+        size = New Vector2D(640, 960)
+        center = size.Copy().Div(2)
+    End
+
     Method OnCreate:Int()
         SetUpdateRate(30)
         device = New Vector2D(DeviceWidth(), DeviceHeight())
-        size = New Vector2D(480, 960)
-        center = size.Copy().Div(2)
-        scale = size.Copy().Div(device)
+        scale = device.Copy().Div(size)
         Return 0
     End
 
