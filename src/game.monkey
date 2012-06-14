@@ -19,12 +19,10 @@ End
 
 Class Game Extends App
     Field scenes:SceneManager
+    Field center:Vector2D
+    Field device:Vector2D
     Field scale:Vector2D
-
-    Field WIDTH:Int = 640
-    Field WIDTH2:Int = 320
-    Field HEIGHT:Int = 960
-    Field HEIGHT2:Int = 480
+    Field size:Vector2D
 
     Method New()
         scenes = New SceneManager()
@@ -32,9 +30,10 @@ Class Game Extends App
 
     Method OnCreate:Int()
         SetUpdateRate(30)
-        scale = New Vector2D()
-        scale.x = Float(DeviceWidth()) / WIDTH
-        scale.y = Float(DeviceHeight()) / HEIGHT
+        device = New Vector2D(DeviceWidth(), DeviceHeight())
+        size = New Vector2D(480, 960)
+        center = size.Copy().Div(2)
+        scale = size.Copy().Div(device)
         Return 0
     End
 

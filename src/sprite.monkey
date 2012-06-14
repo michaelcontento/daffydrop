@@ -11,12 +11,9 @@ Class Sprite Implements Animationable
     Field pos:Vector2D
     Field rotation:Float
     Field scale:Vector2D
+    Field size:Vector2D
+    Field center:Vector2D
     Field frame:Int
-
-    Field WIDTH:Int
-    Field WIDTH2:Int
-    Field HEIGHT:Int
-    Field HEIGHT2:Int
 
     Method New(imageName:String)
         Init(imageName, New Vector2D(0, 0))
@@ -35,11 +32,8 @@ Class Sprite Implements Animationable
     End
 
     Method CalculateDimensions:Void()
-        HEIGHT = image.Height()
-        HEIGHT2 = HEIGHT / 2
-
-        WIDTH = image.Width()
-        WIDTH2 = WIDTH / 2
+        size = New Vector2D(image.Width(), image.Height())
+        center = size.Copy().Div(2)
     End
 
     Method OnRender:Void()
@@ -50,15 +44,14 @@ Class Sprite Implements Animationable
     End
 
     Method CenterGameX:Void()
-        pos.x = CurrentGame().WIDTH2 - WIDTH2
+        pos.x = CurrentGame().center.x - center.x
     End
 
     Method CenterGameY:Void()
-        pos.y = CurrentGame().HEIGHT2 - HEIGHT2
+        pos.y = CurrentGame().center.y - center.y
     End
 
     Method CenterGame:Void()
-        CenterGameX()
-        CenterGameY()
+        pos = CurrentGame().center.Copy().Sub(center)
     End
 End

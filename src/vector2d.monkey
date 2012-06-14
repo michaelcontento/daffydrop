@@ -13,24 +13,8 @@ Class Vector2D
         Return (x = 0 And y = 0)
     End
 
-    Method Magnitude:Float()
+    Method Length:Float()
         Return Sqrt(x * x + y * y)
-    End
-
-    Method Normalize:Float()
-        Local mag:Float = Magnitude()
-        If Not mag = 00
-            x /= mag
-            y /= mag
-        End
-        Return mag
-    End
-
-    Method Rotate:Void(angle:Float)
-        Local tmpX:Float = (x * Cos(angle)) - (y * Sin(angle))
-        Local tmpY:Float = (y * Cos(angle)) - (x * Sin(angle))
-        x = tmpX
-        y = tmpY
     End
 
     Method DotProduct:Float(v2:Vector2D)
@@ -49,39 +33,75 @@ Class Vector2D
         Return (x = v2.x And y = v2.y)
     End
 
-    Method Add:Void(v2:Vector2D)
+    Method Copy:Vector2D()
+        Return New Vector2D(x, y)
+    End
+
+    Method Normalize:Vector2D()
+        Local length:Float = Length()
+        If length = 0 Then Return Self
+
+        x /= length
+        y /= length
+
+        Return Self
+    End
+
+    Method Rotate:Vector2D(angle:Float)
+        Local tmpX:Float = (x * Cos(angle)) - (y * Sin(angle))
+        Local tmpY:Float = (y * Cos(angle)) - (x * Sin(angle))
+
+        x = tmpX
+        y = tmpY
+
+        Return Self
+    End
+
+    Method Add:Vector2D(v2:Vector2D)
         x += v2.x
         y += v2.y
+        Return Self
     End
 
-    Method Sub:Void(v2:Vector2D)
+    Method Add:Vector2D(factor:Float)
+        x += factor
+        y += factor
+        Return Self
+    End
+
+    Method Sub:Vector2D(v2:Vector2D)
         x -= v2.x
         y -= v2.y
+        Return Self
     End
 
-    Method Mul:Void(v2:Vector2D)
+    Method Sub:Vector2D(factor:Float)
+        x -= factor
+        y -= factor
+        Return Self
+    End
+
+    Method Mul:Vector2D(v2:Vector2D)
         x *= v2.x
         y *= v2.y
+        Return Self
     End
 
-    Method Div:Void(v2:Vector2D)
+    Method Mul:Vector2D(factor:Float)
+        x *= factor
+        y *= factor
+        Return Self
+    End
+
+    Method Div:Vector2D(v2:Vector2D)
         x /= v2.x
         y /= v2.y
+        Return Self
     End
 
-    Function Add:Vector2D(v1:Vector2D, v2:Vector2D)
-        Return New Vector2D(v1.x + v2.x, v1.y + v2.y)
-    End
-
-    Function Sub:Vector2D(v1:Vector2D, v2:Vector2D)
-        Return New Vector2D(v1.x - v2.x, v1.y - v2.y)
-    End
-
-    Function Mul:Vector2D(v1:Vector2D, v2:Vector2D)
-        Return New Vector2D(v1.x * v2.x, v1.y * v2.y)
-    End
-
-    Function Div:Vector2D(v1:Vector2D, v2:Vector2D)
-        Return New Vector2D(v1.x / v2.x, v1.y / v2.y)
+    Method Div:Vector2D(factor:Float)
+        y /= factor
+        x /= factor
+        Return Self
     End
 End

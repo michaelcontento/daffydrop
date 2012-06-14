@@ -109,11 +109,10 @@ Class Slider Implements Animationable
         config.AddLast(TYPE_TIRE)
 
         arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.pos.y = CurrentGame().HEIGHT - arrowRight.HEIGHT
+        arrowRight.pos.y = CurrentGame().size.y - arrowRight.size.y
 
         arrowLeft = New Sprite("arrow_ingame2.png")
-        arrowLeft.pos.x = CurrentGame().WIDTH - arrowLeft.WIDTH
-        arrowLeft.pos.y = CurrentGame().HEIGHT - arrowLeft.HEIGHT
+        arrowLeft.pos = CurrentGame().size.Copy().Sub(arrowLeft.size)
     End
 
     Method Match:Bool(shape:Shape)
@@ -175,7 +174,7 @@ Class Slider Implements Animationable
 
     Method OnRender:Void()
         Local posX:Int = 45 + GetMovementOffset()
-        Local posY:Int = CurrentGame().HEIGHT - images[0].Height() - 60
+        Local posY:Int = CurrentGame().size.y - images[0].Height() - 60
 
         If posX > 45
             Local img:Image = images[config.Last()]
@@ -221,7 +220,7 @@ Class ShapeMaster Implements Animationable
     Method CheckShapeCollisions:Void()
         For Local obj:Animationable = EachIn upperObjectPool.objects
             Local shape:Shape = Shape(obj)
-            Local checkPosY:Int = CurrentGame().HEIGHT - (slider.images[0].Height() / 2) - 15
+            Local checkPosY:Int = CurrentGame().size.y - (slider.images[0].Height() / 2) - 15
             Local match:Bool = slider.Match(shape)
 
             If shape.pos.y + shape.images[0].Height() >= checkPosY
