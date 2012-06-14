@@ -12,7 +12,11 @@ Import game
 Import vector2d
 
 Class MenuScene Extends Scene
-    Method OnCreate:String()
+    Method New()
+        name = "menu"
+    End
+
+    Method OnEnter:Void()
         Local offset:Vector2D = New Vector2D(0, 140)
         Local easy:Sprite = New Sprite("01_02-easy.png", New Vector2D(0, 270))
         Local normal:Sprite = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
@@ -29,8 +33,6 @@ Class MenuScene Extends Scene
         layer.Add(normal)
         layer.Add(advanced)
         layer.Add(highscore)
-
-        Return "menu"
     End
 
     Method OnUpdate:Void()

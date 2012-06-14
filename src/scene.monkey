@@ -7,16 +7,6 @@ Class Scene Implements Animationable Abstract
     Field name:String
     Field layer:Layer = New Layer()
 
-    Method New()
-        name = OnCreate()
-
-        If name.Length() = 0
-            Error("Scenes need to return a name in OnCreate()")
-        End
-    End
-
-    Method OnCreate:String() Abstract
-
     Method OnLoading:Void()
     End
 
