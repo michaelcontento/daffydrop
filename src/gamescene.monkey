@@ -29,6 +29,7 @@ Class Shape Implements Animationable
         Self.type = type
         Self.lane = lane
         Self.chute = chute
+
         LoadSharedImages()
         pos = New Vector2D(lane * chute.bg.Width(), chute.height - images[type].Height())
         speedSlow = New Vector2D(0, 4)

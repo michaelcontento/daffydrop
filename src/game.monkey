@@ -18,15 +18,11 @@ Function CurrentGameReset:Void()
 End
 
 Class Game Extends App
-    Field scenes:SceneManager
+    Field scenes:SceneManager = New SceneManager()
     Field center:Vector2D
     Field device:Vector2D
     Field scale:Vector2D
     Field size:Vector2D
-
-    Method New()
-        scenes = New SceneManager()
-    End
 
     Method OnCreate:Int()
         SetUpdateRate(30)

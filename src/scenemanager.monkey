@@ -3,13 +3,9 @@ Strict
 Import scene
 
 Class SceneManager
-    Field scenes:StringMap<Scene>
+    Field scenes:StringMap<Scene> = New StringMap<Scene>
     Field nextScene:Scene
     Field current:Scene
-
-    Method New()
-        scenes = New StringMap<Scene>
-    End
 
     Method Add:Void(scene:Scene)
         If scenes.IsEmpty()

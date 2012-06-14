@@ -5,10 +5,9 @@ Import layer
 
 Class Scene Implements Animationable Abstract
     Field name:String
-    Field layer:Layer
+    Field layer:Layer = New Layer()
 
     Method New()
-        layer = New Layer()
         name = OnCreate()
 
         If name.Length() = 0

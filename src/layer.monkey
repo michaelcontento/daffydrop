@@ -3,11 +3,7 @@ Strict
 Import animationable
 
 Class Layer Implements Animationable
-    Field objects:List<Animationable>
-
-    Method New()
-        objects = New List<Animationable>
-    End
+    Field objects:List<Animationable> = New List<Animationable>
 
     Method Add:Void(obj:Animationable)
         objects.AddLast(obj)
