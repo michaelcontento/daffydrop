@@ -5,8 +5,8 @@ Import src.introscene
 Import src.menuscene
 Import src.gamescene
 
-#GLFW_WINDOW_WIDTH=320
-#GLFW_WINDOW_HEIGHT=480
+#GLFW_WINDOW_WIDTH=480
+#GLFW_WINDOW_HEIGHT=720
 #IOS_ACCELEROMETER_ENABLED="false"
 
 Function Main:Int()
