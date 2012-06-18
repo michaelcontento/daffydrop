@@ -4,12 +4,15 @@ Import bono
 Import chute
 Import slider
 Import shapemaster
+Import severity
 
 Class GameScene Extends Scene
     Field shapeMaster:ShapeMaster
+    Field severity:Severity
 
     Method New()
         name = "game"
+        severity = CurrentSeverity()
     End
 
     Method OnEnter:Void()
@@ -21,5 +24,10 @@ Class GameScene Extends Scene
         layer.Add(shapeMaster)
 
         shapeMaster.Restart()
+    End
+
+    Method OnUpdate:Void()
+        Super.OnUpdate()
+        severity.OnUpdate()
     End
 End

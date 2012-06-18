@@ -6,6 +6,7 @@ Strict
 Import mojo
 Import monkey
 Import bono
+Import severity
 
 Class MenuScene Extends Scene
     Method New()
@@ -32,6 +33,17 @@ Class MenuScene Extends Scene
     End
 
     Method OnUpdate:Void()
-        If KeyDown(KEY_P) Then CurrentGame().scenes.Goto("game")
+        If KeyDown(KEY_E)
+            CurrentSeverity().Set(EASY)
+            CurrentGame().scenes.Goto("game")
+        End
+        If KeyDown(KEY_N)
+            CurrentSeverity().Set(NORMAL)
+            CurrentGame().scenes.Goto("game")
+        End
+        If KeyDown(KEY_A)
+            CurrentSeverity().Set(ADVANCED)
+            CurrentGame().scenes.Goto("game")
+        End
     End
 End

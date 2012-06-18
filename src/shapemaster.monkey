@@ -5,26 +5,24 @@ Import bono
 Import chute
 Import slider
 Import shape
+Import severity
 
 Class ShapeMaster Implements Animationable
     Field upperObjectPool:Layer
     Field lowerObjectPool:Layer
     Field chute:Chute
     Field slider:Slider
-
-    Field nextTick:Int
-    Field dropTime:Int = 3000
-    Field dropStartDelay:Int = 2000
+    Field severity:Severity
 
     Method New(chute:Chute, slider:Slider)
         Self.chute = chute
         Self.slider = slider
+        severity = CurrentSeverity()
     End
 
     Method Restart:Void()
         upperObjectPool = New Layer()
         lowerObjectPool = New Layer()
-        nextTick = Millisecs() + dropStartDelay
     End
 
     Method CheckShapeCollisions:Void()
@@ -49,10 +47,10 @@ Class ShapeMaster Implements Animationable
         chute.OnUpdate()
         CheckShapeCollisions()
 
-        If Millisecs() <= nextTick Then Return
-        nextTick = Millisecs() + dropTime
-
-        upperObjectPool.Add(New Shape(RandomType(), RandomLane(), chute))
+        If severity.ShapeShouldBeDropped()
+            upperObjectPool.Add(New Shape(RandomType(), RandomLane(), chute))
+            severity.ShapeDropped()
+        End
     End
 
     Method OnRender:Void()

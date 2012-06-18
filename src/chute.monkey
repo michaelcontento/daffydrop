@@ -2,27 +2,24 @@ Strict
 
 Import mojo
 Import bono
+Import severity
 
 Class Chute Implements Animationable
     Field bottom:Image
     Field bg:Image
     Field height:Int = 50
-
-    Field nextTick:Int
-    Field autoAdvanceTime:Int = 6000
-    Field autoAdvanceStartDelay:Int = 6000
-    Field autoAdvanceHeight:Int = 25
+    Field severity:Severity
 
     Method New()
         bg = LoadImage("chute-bg.png")
         bottom = LoadImage("chute-bottom.png")
-        nextTick = Millisecs() + autoAdvanceStartDelay
+        severity = CurrentSeverity()
     End
 
     Method OnUpdate:Void()
-        If Millisecs() > nextTick
-            nextTick = Millisecs() + autoAdvanceTime
-            height += autoAdvanceHeight
+        If severity.ChuteShouldAdvance()
+            height += severity.ChuteAdvanceHeight()
+            severity.ChuteMarkAsAdvanced()
         End
     End
 
