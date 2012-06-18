@@ -21,6 +21,11 @@ Class SceneManager
         If nextScene And nextScene.name = name Then Return
         nextScene = scenes.Get(name)
 
+        If Not nextScene.created
+            nextScene.OnCreate()
+            nextScene.created = True
+        End
+
         If current Then current.OnLeave()
         nextScene.OnEnter()
 

@@ -11,7 +11,7 @@ Class HighscoreScene Extends Scene
         font.LoadFont("angel_verdana")
     End
 
-    Method OnEnter:Void()
+    Method OnCreate:Void()
         highscore.Load()
         PrefillMissing()
         layer.Add(New Sprite("highscore_bg.jpg"))

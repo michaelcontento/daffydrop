@@ -6,6 +6,7 @@ Import layer
 Class Scene Implements Animationable Abstract
     Field name:String
     Field layer:Layer = New Layer()
+    Field created:Bool = False
 
     Method OnLoading:Void()
     End
@@ -22,6 +23,9 @@ Class Scene Implements Animationable Abstract
     End
 
     Method OnSuspend:Void()
+    End
+
+    Method OnCreate:Void()
     End
 
     Method OnEnter:Void()

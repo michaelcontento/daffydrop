@@ -15,7 +15,7 @@ Class GameScene Extends Scene
         severity = CurrentSeverity()
     End
 
-    Method OnEnter:Void()
+    Method OnCreate:Void()
         Local chute:Chute = New Chute()
         Local slider:Slider = New Slider()
         shapeMaster = New ShapeMaster(chute, slider)
@@ -23,7 +23,9 @@ Class GameScene Extends Scene
         layer.Clear()
         layer.Add(New Sprite("bg_960x640.png"))
         layer.Add(shapeMaster)
+    End
 
+    Method OnEnter:Void()
         shapeMaster.Restart()
         severity.Restart()
     End

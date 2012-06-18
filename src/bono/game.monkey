@@ -64,6 +64,6 @@ Class Game Extends App
 
     Method Run:Void()
         If Not scenes.current Then Error("No scenes found!")
-        scenes.current.OnEnter()
+        scenes.Goto(scenes.current.name)
     End
 End

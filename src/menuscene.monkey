@@ -13,7 +13,7 @@ Class MenuScene Extends Scene
         name = "menu"
     End
 
-    Method OnEnter:Void()
+    Method OnCreate:Void()
         Local offset:Vector2D = New Vector2D(0, 140)
         Local easy:Sprite = New Sprite("01_02-easy.png", New Vector2D(0, 270))
         Local normal:Sprite = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
