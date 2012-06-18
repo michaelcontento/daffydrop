@@ -2,10 +2,8 @@ Strict
 
 Private
 
-Import mojo.input
-Import bono.scene
-Import bono.sprite
-Import bono.game
+Import mojo
+Import bono
 Import chute
 Import severity
 Import shapemaster

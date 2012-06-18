@@ -2,11 +2,8 @@ Strict
 
 Private
 
-Import mojo.graphics
-Import mojo.app
-Import bono.game
-Import bono.scene
-Import bono.sprite
+Import mojo
+Import bono
 
 Public
 
@@ -15,7 +12,6 @@ Class IntroScene Extends Scene
 
     Field background:Sprite
     Field timer:Int
-    Const DURATION:Int = 1500
 
     Public
 
@@ -23,11 +19,13 @@ Class IntroScene Extends Scene
         name = "intro"
     End
 
-    Method OnEnter:Void()
+    Method OnCreate:Void()
         background = New Sprite("logo.jpg")
         background.CenterGame()
+    End
 
-        timer = Millisecs() + DURATION
+    Method OnEnter:Void()
+        timer = Millisecs() + 1500
     End
 
     Method OnUpdate:Void()

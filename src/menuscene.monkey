@@ -2,11 +2,8 @@ Strict
 
 Private
 
-Import mojo.input
-Import bono.game
-Import bono.scene
-Import bono.sprite
-Import bono.vector2d
+Import mojo
+Import bono
 Import severity
 
 Public

@@ -2,8 +2,8 @@ Strict
 
 Private
 
-Import mojo.graphics
-Import bono.animationable
+Import mojo
+Import bono
 Import severity
 
 Public

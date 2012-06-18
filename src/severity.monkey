@@ -2,8 +2,7 @@ Strict
 
 Private
 
-Import mojo.app
-Import mojo.input
+Import mojo
 
 Global globalSeverityInstance:Severity
 

@@ -2,9 +2,8 @@ Strict
 
 Private
 
-Import mojo.graphics
-Import bono.animationable
-Import bono.vector2d
+Import mojo
+Import bono
 Import chute
 
 Public

@@ -2,8 +2,7 @@ Strict
 
 Private
 
-Import mojo.graphics
-
+Import mojo
 Import animationable
 Import game
 Import vector2d

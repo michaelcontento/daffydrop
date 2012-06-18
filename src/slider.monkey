@@ -2,12 +2,8 @@ Strict
 
 Private
 
-Import mojo.app
-Import mojo.graphics
-Import mojo.input
-Import bono.animationable
-Import bono.game
-Import bono.sprite
+Import mojo
+Import bono
 Import shape
 
 Public
@@ -26,47 +22,6 @@ Class Slider Implements Animationable
     Field direction:Int
     Field movementStart:Int
     Field movementActive:Bool
-
-    Method GetMovementOffset:Float()
-        If Not movementActive Then Return 0
-
-        Local now:Int = Millisecs()
-        Local percent:Float = 100
-        Local movementOffset:Float = 0
-
-        If movementStart + DURATION >= now
-            percent = Ceil(100.0 / DURATION * (now - movementStart))
-            movementOffset = Ceil(images[0].Width() / 100.0 * percent)
-        End
-
-        If direction = LEFT
-            movementOffset *= -1
-        End
-
-        If movementStart + DURATION < now
-            movementActive = False
-            If direction = LEFT
-                Local tmpType:Int = config.First()
-                config.RemoveFirst()
-                config.AddLast(tmpType)
-            Else
-                Local tmpType:Int = config.Last()
-                config.RemoveLast()
-                config.AddFirst(tmpType)
-            End
-        End
-
-        Return movementOffset
-    End
-
-    Method Match:Bool(shape:Shape)
-        If movementActive Then Return False
-
-        Local configArray:Int[] = config.ToArray()
-        If shape.type = configArray[shape.lane] Then Return True
-
-        Return False
-    End
 
     Public
 
@@ -127,5 +82,48 @@ Class Slider Implements Animationable
 
         arrowLeft.OnRender()
         arrowRight.OnRender()
+    End
+
+    Private
+
+    Method GetMovementOffset:Float()
+        If Not movementActive Then Return 0
+
+        Local now:Int = Millisecs()
+        Local percent:Float = 100
+        Local movementOffset:Float = 0
+
+        If movementStart + DURATION >= now
+            percent = Ceil(100.0 / DURATION * (now - movementStart))
+            movementOffset = Ceil(images[0].Width() / 100.0 * percent)
+        End
+
+        If direction = LEFT
+            movementOffset *= -1
+        End
+
+        If movementStart + DURATION < now
+            movementActive = False
+            If direction = LEFT
+                Local tmpType:Int = config.First()
+                config.RemoveFirst()
+                config.AddLast(tmpType)
+            Else
+                Local tmpType:Int = config.Last()
+                config.RemoveLast()
+                config.AddFirst(tmpType)
+            End
+        End
+
+        Return movementOffset
+    End
+
+    Method Match:Bool(shape:Shape)
+        If movementActive Then Return False
+
+        Local configArray:Int[] = config.ToArray()
+        If shape.type = configArray[shape.lane] Then Return True
+
+        Return False
     End
 End

@@ -2,7 +2,7 @@ Strict
 
 Private
 
-Import src.bono.game
+Import src.bono
 Import src.introscene
 Import src.menuscene
 Import src.gamescene

@@ -2,12 +2,7 @@ Strict
 
 Private
 
-Import bono.angelfont
-Import bono.game
-Import bono.highscore
-Import bono.scene
-Import bono.score
-Import bono.sprite
+Import bono
 
 Public
 
@@ -16,21 +11,6 @@ Class HighscoreScene Extends Scene
 
     Field highscore:IntHighscore = New IntHighscore(10)
     Field font:AngelFont = New AngelFont()
-
-    Method PrefillMissing:Void()
-        While highscore.Count() < highscore.maxCount
-            highscore.Add("..........", 0)
-        End
-    End
-
-    Method DrawEntries:Void()
-        Local posY:Int = 180
-        For Local score:Score<Int> = EachIn highscore
-            posY += 30
-            font.DrawText(score.value, 130, posY, AngelFont.ALIGN_RIGHT)
-            font.DrawText(score.key, 140, posY)
-        End
-    End
 
     Public
 
@@ -58,6 +38,23 @@ Class HighscoreScene Extends Scene
     Method OnUpdate:Void()
         If KeyDown(KEY_B)
             CurrentGame().scenes.Goto("menu")
+        End
+    End
+
+    Private
+
+    Method PrefillMissing:Void()
+        While highscore.Count() < highscore.maxCount
+            highscore.Add("..........", 0)
+        End
+    End
+
+    Method DrawEntries:Void()
+        Local posY:Int = 180
+        For Local score:Score<Int> = EachIn highscore
+            posY += 30
+            font.DrawText(score.value, 130, posY, AngelFont.ALIGN_RIGHT)
+            font.DrawText(score.key, 140, posY)
         End
     End
 End

@@ -2,7 +2,7 @@ Strict
 
 Private
 
-Import mojo.app
+Import mojo
 Import score
 
 Public
@@ -11,33 +11,6 @@ Class Highscore<T>
     Private
 
     Field objects:List<Score<T>> = New List<Score<T>>()
-
-    Method SizeTrim:Void()
-        While objects.Count() > maxCount
-            objects.RemoveLast()
-        End
-    End
-
-    Method Sort:Void()
-        If objects.Count() < 2 Then Return
-
-        Local newList:List<Score<T>> = New List<Score<T>>()
-
-        While objects.Count() > 0
-            Local current:Score<T> = objects.First()
-            For Local check:Score<T> = EachIn objects
-                If check.value <= current.value
-                    current = check
-                End
-            End
-
-            newList.AddFirst(current)
-            objects.Remove(current)
-        End
-
-        objects.Clear()
-        objects = newList
-    End
 
     Public
 
@@ -92,6 +65,35 @@ Class Highscore<T>
 
     Method ObjectEnumerator:list.Enumerator<Score<T>>()
         Return objects.ObjectEnumerator()
+    End
+
+    Private
+
+    Method SizeTrim:Void()
+        While objects.Count() > maxCount
+            objects.RemoveLast()
+        End
+    End
+
+    Method Sort:Void()
+        If objects.Count() < 2 Then Return
+
+        Local newList:List<Score<T>> = New List<Score<T>>()
+
+        While objects.Count() > 0
+            Local current:Score<T> = objects.First()
+            For Local check:Score<T> = EachIn objects
+                If check.value <= current.value
+                    current = check
+                End
+            End
+
+            newList.AddFirst(current)
+            objects.Remove(current)
+        End
+
+        objects.Clear()
+        objects = newList
     End
 End
 

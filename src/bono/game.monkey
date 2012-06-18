@@ -2,9 +2,7 @@ Strict
 
 Private
 
-Import mojo.app
-Import mojo.graphics
-
+Import mojo
 Import scenemanager
 Import vector2d
 
