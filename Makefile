@@ -11,6 +11,9 @@ glfw:
 html5:
 	$(TRANS_ENV) -target=html5 -run $(MAIN)
 
+ios:
+	$(TRANS_ENV) -target=ios -run $(MAIN)
+
 clean:
 	$(TRANS) -clean
 
