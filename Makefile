@@ -6,10 +6,10 @@ TRANS_ENV = $(TRANS) -config=$(ENV)
 .PHONY: glfw html5 clean
 
 glfw:
-	$(TRANS) -target=glfw -run $(MAIN)
+	$(TRANS_ENV) -target=glfw -run $(MAIN)
 
 html5:
-	$(TRANS) -target=html5 -run $(MAIN)
+	$(TRANS_ENV) -target=html5 -run $(MAIN)
 
 clean:
 	$(TRANS) -clean
