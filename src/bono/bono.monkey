@@ -1,5 +1,6 @@
 Strict
 
+Import angelfont
 Import animationable
 Import bono
 Import game
