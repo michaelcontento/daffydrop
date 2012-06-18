@@ -33,6 +33,12 @@ Class HighscoreScene Extends Scene
         PopMatrix()
     End
 
+    Method OnUpdate:Void()
+        If KeyDown(KEY_B)
+            CurrentGame().scenes.Goto("menu")
+        End
+    End
+
     Method DrawEntries:Void()
         Local posY:Int = 180
         For Local score:Score<Int> = EachIn highscore

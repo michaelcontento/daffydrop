@@ -25,6 +25,9 @@ Class Severity
 
     Method Set:Void(level:Int)
         Self.level = level
+    End
+
+    Method Restart:Void()
         ChuteMarkAsAdvanced()
         ShapeDropped()
     End

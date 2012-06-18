@@ -20,14 +20,20 @@ Class GameScene Extends Scene
         Local slider:Slider = New Slider()
         shapeMaster = New ShapeMaster(chute, slider)
 
+        layer.Clear()
         layer.Add(New Sprite("bg_960x640.png"))
         layer.Add(shapeMaster)
 
         shapeMaster.Restart()
+        severity.Restart()
     End
 
     Method OnUpdate:Void()
         Super.OnUpdate()
         severity.OnUpdate()
+
+        If KeyDown(KEY_B)
+            CurrentGame().scenes.Goto("menu")
+        End
     End
 End

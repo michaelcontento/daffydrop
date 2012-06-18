@@ -9,6 +9,10 @@ Class Layer Implements Animationable
         objects.AddLast(obj)
     End
 
+    Method Clear:Void()
+        objects.Clear()
+    End
+
     Method Remove:Void(obj:Animationable)
         objects.RemoveEach(obj)
     End
