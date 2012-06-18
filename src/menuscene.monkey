@@ -45,5 +45,8 @@ Class MenuScene Extends Scene
             CurrentSeverity().Set(ADVANCED)
             CurrentGame().scenes.Goto("game")
         End
+        If KeyDown(KEY_H)
+            CurrentGame().scenes.Goto("highscore")
+        End
     End
 End
