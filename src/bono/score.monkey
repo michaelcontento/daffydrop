@@ -8,14 +8,6 @@ Class Score<T>
         Self.key = key
         Self.value = value
     End
-
-    Method Value:T()
-        Return value
-    End
-
-    Method Key:String()
-        Return key
-    End
 End
 
 Class IntScore Extends Score<Int>

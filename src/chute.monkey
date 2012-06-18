@@ -1,8 +1,12 @@
 Strict
 
-Import mojo
-Import bono
+Private
+
+Import mojo.graphics
+Import bono.animationable
 Import severity
+
+Public
 
 Class Chute Implements Animationable
     Field bottom:Image

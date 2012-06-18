@@ -1,5 +1,7 @@
 Strict
 
+Private
+
 Import mojo.app
 Import mojo.graphics
 
@@ -7,6 +9,8 @@ Import scenemanager
 Import vector2d
 
 Global globalGameInstance:Game
+
+Public
 
 Function CurrentGame:Game()
     If Not globalGameInstance Then globalGameInstance = New Game()

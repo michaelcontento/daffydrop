@@ -1,12 +1,23 @@
 Strict
 
-Import mojo
-Import bono
+Private
+
+Import mojo.graphics
+Import mojo.app
+Import bono.game
+Import bono.scene
+Import bono.sprite
+
+Public
 
 Class IntroScene Extends Scene
+    Private
+
     Field background:Sprite
     Field timer:Int
     Const DURATION:Int = 1500
+
+    Public
 
     Method New()
         name = "intro"

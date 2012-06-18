@@ -1,13 +1,22 @@
 Strict
 
-Import mojo
+Private
 
-Import game
+Import mojo.graphics
+
 Import animationable
+Import game
 Import vector2d
 
+Public
+
 Class Sprite Implements Animationable
+    Private
+
     Field image:Image
+
+    Public
+
     Field pos:Vector2D
     Field rotation:Float
     Field scale:Vector2D = New Vector2D(1, 1)

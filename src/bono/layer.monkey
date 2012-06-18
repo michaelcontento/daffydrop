@@ -1,9 +1,17 @@
 Strict
 
+Private
+
 Import animationable
 
+Public
+
 Class Layer Implements Animationable
+    Private
+
     Field objects:List<Animationable> = New List<Animationable>
+
+    Public
 
     Method Add:Void(obj:Animationable)
         objects.AddLast(obj)
@@ -29,5 +37,9 @@ Class Layer Implements Animationable
         For Local obj:Animationable = EachIn objects
             obj.OnUpdate()
         End
+    End
+
+    Method ObjectEnumerator:list.Enumerator<Animationable>()
+        Return objects.ObjectEnumerator()
     End
 End

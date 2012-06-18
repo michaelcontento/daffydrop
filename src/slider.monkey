@@ -1,8 +1,16 @@
 Strict
 
-Import mojo
-Import bono
+Private
+
+Import mojo.app
+Import mojo.graphics
+Import mojo.input
+Import bono.animationable
+Import bono.game
+Import bono.sprite
 Import shape
+
+Public
 
 Const TYPE_CIRCLE:Int = 0
 Const TYPE_PLUS:Int = 1
@@ -10,57 +18,14 @@ Const TYPE_STAR:Int = 2
 Const TYPE_TIRE:Int = 3
 
 Class Slider Implements Animationable
-    Field images:Image[]
+    Private
+
     Field config:IntList
     Field arrowRight:Sprite
     Field arrowLeft:Sprite
     Field direction:Int
     Field movementStart:Int
     Field movementActive:Bool
-
-    Const DURATION:Int = 500
-    Const LEFT:Int = 1
-    Const RIGHT:Int = 2
-
-    Method New()
-        images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
-        config = New IntList()
-        config.AddLast(TYPE_CIRCLE)
-        config.AddLast(TYPE_PLUS)
-        config.AddLast(TYPE_STAR)
-        config.AddLast(TYPE_TIRE)
-
-        arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.pos.y = CurrentGame().size.y - arrowRight.size.y
-
-        arrowLeft = New Sprite("arrow_ingame2.png")
-        arrowLeft.pos = CurrentGame().size.Copy().Sub(arrowLeft.size)
-    End
-
-    Method Match:Bool(shape:Shape)
-        If movementActive Then Return False
-
-        Local configArray:Int[] = config.ToArray()
-        If shape.type = configArray[shape.lane] Then Return True
-
-        Return False
-    End
-
-    Method OnUpdate:Void()
-        If movementActive Then Return
-
-        If KeyDown(KEY_LEFT)
-            direction = LEFT
-            movementStart = Millisecs()
-            movementActive = True
-        End
-
-        If KeyDown(KEY_RIGHT)
-            direction = RIGHT
-            movementStart = Millisecs()
-            movementActive = True
-        End
-    End
 
     Method GetMovementOffset:Float()
         If Not movementActive Then Return 0
@@ -92,6 +57,53 @@ Class Slider Implements Animationable
         End
 
         Return movementOffset
+    End
+
+    Method Match:Bool(shape:Shape)
+        If movementActive Then Return False
+
+        Local configArray:Int[] = config.ToArray()
+        If shape.type = configArray[shape.lane] Then Return True
+
+        Return False
+    End
+
+    Public
+
+    Field images:Image[]
+    Const DURATION:Int = 500
+    Const LEFT:Int = 1
+    Const RIGHT:Int = 2
+
+    Method New()
+        images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
+        config = New IntList()
+        config.AddLast(TYPE_CIRCLE)
+        config.AddLast(TYPE_PLUS)
+        config.AddLast(TYPE_STAR)
+        config.AddLast(TYPE_TIRE)
+
+        arrowRight = New Sprite("arrow_ingame.png")
+        arrowRight.pos.y = CurrentGame().size.y - arrowRight.size.y
+
+        arrowLeft = New Sprite("arrow_ingame2.png")
+        arrowLeft.pos = CurrentGame().size.Copy().Sub(arrowLeft.size)
+    End
+
+    Method OnUpdate:Void()
+        If movementActive Then Return
+
+        If KeyDown(KEY_LEFT)
+            direction = LEFT
+            movementStart = Millisecs()
+            movementActive = True
+        End
+
+        If KeyDown(KEY_RIGHT)
+            direction = RIGHT
+            movementStart = Millisecs()
+            movementActive = True
+        End
     End
 
     Method OnRender:Void()

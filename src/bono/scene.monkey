@@ -1,12 +1,16 @@
 Strict
 
+Private
+
 Import animationable
 Import layer
 
+Public
+
 Class Scene Implements Animationable Abstract
+    Field created:Bool = False
     Field name:String
     Field layer:Layer = New Layer()
-    Field created:Bool = False
 
     Method OnLoading:Void()
     End

@@ -1,10 +1,17 @@
 Strict
 
-Import bono
+Private
+
+Import mojo.input
+Import bono.scene
+Import bono.sprite
+Import bono.game
 Import chute
-Import slider
-Import shapemaster
 Import severity
+Import shapemaster
+Import slider
+
+Public
 
 Class GameScene Extends Scene
     Field shapeMaster:ShapeMaster
@@ -16,9 +23,7 @@ Class GameScene Extends Scene
     End
 
     Method OnCreate:Void()
-        Local chute:Chute = New Chute()
-        Local slider:Slider = New Slider()
-        shapeMaster = New ShapeMaster(chute, slider)
+        shapeMaster = New ShapeMaster(New Chute(), New Slider())
 
         layer.Clear()
         layer.Add(New Sprite("bg_960x640.png"))

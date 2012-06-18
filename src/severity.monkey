@@ -1,8 +1,13 @@
 Strict
 
-Import bono
+Private
+
+Import mojo.app
+Import mojo.input
 
 Global globalSeverityInstance:Severity
+
+Public
 
 Function CurrentSeverity:Severity()
     If Not globalSeverityInstance Then globalSeverityInstance = New Severity()
@@ -18,10 +23,14 @@ Const NORMAL:Int = 1
 Const ADVANCED:Int = 2
 
 Class Severity
+    Private
+
     Field level:Int
     Field nextChuteAdvanceTime:Int
     Field nextShapeDropTime:Int
     Field lastTime:Int
+
+    Public
 
     Method Set:Void(level:Int)
         Self.level = level

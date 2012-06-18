@@ -1,12 +1,15 @@
 Strict
 
-' MIRI: pfeile mit der selben hoehe wie die buttons
-' MIRI: moeglichst wenig "transparenten ueberhang"
+Private
 
-Import mojo
-Import monkey
-Import bono
+Import mojo.input
+Import bono.game
+Import bono.scene
+Import bono.sprite
+Import bono.vector2d
 Import severity
+
+Public
 
 Class MenuScene Extends Scene
     Method New()

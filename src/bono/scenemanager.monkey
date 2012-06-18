@@ -1,9 +1,18 @@
 Strict
 
-Import bono
+Private
+
+Import scene
+
+Public
 
 Class SceneManager
+    Private
+
     Field scenes:StringMap<Scene> = New StringMap<Scene>
+
+    Public
+
     Field nextScene:Scene
     Field current:Scene
 

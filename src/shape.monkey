@@ -1,38 +1,41 @@
 Strict
 
-Import mojo
-Import bono
+Private
+
+Import mojo.graphics
+Import bono.animationable
+Import bono.vector2d
 Import chute
 
-Class Shape Implements Animationable
-    Global images:Image[]
-    Field type:Int
-    Field lane:Int
-    Field chute:Chute
-    Field pos:Vector2D
+Public
 
+Class Shape Implements Animationable
+    Private
+
+    Field chute:Chute
     Field speedSlow:Vector2D
     Field speedFast:Vector2D
+
+    Public
+
+    Global images:Image[]
     Field isFast:Bool = False
+    Field pos:Vector2D
+    Field type:Int
+    Field lane:Int
 
     Method New(type:Int, lane:Int, chute:Chute)
         Self.type = type
         Self.lane = lane
         Self.chute = chute
 
-        LoadSharedImages()
-
+        images = [LoadImage("circle_inside.png"), LoadImage("plus_inside.png"), LoadImage("star_inside.png"), LoadImage("tire_inside.png")]
         Local posX:Int = 46 + (chute.bg.Width() * lane)
         Local posY:Int = chute.height - images[type].Height()
         pos = New Vector2D(posX, posY)
 
         speedSlow = New Vector2D(0, 4)
         speedFast = New Vector2D(0, 12)
-    End
-
-    Method LoadSharedImages:Void()
-        If images.Length() > 0 Then Return
-        images = [LoadImage("circle_inside.png"), LoadImage("plus_inside.png"), LoadImage("star_inside.png"), LoadImage("tire_inside.png")]
     End
 
     Method OnUpdate:Void()

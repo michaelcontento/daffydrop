@@ -1,10 +1,14 @@
 Strict
 
+Private
+
 Import src.bono.game
 Import src.introscene
 Import src.menuscene
 Import src.gamescene
 Import src.highscorescene
+
+Public
 
 #GLFW_WINDOW_WIDTH=480
 #GLFW_WINDOW_HEIGHT=720
