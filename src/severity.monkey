@@ -19,48 +19,37 @@ Const ADVANCED:Int = 2
 
 Class Severity
     Field level:Int
+    Field nextChuteAdvanceTime:Int
+    Field nextShapeDropTime:Int
+    Field lastTime:Int
 
     Method Set:Void(level:Int)
         Self.level = level
+        ChuteMarkAsAdvanced()
+        ShapeDropped()
     End
 
     Method OnUpdate:Void()
+        lastTime = Millisecs()
     End
 
     Method ChuteShouldAdvance:Bool()
-        Return False
+        Return lastTime >= nextChuteAdvanceTime
     End
 
     Method ChuteAdvanceHeight:Int()
-        Return 0
+        Return 25
     End
 
     Method ChuteMarkAsAdvanced:Void()
+        nextChuteAdvanceTime = lastTime + 3000
     End
 
     Method ShapeShouldBeDropped:Bool()
-        Return False
+        Return lastTime >= nextShapeDropTime
     End
 
     Method ShapeDropped:Void()
-    End
-
-
-
-
-    Method GetAutoAdvanceStartDelay:Int()
-        Return 4000
-    End
-
-    Method GetAutoAdvanceTime:Int()
-        Return 6000 - (level * 2000)
-    End
-
-    Method GetAutoAdvanceHeight:Int()
-        Return 25 + (level * 10)
-    End
-
-    Method GetShapeDropDelay:Int()
-        Return 600 - (level * 200)
+        nextShapeDropTime = lastTime + 1000
     End
 End
