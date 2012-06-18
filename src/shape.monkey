@@ -21,7 +21,11 @@ Class Shape Implements Animationable
         Self.chute = chute
 
         LoadSharedImages()
-        pos = New Vector2D(lane * chute.bg.Width(), chute.height - images[type].Height())
+
+        Local posX:Int = 46 + (chute.bg.Width() * lane)
+        Local posY:Int = chute.height - images[type].Height()
+        pos = New Vector2D(posX, posY)
+
         speedSlow = New Vector2D(0, 4)
         speedFast = New Vector2D(0, 12)
     End

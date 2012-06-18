@@ -24,12 +24,14 @@ Class Chute Implements Animationable
     End
 
     Method OnRender:Void()
+        Local posX:Int
         For Local lane:Int = 0 To 3
-            For Local posY:Int = 0 To height
-                DrawImage(bg, bg.Width() * lane, posY)
-            End
+            posX = 46 + (bg.Width() * lane)
 
-            DrawImage(bottom, bg.Width() * lane, height)
+            For Local posY:Int = 0 To height
+                DrawImage(bg, posX, posY)
+            End
+            DrawImage(bottom, posX, height)
         End
     End
 End
