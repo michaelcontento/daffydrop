@@ -44,11 +44,13 @@ Class Highscore<T>
 
     Method FromString:Void(input:String)
         objects.Clear()
+        Local key:String
+        Local value:T
         Local splitted:String[] = input.Split(",")
 
         For Local count:Int = 0 To splitted.Length() - 2 Step 2
-            Local key:String = splitted[count]
-            Local value:T = T(splitted[count + 1])
+            key = splitted[count]
+            value = T(splitted[count + 1])
             objects.AddLast(New Score<T>(key, value))
         End
 
@@ -79,9 +81,10 @@ Class Highscore<T>
         If objects.Count() < 2 Then Return
 
         Local newList:List<Score<T>> = New List<Score<T>>()
+        Local current:Score<T>
 
         While objects.Count() > 0
-            Local current:Score<T> = objects.First()
+            current = objects.First()
             For Local check:Score<T> = EachIn objects
                 If check.value <= current.value
                     current = check

@@ -64,14 +64,15 @@ Class Slider Implements Animationable
     Method OnRender:Void()
         Local posX:Int = 45 + GetMovementOffset()
         Local posY:Int = CurrentGame().size.y - images[0].Height() - 60
+        Local img:Image
 
         If posX > 45
-            Local img:Image = images[config.Last()]
+            img = images[config.Last()]
             DrawImage(img, (img.Width() * -1) + posX, posY)
         End
 
         If posX < 45
-            Local img:Image = images[config.First()]
+            img = images[config.First()]
             DrawImage(img, (img.Width() * 4) + posX, posY)
         End
 
