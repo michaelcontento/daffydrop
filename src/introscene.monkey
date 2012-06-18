@@ -6,7 +6,7 @@ Import bono
 Class IntroScene Extends Scene
     Field background:Sprite
     Field timer:Int
-    Const DURATION:Int = 3000
+    Const DURATION:Int = 1500
 
     Method New()
         name = "intro"
