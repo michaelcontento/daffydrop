@@ -8,3 +8,5 @@ Import layer
 Import scene
 Import sprite
 Import vector2d
+Import highscore
+Import score
