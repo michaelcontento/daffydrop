@@ -14,8 +14,12 @@ Import slider
 Public
 
 Class GameScene Extends Scene
+    Private
+
     Field shapeMaster:ShapeMaster
     Field severity:Severity
+
+    Public
 
     Method New()
         name = "game"

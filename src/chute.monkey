@@ -9,10 +9,15 @@ Import severity
 Public
 
 Class Chute Implements Animationable
+    Private
+
     Field bottom:Image
-    Field bg:Image
-    Field height:Int = 50
     Field severity:Severity
+
+    Public
+
+    Field height:Int = 50
+    Field bg:Image
 
     Method New()
         bg = LoadImage("chute-bg.png")
