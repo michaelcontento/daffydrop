@@ -59,7 +59,7 @@ Class ShapeMaster Implements Animationable
     Method CheckShapeCollisions:Void()
         For Local obj:Animationable = EachIn upperObjectPool
             Local shape:Shape = Shape(obj)
-            Local checkPosY:Int = CurrentGame().size.y - (slider.images[0].Height() / 2) - 15
+            Local checkPosY:Int = CurrentDirector().size.y - (slider.images[0].Height() / 2) - 15
             Local match:Bool = slider.Match(shape)
 
             If shape.pos.y + shape.images[0].Height() >= checkPosY

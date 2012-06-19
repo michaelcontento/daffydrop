@@ -6,20 +6,20 @@ Import mojo
 Import scenemanager
 Import vector2d
 
-Global globalGameInstance:Game
+Global globalDirectorInstance:Director
 
 Public
 
-Function CurrentGame:Game()
-    If Not globalGameInstance Then globalGameInstance = New Game()
-    Return globalGameInstance
+Function CurrentDirector:Director()
+    If Not globalDirectorInstance Then globalDirectorInstance = New Director()
+    Return globalDirectorInstance
 End
 
-Function CurrentGameReset:Void()
-    globalGameInstance = Null
+Function CurrentDirectorReset:Void()
+    globalDirectorInstance = Null
 End
 
-Class Game Extends App
+Class Director Extends App
     Field scenes:SceneManager = New SceneManager()
     Field center:Vector2D
     Field device:Vector2D

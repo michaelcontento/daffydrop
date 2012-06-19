@@ -4,7 +4,7 @@ Private
 
 Import mojo
 Import animationable
-Import game
+Import director
 Import vector2d
 
 Public
@@ -42,15 +42,15 @@ Class Sprite Implements Animationable
     Method OnUpdate:Void()
     End
 
-    Method CenterGameX:Void()
-        pos.x = CurrentGame().center.x - center.x
+    Method CenterX:Void()
+        pos.x = CurrentDirector().center.x - center.x
     End
 
-    Method CenterGameY:Void()
-        pos.y = CurrentGame().center.y - center.y
+    Method CenterY:Void()
+        pos.y = CurrentDirector().center.y - center.y
     End
 
-    Method CenterGame:Void()
-        pos = CurrentGame().center.Copy().Sub(center)
+    Method Center:Void()
+        pos = CurrentDirector().center.Copy().Sub(center)
     End
 End

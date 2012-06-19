@@ -42,7 +42,7 @@ Class GameScene Extends Scene
         severity.OnUpdate()
 
         If KeyDown(KEY_B)
-            CurrentGame().scenes.Goto("menu")
+            CurrentDirector().scenes.Goto("menu")
         End
     End
 End

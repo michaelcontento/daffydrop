@@ -2,8 +2,7 @@ Strict
 
 Import angelfont
 Import animationable
-Import bono
-Import game
+Import director
 Import highscore
 Import layer
 Import scene

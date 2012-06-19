@@ -37,7 +37,7 @@ Class HighscoreScene Extends Scene
 
     Method OnUpdate:Void()
         If KeyDown(KEY_B)
-            CurrentGame().scenes.Goto("menu")
+            CurrentDirector().scenes.Goto("menu")
         End
     End
 

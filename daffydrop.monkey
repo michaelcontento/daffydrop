@@ -15,11 +15,11 @@ Public
 #IOS_ACCELEROMETER_ENABLED="false"
 
 Function Main:Int()
-    Local game:Game = CurrentGame()
-    game.scenes.Add(New IntroScene())
-    game.scenes.Add(New MenuScene())
-    game.scenes.Add(New GameScene())
-    game.scenes.Add(New HighscoreScene())
-    game.Run()
+    Local director:Director = CurrentDirector()
+    director.scenes.Add(New IntroScene())
+    director.scenes.Add(New MenuScene())
+    director.scenes.Add(New GameScene())
+    director.scenes.Add(New HighscoreScene())
+    director.Run()
     Return 0
 End

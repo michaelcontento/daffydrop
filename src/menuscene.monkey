@@ -20,10 +20,10 @@ Class MenuScene Extends Scene
         Local advanced:Sprite = New Sprite("01_02-advanced.png", normal.pos.Copy().Add(offset))
         Local highscore:Sprite = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
 
-        easy.CenterGameX()
-        normal.CenterGameX()
-        advanced.CenterGameX()
-        highscore.CenterGameX()
+        easy.CenterX()
+        normal.CenterX()
+        advanced.CenterX()
+        highscore.CenterX()
 
         layer.Add(New Sprite("01_main.jpg"))
         layer.Add(easy)
@@ -35,18 +35,18 @@ Class MenuScene Extends Scene
     Method OnUpdate:Void()
         If KeyDown(KEY_E)
             CurrentSeverity().Set(EASY)
-            CurrentGame().scenes.Goto("game")
+            CurrentDirector().scenes.Goto("game")
         End
         If KeyDown(KEY_N)
             CurrentSeverity().Set(NORMAL)
-            CurrentGame().scenes.Goto("game")
+            CurrentDirector().scenes.Goto("game")
         End
         If KeyDown(KEY_A)
             CurrentSeverity().Set(ADVANCED)
-            CurrentGame().scenes.Goto("game")
+            CurrentDirector().scenes.Goto("game")
         End
         If KeyDown(KEY_H)
-            CurrentGame().scenes.Goto("highscore")
+            CurrentDirector().scenes.Goto("highscore")
         End
     End
 End

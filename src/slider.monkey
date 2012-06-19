@@ -39,10 +39,10 @@ Class Slider Implements Animationable
         config.AddLast(TYPE_TIRE)
 
         arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.pos.y = CurrentGame().size.y - arrowRight.size.y
+        arrowRight.pos.y = CurrentDirector().size.y - arrowRight.size.y
 
         arrowLeft = New Sprite("arrow_ingame2.png")
-        arrowLeft.pos = CurrentGame().size.Copy().Sub(arrowLeft.size)
+        arrowLeft.pos = CurrentDirector().size.Copy().Sub(arrowLeft.size)
     End
 
     Method OnUpdate:Void()
@@ -63,7 +63,7 @@ Class Slider Implements Animationable
 
     Method OnRender:Void()
         Local posX:Int = 45 + GetMovementOffset()
-        Local posY:Int = CurrentGame().size.y - images[0].Height() - 60
+        Local posY:Int = CurrentDirector().size.y - images[0].Height() - 60
         Local img:Image
 
         If posX > 45
