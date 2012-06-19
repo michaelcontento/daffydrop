@@ -29,6 +29,7 @@ Class ShapeMaster Implements Animationable
     End
 
     Method Restart:Void()
+        Seed = Millisecs()
         upperObjectPool = New Layer()
         lowerObjectPool = New Layer()
     End
