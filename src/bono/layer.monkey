@@ -17,6 +17,10 @@ Class Layer Implements Animationable
         objects.AddLast(obj)
     End
 
+    Method Count:Int()
+        Return objects.Count()
+    End
+
     Method Clear:Void()
         objects.Clear()
     End
