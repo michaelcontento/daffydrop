@@ -59,8 +59,17 @@ Class Game Extends App
     End
 
     Method OnRender:Int()
-        Scale(scale.x, scale.y)
-        If scenes.current Then scenes.current.OnRender()
+        If Not scenes.current Then Return 0
+
+        PushMatrix()
+            Scale(scale.x, scale.y)
+            SetScissor(0, 0, device.x, device.y)
+
+            PushMatrix()
+                scenes.current.OnRender()
+            PopMatrix()
+        PopMatrix()
+
         Return 0
     End
 
