@@ -1,19 +1,20 @@
 ENV ?= debug
+TARGET ?= glfw
 MAIN = $(wildcard *.monkey)
 TRANS = ./MonkeyPro58/bin/trans_macos
-TRANS_ENV = $(TRANS) -config=$(ENV)
+TRANS_ENV = $(TRANS) -config=$(ENV) -target=$(TARGET)
 
-.PHONY: glfw html5 clean
+run:
+	$(TRANS_ENV) -run $(MAIN)
 
-glfw:
-	$(TRANS_ENV) -target=glfw -run $(MAIN)
+check:
+	$(TRANS_ENV) -check $(MAIN)
 
-html5:
-	$(TRANS_ENV) -target=html5 -run $(MAIN)
+update:
+	$(TRANS_ENV) -update $(MAIN)
 
-ios:
-	$(TRANS_ENV) -target=ios -run $(MAIN)
+build:
+	$(TRANS_ENV) -build $(MAIN)
 
 clean:
-	$(TRANS) -clean
-
+	$(TRANS_ENV) -clean $(MAIN)
