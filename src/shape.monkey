@@ -30,7 +30,7 @@ Class Shape Implements Animationable
 
         images = [LoadImage("circle_inside.png"), LoadImage("plus_inside.png"), LoadImage("star_inside.png"), LoadImage("tire_inside.png")]
         Local posX:Int = 46 + (chute.bg.Width() * lane)
-        Local posY:Int = chute.height - images[type].Height()
+        Local posY:Int = chute.Height() - images[type].Height()
         pos = New Vector2D(posX, posY)
 
         speedSlow = New Vector2D(0, 4)

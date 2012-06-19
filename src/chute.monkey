@@ -13,16 +13,25 @@ Class Chute Implements Animationable
 
     Field bottom:Image
     Field severity:Severity
+    Field height:Int
 
     Public
 
-    Field height:Int = 50
     Field bg:Image
 
     Method New()
         bg = LoadImage("chute-bg.png")
         bottom = LoadImage("chute-bottom.png")
         severity = CurrentSeverity()
+        Restart()
+    End
+
+    Method Restart:Void()
+        height = 50
+    End
+
+    Method Height:Int()
+        Return height
     End
 
     Method OnUpdate:Void()
