@@ -32,6 +32,7 @@ Class Director Extends App
     End
 
     Method OnCreate:Int()
+        Seed = Millisecs()
         SetUpdateRate(30)
         device = New Vector2D(DeviceWidth(), DeviceHeight())
         scale = device.Copy().Div(size)
