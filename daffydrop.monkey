@@ -2,11 +2,11 @@ Strict
 
 Private
 
-Import src.bono
-Import src.introscene
-Import src.menuscene
-Import src.gamescene
-Import src.highscorescene
+Import daffydrop.bono
+Import daffydrop.introscene
+Import daffydrop.menuscene
+Import daffydrop.gamescene
+Import daffydrop.highscorescene
 
 Public
 
