@@ -1,3 +1,0 @@
-[submodule "src/bono"]
-	path = src/bono
-	url = git@github.com:michaelcontento/bono.git
