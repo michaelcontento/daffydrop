@@ -19,6 +19,7 @@ Class GameScene Extends Scene
     Field slider:Slider
     Field upperShapes:Layer
     Field lowerShapes:Layer
+    Field errorAnimations:Layer
     Field score:Int
     Field gameOver:Bool
 
@@ -34,12 +35,14 @@ Class GameScene Extends Scene
         severity = CurrentSeverity()
         slider = New Slider()
         upperShapes = New Layer()
+        errorAnimations = New Layer()
 
         layer.Clear()
         layer.Add(New Sprite("bg_960x640.png"))
         layer.Add(lowerShapes)
         layer.Add(slider)
         layer.Add(upperShapes)
+        layer.Add(errorAnimations)
         layer.Add(chute)
     End
 
@@ -61,6 +64,7 @@ Class GameScene Extends Scene
 
         severity.OnUpdate()
         RemoveLostShapes()
+        RemoveFinishedErroAnimations()
         CheckShapeCollisions()
         DropNewShapeIfRequested()
 
@@ -92,6 +96,14 @@ Class GameScene Extends Scene
         For Local obj:Animationable = EachIn lowerShapes
             shape = Shape(obj)
             If shape.pos.y > directoySizeY Then lowerShapes.Remove(shape)
+        End
+    End
+
+    Method RemoveFinishedErroAnimations:Void()
+        Local sprite:Sprite
+        For Local obj:Animationable = EachIn errorAnimations
+            sprite = Sprite(obj)
+            If sprite.AnimationIsDone() Then errorAnimations.Remove(sprite)
         End
     End
 
@@ -128,6 +140,7 @@ Class GameScene Extends Scene
     End
 
     Method OnMissmatch:Void(shape:Shape)
+        errorAnimations.Add(New Sprite("false.png", 140, 88, 6, 100, shape.pos))
     End
 
     Method RandomType:Int()
