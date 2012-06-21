@@ -22,11 +22,13 @@ Class GameScene Extends Scene
     Field errorAnimations:Layer
     Field score:Int
     Field gameOver:Bool
+    Field font:AngelFont = New AngelFont()
 
     Public
 
     Method New()
         name = "game"
+        font.LoadFont("CoRa")
     End
 
     Method OnCreate:Void()
@@ -75,11 +77,18 @@ Class GameScene Extends Scene
 
     Method OnRender:Void()
         Super.OnRender()
-        DrawText("SCORE: " + score, 50, 50)
+        OnRenderScore()
         If gameOver Then OnRenderGameOver()
     End
 
     Private
+
+    Method OnRenderScore:Void()
+        font.DrawText("Score: " + score,
+            CurrentDirector().center.x,
+            CurrentDirector().size.y - 50,
+            AngelFont.ALIGN_CENTER)
+    End
 
     Method OnRenderGameOver:Void()
     End

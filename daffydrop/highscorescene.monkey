@@ -16,7 +16,7 @@ Class HighscoreScene Extends Scene
 
     Method New()
         name = "highscore"
-        font.LoadFont("angel_verdana")
+        font.LoadFont("CoRa")
     End
 
     Method OnCreate:Void()
