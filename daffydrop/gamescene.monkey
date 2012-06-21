@@ -14,6 +14,10 @@ Public
 Class GameScene Extends Scene
     Private
 
+    Const COMBO_DETECT_DURATION:Int = 250
+    Const COMBO_DISPLAY_DURATION:Int = 750
+    Const COMBO_SCALE:Float = 150.0
+
     Field severity:Severity
     Field chute:Chute
     Field slider:Slider
@@ -23,6 +27,9 @@ Class GameScene Extends Scene
     Field score:Int
     Field gameOver:Bool
     Field font:AngelFont = New AngelFont()
+    Field lastMatchTime:Int[] = [0, 0, 0, 0]
+    Field lastComboCounter:Int
+    Field lastComboTime:Int
 
     Public
 
@@ -54,6 +61,7 @@ Class GameScene Extends Scene
 
         lowerShapes.Clear()
         upperShapes.Clear()
+        errorAnimations.Clear()
         severity.Restart()
         chute.Restart()
     End
@@ -68,6 +76,7 @@ Class GameScene Extends Scene
         RemoveLostShapes()
         RemoveFinishedErroAnimations()
         CheckShapeCollisions()
+        DetectComboTrigger()
         DropNewShapeIfRequested()
 
         If KeyDown(KEY_B)
@@ -79,6 +88,7 @@ Class GameScene Extends Scene
         Super.OnRender()
         OnRenderScore()
         If gameOver Then OnRenderGameOver()
+        OnRenderComboOverlay()
     End
 
     Private
@@ -88,6 +98,23 @@ Class GameScene Extends Scene
             CurrentDirector().center.x,
             CurrentDirector().size.y - 50,
             AngelFont.ALIGN_CENTER)
+    End
+
+    Method OnRenderComboOverlay:Void()
+        If lastComboTime = 0 Then Return
+
+        Local delta:Int = (lastComboTime + COMBO_DISPLAY_DURATION) - Millisecs()
+        If delta < 0 Then
+            lastComboTime = 0
+            Return
+        End
+
+        Local scale:Float = COMBO_SCALE / COMBO_DISPLAY_DURATION * delta / 100.0
+        PushMatrix()
+            Translate(CurrentDirector().center.x, CurrentDirector().center.y)
+            Scale(scale, scale)
+            font.DrawText("COMBO x " + lastComboCounter, 0, 0, AngelFont.ALIGN_CENTER)
+        PopMatrix()
     End
 
     Method OnRenderGameOver:Void()
@@ -144,11 +171,36 @@ Class GameScene Extends Scene
         End
     End
 
+    Method DetectComboTrigger:Void()
+        Local lanesNotZero:Int
+        Local charge:Bool
+        Local now:Int = Millisecs()
+
+        For Local lane:Int = 0 To lastMatchTime.Length() - 1
+            If lastMatchTime[lane] = 0 Then Continue
+
+            lanesNotZero += 1
+            If lastMatchTime[lane] + COMBO_DETECT_DURATION < now
+                charge = True
+            End
+        End
+
+        If Not charge Then Return
+        lastMatchTime = [0, 0, 0, 0]
+
+        If lanesNotZero < 2 Then Return
+        score += 10 * lanesNotZero
+        lastComboTime = now
+        lastComboCounter = lanesNotZero
+    End
+
     Method OnMatch:Void(shape:Shape)
+        lastMatchTime[shape.lane] = Millisecs()
         score += 10
     End
 
     Method OnMissmatch:Void(shape:Shape)
+        lastMatchTime = [0, 0, 0, 0]
         errorAnimations.Add(New Sprite("false.png", 140, 88, 6, 100, shape.pos))
     End
 
