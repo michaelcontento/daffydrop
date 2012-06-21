@@ -1,7 +1,7 @@
 ENV ?= debug
 TARGET ?= glfw
 MAIN = $(wildcard *.monkey)
-TRANS = ./MonkeyPro58/bin/trans_macos
+TRANS = /Applications/MonkeyPro58/bin/trans_macos
 TRANS_ENV = $(TRANS) -config=$(ENV) -target=$(TARGET)
 
 run:
