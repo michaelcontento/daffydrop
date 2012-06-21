@@ -39,9 +39,9 @@ Class Shape Implements Animationable
 
     Method OnUpdate:Void()
         If isFast
-            pos.Add(speedFast)
+            pos.Add(speedFast.Copy().Mul(CurrentDirector().delta))
         Else
-            pos.Add(speedSlow)
+            pos.Add(speedSlow.Copy().Mul(CurrentDirector().delta))
         End
     End
 
