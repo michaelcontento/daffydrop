@@ -16,6 +16,7 @@ Public
 
 Function Main:Int()
     Local director:Director = CurrentDirector()
+    director.inputController.touchFingers = 1
     director.scenes.Add(New IntroScene())
     director.scenes.Add(New MenuScene())
     director.scenes.Add(New GameScene())

@@ -9,16 +9,25 @@ Import severity
 Public
 
 Class MenuScene Extends Scene
+    Private
+
+    Field easy:Sprite
+    Field normal:Sprite
+    Field advanced:Sprite
+    Field highscore:Sprite
+
+    Public
+
     Method New()
         name = "menu"
     End
 
     Method OnCreate:Void()
         Local offset:Vector2D = New Vector2D(0, 140)
-        Local easy:Sprite = New Sprite("01_02-easy.png", New Vector2D(0, 270))
-        Local normal:Sprite = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
-        Local advanced:Sprite = New Sprite("01_02-advanced.png", normal.pos.Copy().Add(offset))
-        Local highscore:Sprite = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
+        easy = New Sprite("01_02-easy.png", New Vector2D(0, 270))
+        normal = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
+        advanced = New Sprite("01_02-advanced.png", normal.pos.Copy().Add(offset))
+        highscore = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
 
         easy.CenterX()
         normal.CenterX()
@@ -33,20 +42,33 @@ Class MenuScene Extends Scene
     End
 
     Method OnUpdate:Void()
-        If KeyDown(KEY_E)
-            CurrentSeverity().Set(EASY)
-            CurrentDirector().scenes.Goto("game")
-        End
-        If KeyDown(KEY_N)
-            CurrentSeverity().Set(NORMAL)
-            CurrentDirector().scenes.Goto("game")
-        End
-        If KeyDown(KEY_A)
-            CurrentSeverity().Set(ADVANCED)
-            CurrentDirector().scenes.Goto("game")
-        End
-        If KeyDown(KEY_H)
-            CurrentDirector().scenes.Goto("highscore")
-        End
+        If KeyDown(KEY_E) Then PlayEasy()
+        If KeyDown(KEY_N) Then PlayNormal()
+        If KeyDown(KEY_A) Then PlayAdvanced()
+        If KeyDown(KEY_H) Then CurrentDirector().scenes.Goto("highscore")
+    End
+
+    Method OnTouchDown:Void(finger:Int, pos:Vector2D)
+        If easy.Collide(pos) Then PlayEasy()
+        If normal.Collide(pos) Then PlayNormal()
+        If advanced.Collide(pos) Then PlayAdvanced()
+        If highscore.Collide(pos) Then CurrentDirector().scenes.Goto("highscore")
+    End
+
+    Private
+
+    Method PlayEasy:Void()
+        CurrentSeverity().Set(EASY)
+        CurrentDirector().scenes.Goto("game")
+    End
+
+    Method PlayNormal:Void()
+        CurrentSeverity().Set(NORMAL)
+        CurrentDirector().scenes.Goto("game")
+    End
+
+    Method PlayAdvanced:Void()
+        CurrentSeverity().Set(ADVANCED)
+        CurrentDirector().scenes.Goto("game")
     End
 End
