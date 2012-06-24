@@ -1,20 +1,20 @@
-ENV ?= debug
+CONFIG ?= debug
 TARGET ?= glfw
 MAIN = $(wildcard *.monkey)
 TRANS = /Applications/MonkeyPro58/bin/trans_macos
-TRANS_ENV = $(TRANS) -config=$(ENV) -target=$(TARGET)
+TRANS_FULL = $(TRANS) -config=$(CONFIG) -target=$(TARGET)
 
 run:
-	$(TRANS_ENV) -run $(MAIN)
+	$(TRANS_FULL) -run $(MAIN)
 
 check:
-	$(TRANS_ENV) -check $(MAIN)
+	$(TRANS_FULL) -check $(MAIN)
 
 update:
-	$(TRANS_ENV) -update $(MAIN)
+	$(TRANS_FULL) -update $(MAIN)
 
 build:
-	$(TRANS_ENV) -build $(MAIN)
+	$(TRANS_FULL) -build $(MAIN)
 
 clean:
-	$(TRANS_ENV) -clean $(MAIN)
+	$(TRANS_FULL) -clean $(MAIN)
