@@ -11,6 +11,7 @@ Class HighscoreScene Extends Scene
 
     Field highscore:IntHighscore = New IntHighscore(10)
     Field font:AngelFont = New AngelFont()
+    Field backButton:Sprite
 
     Public
 
@@ -23,6 +24,10 @@ Class HighscoreScene Extends Scene
         highscore.Load()
         PrefillMissing()
         layer.Add(New Sprite("highscore_bg.jpg"))
+
+        backButton = New Sprite("back.png")
+        backButton.pos = CurrentDirector().size.Copy().Sub(backButton.size)
+        layer.Add(backButton)
     End
 
     Method OnRender:Void()
@@ -37,6 +42,12 @@ Class HighscoreScene Extends Scene
 
     Method OnUpdate:Void()
         If KeyDown(KEY_B)
+            CurrentDirector().scenes.Goto("menu")
+        End
+    End
+
+    Method OnTouchDown:Void(event:TouchEvent)
+        If backButton.Collide(event.pos)
             CurrentDirector().scenes.Goto("menu")
         End
     End

@@ -30,6 +30,7 @@ Class GameScene Extends Scene
     Field lastMatchTime:Int[] = [0, 0, 0, 0]
     Field lastComboCounter:Int
     Field lastComboTime:Int
+    Field backButton:Sprite
 
     Public
 
@@ -53,6 +54,10 @@ Class GameScene Extends Scene
         layer.Add(upperShapes)
         layer.Add(errorAnimations)
         layer.Add(chute)
+
+        backButton = New Sprite("back.png")
+        backButton.pos = CurrentDirector().size.Copy().Sub(backButton.size)
+        layer.Add(backButton)
     End
 
     Method OnEnter:Void()
@@ -83,6 +88,12 @@ Class GameScene Extends Scene
         If KeyDown(KEY_DOWN) Then FastDropMatchingShapes()
         If KeyDown(KEY_LEFT) Then slider.SlideLeft()
         If KeyDown(KEY_RIGHT) Then slider.SlideRight()
+    End
+
+    Method OnTouchDown:Void(event:TouchEvent)
+        If backButton.Collide(event.pos)
+            CurrentDirector().scenes.Goto("menu")
+        End
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
