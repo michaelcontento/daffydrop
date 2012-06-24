@@ -12,8 +12,8 @@ Class Shape Implements Animationable
     Private
 
     Field chute:Chute
-    Field speedSlow:Vector2D
-    Field speedFast:Vector2D
+    Global SPEED_SLOW:Vector2D
+    Global SPEED_FAST:Vector2D
 
     Public
 
@@ -35,15 +35,15 @@ Class Shape Implements Animationable
         Local posY:Int = chute.Height() - images[type].Height()
         pos = New Vector2D(posX, posY)
 
-        speedSlow = New Vector2D(0, 4)
-        speedFast = New Vector2D(0, 12)
+        If Not SPEED_SLOW Then SPEED_SLOW = New Vector2D(0, 4)
+        If Not SPEED_FAST Then SPEED_FAST = New Vector2D(0, 12)
     End
 
     Method OnUpdate:Void()
         If isFast
-            pos.Add(speedFast.Copy().Mul(CurrentDirector().delta))
+            pos.Add(SPEED_FAST.Copy().Mul(CurrentDirector().delta))
         Else
-            pos.Add(speedSlow.Copy().Mul(CurrentDirector().delta))
+            pos.Add(SPEED_SLOW.Copy().Mul(CurrentDirector().delta))
         End
     End
 
