@@ -13,6 +13,7 @@ Public
 #GLFW_WINDOW_WIDTH=480
 #GLFW_WINDOW_HEIGHT=720
 #IOS_ACCELEROMETER_ENABLED="false"
+#DISPLAY_LINK_ENABLED="true"
 
 Function Main:Int()
     Local director:Director = CurrentDirector()
