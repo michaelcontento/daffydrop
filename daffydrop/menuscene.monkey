@@ -48,11 +48,11 @@ Class MenuScene Extends Scene
         If KeyDown(KEY_H) Then CurrentDirector().scenes.Goto("highscore")
     End
 
-    Method OnTouchDown:Void(finger:Int, pos:Vector2D)
-        If easy.Collide(pos) Then PlayEasy()
-        If normal.Collide(pos) Then PlayNormal()
-        If advanced.Collide(pos) Then PlayAdvanced()
-        If highscore.Collide(pos) Then CurrentDirector().scenes.Goto("highscore")
+    Method OnTouchDown:Void(event:TouchEvent)
+        If easy.Collide(event.pos) Then PlayEasy()
+        If normal.Collide(event.pos) Then PlayNormal()
+        If advanced.Collide(event.pos) Then PlayAdvanced()
+        If highscore.Collide(event.pos) Then CurrentDirector().scenes.Goto("highscore")
     End
 
     Private
