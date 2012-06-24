@@ -86,7 +86,7 @@ Class GameScene Extends Scene
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
-        If event.pos.y >= slider.pos.y
+        If event.startPos.y >= slider.pos.y
             HandleSliderSwipe(event)
         Else
             HandleBackgroundSwipe(event)
