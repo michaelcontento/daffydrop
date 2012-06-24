@@ -27,7 +27,7 @@ Class GameScene Extends Scene
     Field errorAnimations:Layer
     Field score:Int
     Field gameOver:Bool
-    Field font:AngelFont = New AngelFont()
+    Field font:AngelFont
     Field lastMatchTime:Int[] = [0, 0, 0, 0]
     Field lastComboCounter:Int
     Field lastComboTime:Int
@@ -39,7 +39,6 @@ Class GameScene Extends Scene
 
     Method New()
         name = "game"
-        font.LoadFont("CoRa")
     End
 
     Method OnCreate:Void()
@@ -50,9 +49,9 @@ Class GameScene Extends Scene
         upperShapes = New Layer()
         errorAnimations = New Layer()
 
+        font = New AngelFont("CoRa")
         LoadHighscoreMinValue()
 
-        layer.Clear()
         layer.Add(New Sprite("bg_960x640.png"))
         layer.Add(lowerShapes)
         layer.Add(slider)

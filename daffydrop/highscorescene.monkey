@@ -10,17 +10,17 @@ Class HighscoreScene Extends Scene
     Private
 
     Field highscore:IntHighscore = New IntHighscore(10)
-    Field font:AngelFont = New AngelFont()
+    Field font:AngelFont
     Field backButton:Sprite
 
     Public
 
     Method New()
         name = "highscore"
-        font.LoadFont("CoRa")
     End
 
     Method OnCreate:Void()
+        font = New AngelFont("CoRa")
         layer.Add(New Sprite("highscore_bg.jpg"))
 
         backButton = New Sprite("back.png")

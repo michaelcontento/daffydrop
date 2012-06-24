@@ -14,7 +14,7 @@ Class NewHighscoreScene Extends Scene
 
     Field save:Sprite
     Field highscore:IntHighscore = New IntHighscore(10)
-    Field input:SimpleInput = New SimpleInput("Anonymous")
+    Field input:SimpleInput
     Const MAX_LENGTH:Int = 15
 
     Public
@@ -26,6 +26,8 @@ Class NewHighscoreScene Extends Scene
     End
 
     Method OnCreate:Void()
+        input = New SimpleInput("Anonymous")
+
         Local image:Sprite = New Sprite("newhighscore.png")
         image.Center()
         layer.Add(image)
