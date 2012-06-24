@@ -79,19 +79,45 @@ Class GameScene Extends Scene
         DetectComboTrigger()
         DropNewShapeIfRequested()
 
-        If KeyDown(KEY_B)
-            CurrentDirector().scenes.Goto("menu")
+        If KeyDown(KEY_B) Then CurrentDirector().scenes.Goto("menu")
+        If KeyDown(KEY_DOWN) Then FastDropMatchingShapes()
+        If KeyDown(KEY_LEFT) Then slider.SlideLeft()
+        If KeyDown(KEY_RIGHT) Then slider.SlideRight()
+    End
+
+    Method OnTouchUp:Void(event:TouchEvent)
+        If event.pos.y >= slider.pos.y
+            HandleSliderSwipe(event)
+        Else
+            HandleBackgroundSwipe(event)
         End
     End
 
     Method OnRender:Void()
         Super.OnRender()
+
         OnRenderScore()
         If gameOver Then OnRenderGameOver()
         OnRenderComboOverlay()
     End
 
     Private
+
+    Method HandleBackgroundSwipe:Void(event:TouchEvent)
+        Local swipe:Vector2D = event.startDelta.Normalize()
+        If swipe.y > 0.2 Then FastDropMatchingShapes()
+    End
+
+    Method HandleSliderSwipe:Void(event:TouchEvent)
+        Local swipe:Vector2D = event.startDelta.Normalize()
+        If Abs(swipe.x) <= 0.2 Then Return
+
+        If swipe.x < 0
+            slider.SlideLeft()
+        Else
+            slider.SlideRight()
+        End
+    End
 
     Method OnRenderScore:Void()
         font.DrawText("Score: " + score,
@@ -149,20 +175,26 @@ Class GameScene Extends Scene
         severity.ShapeDropped()
     End
 
-    Method CheckShapeCollisions:Void()
-        Local checkPosY:Int = CurrentDirector().size.y - (slider.images[0].Height() / 2) - 15
+    Method FastDropMatchingShapes:Void()
         Local shape:Shape
-        Local match:Bool
 
         For Local obj:Animationable = EachIn upperShapes
             shape = Shape(obj)
-            match = slider.Match(shape)
+            If shape.isFast Then Continue
+            If slider.Match(shape) Then shape.isFast = True
+        End
+    End
 
-            If match And KeyDown(KEY_DOWN) Then shape.isFast = True
+    Method CheckShapeCollisions:Void()
+        Local checkPosY:Int = CurrentDirector().size.y - (slider.images[0].Height() / 2) - 15
+        Local shape:Shape
+
+        For Local obj:Animationable = EachIn upperShapes
+            shape = Shape(obj)
             If shape.pos.y + shape.images[0].Height() < checkPosY Then Continue
 
             upperShapes.Remove(shape)
-            If Not match
+            If Not slider.Match(shape)
                 OnMissmatch(shape)
             Else
                 lowerShapes.Add(shape)

@@ -45,20 +45,22 @@ Class Slider Implements Animationable
         arrowLeft.pos = CurrentDirector().size.Copy().Sub(arrowLeft.size)
     End
 
-    Method OnUpdate:Void()
+    Method SlideLeft:Void()
         If movementActive Then Return
+        direction = LEFT
+        movementStart = Millisecs()
+        movementActive = True
+    End
 
-        If KeyDown(KEY_LEFT)
-            direction = LEFT
-            movementStart = Millisecs()
-            movementActive = True
-        End
+    Method SlideRight:Void()
+        If movementActive Then Return
+        direction = RIGHT
+        movementStart = Millisecs()
+        movementActive = True
+    End
 
-        If KeyDown(KEY_RIGHT)
-            direction = RIGHT
-            movementStart = Millisecs()
-            movementActive = True
-        End
+    Method pos:Vector2D() Property
+        Return arrowRight.pos
     End
 
     Method OnRender:Void()
@@ -83,6 +85,9 @@ Class Slider Implements Animationable
 
         arrowLeft.OnRender()
         arrowRight.OnRender()
+    End
+
+    Method OnUpdate:Void()
     End
 
     Private
