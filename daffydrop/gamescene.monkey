@@ -8,6 +8,7 @@ Import chute
 Import shape
 Import severity
 Import slider
+Import newhighscorescene
 
 Public
 
@@ -31,6 +32,8 @@ Class GameScene Extends Scene
     Field lastComboCounter:Int
     Field lastComboTime:Int
     Field backButton:Sprite
+    Field isNewHighscoreRecord:Bool
+    Field minHighscore:Int
 
     Public
 
@@ -46,6 +49,8 @@ Class GameScene Extends Scene
         slider = New Slider()
         upperShapes = New Layer()
         errorAnimations = New Layer()
+
+        LoadHighscoreMinValue()
 
         layer.Clear()
         layer.Add(New Sprite("bg_960x640.png"))
@@ -155,6 +160,12 @@ Class GameScene Extends Scene
     End
 
     Method OnRenderGameOver:Void()
+        If isNewHighscoreRecord
+            NewHighscoreScene(CurrentDirector().scenes.Get("newhighscore")).score = score
+            CurrentDirector().scenes.Goto("newhighscore")
+        Else
+            CurrentDirector().scenes.Goto("gameover")
+        End
     End
 
     Method CheckForGameOver:Void()
@@ -232,14 +243,26 @@ Class GameScene Extends Scene
         lastMatchTime = [0, 0, 0, 0]
 
         If lanesNotZero < 2 Then Return
-        score += 10 * lanesNotZero
+        IncrementScore(10 * lanesNotZero)
         lastComboTime = now
         lastComboCounter = lanesNotZero
     End
 
     Method OnMatch:Void(shape:Shape)
         lastMatchTime[shape.lane] = Millisecs()
-        score += 10
+        IncrementScore(10)
+    End
+
+    Method IncrementScore:Void(value:Int)
+        score += value
+
+        If Not isNewHighscoreRecord And score > minHighscore
+            isNewHighscoreRecord = True
+            OnNewHighscoreRecord()
+        End
+    End
+
+    Method OnNewHighscoreRecord:Void()
     End
 
     Method OnMissmatch:Void(shape:Shape)
@@ -253,5 +276,12 @@ Class GameScene Extends Scene
 
     Method RandomLane:Int()
         Return Int(Rnd() * 10) Mod 4
+    End
+
+    Method LoadHighscoreMinValue:Void()
+        Local highscore:IntHighscore = New IntHighscore(10)
+        highscore.Load()
+        minHighscore = highscore.Last().value
+        isNewHighscoreRecord = False
     End
 End

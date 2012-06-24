@@ -35,6 +35,16 @@ Class Severity
         Self.level = level
     End
 
+    Method ToString:String()
+        If level = EASY
+            Return "easy"
+        ElseIf level = NORMAL
+            Return "normal"
+        Else
+            Return "advanced"
+        End
+    End
+
     Method Restart:Void()
         ChuteMarkAsAdvanced()
         ShapeDropped()

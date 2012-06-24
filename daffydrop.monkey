@@ -3,10 +3,12 @@ Strict
 Private
 
 Import daffydrop.bono
-Import daffydrop.introscene
-Import daffydrop.menuscene
+Import daffydrop.gameoverscene
+Import daffydrop.newhighscorescene
 Import daffydrop.gamescene
 Import daffydrop.highscorescene
+Import daffydrop.introscene
+Import daffydrop.menuscene
 
 Public
 
@@ -22,6 +24,8 @@ Function Main:Int()
     director.scenes.Add(New IntroScene())
     director.scenes.Add(New MenuScene())
     director.scenes.Add(New GameScene())
+    director.scenes.Add(New GameOverScene())
+    director.scenes.Add(New NewHighscoreScene())
     director.scenes.Add(New HighscoreScene())
     director.Run()
     Return 0
