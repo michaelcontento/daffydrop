@@ -21,13 +21,16 @@ Class HighscoreScene Extends Scene
     End
 
     Method OnCreate:Void()
-        highscore.Load()
-        PrefillMissing()
         layer.Add(New Sprite("highscore_bg.jpg"))
 
         backButton = New Sprite("back.png")
         backButton.pos = CurrentDirector().size.Copy().Sub(backButton.size)
         layer.Add(backButton)
+    End
+
+    Method OnEnter:Void()
+        highscore.Load()
+        PrefillMissing()
     End
 
     Method OnRender:Void()
