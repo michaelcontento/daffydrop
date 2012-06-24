@@ -25,13 +25,15 @@ Class Slider Implements Animationable
 
     Public
 
-    Field images:Image[]
+    Global images:Image[]
     Const DURATION:Int = 500
     Const LEFT:Int = 1
     Const RIGHT:Int = 2
 
     Method New()
-        images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
+        If images.Length() = 0
+            images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
+        End
         config = New IntList()
         config.AddLast(TYPE_CIRCLE)
         config.AddLast(TYPE_PLUS)
