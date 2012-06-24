@@ -68,6 +68,12 @@ Class Slider Implements Animationable
         Local posY:Int = CurrentDirector().size.y - images[0].Height() - 60
         Local img:Image
 
+        PushMatrix()
+            SetColor(255, 255, 255)
+            DrawRect(posX, posY + images[config.First()].Height(),
+            CurrentDirector().size.x, CurrentDirector().size.y)
+        PopMatrix()
+
         If posX > 45
             img = images[config.Last()]
             DrawImage(img, (img.Width() * -1) + posX, posY)
