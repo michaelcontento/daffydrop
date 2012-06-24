@@ -17,6 +17,7 @@ Class Slider Implements Animationable
     Private
 
     Field config:IntList
+    Field configArray:Int[]
     Field arrowRight:Sprite
     Field arrowLeft:Sprite
     Field direction:Int
@@ -39,6 +40,7 @@ Class Slider Implements Animationable
         config.AddLast(TYPE_PLUS)
         config.AddLast(TYPE_STAR)
         config.AddLast(TYPE_TIRE)
+        configArray = config.ToArray()
 
         arrowRight = New Sprite("arrow_ingame.png")
         arrowRight.pos.y = CurrentDirector().size.y - arrowRight.size.y
@@ -122,10 +124,12 @@ Class Slider Implements Animationable
                 Local tmpType:Int = config.First()
                 config.RemoveFirst()
                 config.AddLast(tmpType)
+                configArray = config.ToArray()
             Else
                 Local tmpType:Int = config.Last()
                 config.RemoveLast()
                 config.AddFirst(tmpType)
+                configArray = config.ToArray()
             End
         End
 
@@ -134,10 +138,7 @@ Class Slider Implements Animationable
 
     Method Match:Bool(shape:Shape)
         If movementActive Then Return False
-
-        Local configArray:Int[] = config.ToArray()
         If shape.type = configArray[shape.lane] Then Return True
-
         Return False
     End
 End
