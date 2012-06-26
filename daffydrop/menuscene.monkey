@@ -30,12 +30,17 @@ Class MenuScene Extends Scene
         normal = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
         advanced = New Sprite("01_02-advanced.png", normal.pos.Copy().Add(offset))
         highscore = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
-        lock = New Sprite("locked.png", normal.pos)
 
         director.CenterX(easy)
         director.CenterX(normal)
         director.CenterX(advanced)
         director.CenterX(highscore)
+
+        ' The fuck! Ugly but it works ;)
+        Local pos:Vector2D = advanced.pos.Copy().Add(advanced.size).Sub(normal.pos).Div(2)
+        pos.y += normal.pos.y
+        lock = New Sprite("locked.png", pos)
+        lock.pos.y -= lock.center.y
 
         layer.Add(New Sprite("01_main.jpg"))
         layer.Add(easy)
