@@ -34,6 +34,7 @@ Class GameScene Extends Scene
     Field lastComboTime:Int
     Field backButton:Sprite
     Field isNewHighscoreRecord:Bool
+    Field pauseButton:Sprite
     Field minHighscore:Int
     Field pauseTime:Int
 
@@ -64,6 +65,11 @@ Class GameScene Extends Scene
         backButton = New Sprite("back.png")
         backButton.pos = director.size.Copy().Sub(backButton.size)
         layer.Add(backButton)
+
+        pauseButton = New Sprite("pause-button.png")
+        pauseButton.pos = director.size.Copy().Sub(pauseButton.size)
+        pauseButton.pos.y = 0
+        layer.Add(pauseButton)
     End
 
     Method OnEnter:Void()
@@ -111,6 +117,11 @@ Class GameScene Extends Scene
 
     Method OnTouchDown:Void(event:TouchEvent)
         If backButton.Collide(event.pos) Then scenes.Goto("menu")
+
+        If pauseButton.Collide(event.pos)
+            pauseTime = Millisecs()
+            scenes.Goto("pause")
+        End
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
