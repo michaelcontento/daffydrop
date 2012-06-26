@@ -86,8 +86,8 @@ Class GameScene Extends Scene
     Method OnUpdate:Void()
         Super.OnUpdate()
 
-        If gameOver Then Return
         CheckForGameOver()
+        If gameOver Then HandleGameOver()
 
         severity.OnUpdate()
         RemoveLostShapes()
@@ -99,9 +99,7 @@ Class GameScene Extends Scene
 
     Method OnRender:Void()
         Super.OnRender()
-
         OnRenderScore()
-        If gameOver Then OnRenderGameOver()
         OnRenderComboOverlay()
     End
 
@@ -187,7 +185,7 @@ Class GameScene Extends Scene
         PopMatrix()
     End
 
-    Method OnRenderGameOver:Void()
+    Method HandleGameOver:Void()
         If isNewHighscoreRecord
             NewHighscoreScene(scenes.Get("newhighscore")).score = score
             scenes.Goto("newhighscore")
@@ -310,6 +308,6 @@ Class GameScene Extends Scene
         Local highscore:IntHighscore = New IntHighscore(10)
         StateStore.Load(highscore)
         minHighscore = highscore.Last().value
-        isNewHighscoreRecord = False
+        isNewHighscoreRecord = Not (highscore.Count() = highscore.maxCount)
     End
 End
