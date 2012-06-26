@@ -64,8 +64,8 @@ Class MenuScene Extends Scene
 
     Method OnTouchDown:Void(event:TouchEvent)
         If easy.Collide(event.pos) Then PlayEasy()
-        If Not isLocked And normal.Collide(event.pos) Then PlayNormal()
-        If Not isLocked And advanced.Collide(event.pos) Then PlayAdvanced()
+        If normal.Collide(event.pos) Then PlayNormal()
+        If advanced.Collide(event.pos) Then PlayAdvanced()
         If highscore.Collide(event.pos) Then scenes.Goto("highscore")
     End
 
@@ -95,11 +95,13 @@ Class MenuScene Extends Scene
     End
 
     Method PlayNormal:Void()
+        If isLocked Then Return
         CurrentSeverity().Set(NORMAL)
         scenes.Goto("game")
     End
 
     Method PlayAdvanced:Void()
+        If isLocked Then Return
         CurrentSeverity().Set(ADVANCED)
         scenes.Goto("game")
     End
