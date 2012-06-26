@@ -18,6 +18,11 @@ Class GameOverScene Extends Scene
         layer.Add(image)
     End
 
+    Method OnRender:Void()
+        scenes.prevScene.OnRender()
+        Super.OnRender()
+    End
+
     Method OnTouchDown:Void(event:TouchEvent)
         scenes.Goto("menu")
     End

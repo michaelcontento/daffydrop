@@ -42,6 +42,7 @@ Class NewHighscoreScene Extends Scene
     End
 
     Method OnRender:Void()
+        scenes.prevScene.OnRender()
         Super.OnRender()
         input.Draw()
     End
