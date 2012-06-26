@@ -3,6 +3,7 @@ Strict
 Private
 
 Import bono
+Import bono.vendor.angelfont
 
 Public
 
@@ -29,7 +30,7 @@ Class HighscoreScene Extends Scene
     End
 
     Method OnEnter:Void()
-        highscore.Load()
+        StateStore.Load(highscore)
         PrefillMissing()
     End
 

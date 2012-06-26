@@ -4,7 +4,7 @@ Private
 
 Import mojo
 Import bono
-Import bono.angelfont.simpleinput
+Import bono.vendor.angelfont.simpleinput
 Import severity
 
 Public
@@ -54,9 +54,9 @@ Class NewHighscoreScene Extends Scene
     Method OnTouchDown:Void(event:TouchEvent)
         If save.Collide(event.pos)
             Local level:String = " (" + CurrentSeverity().ToString() + ")"
-            highscore.Load()
+            StateStore.Load(highscore)
             highscore.Add(input.text + level, score)
-            highscore.Save()
+            StateStore.Save(highscore)
             scenes.Goto("menu")
         End
     End

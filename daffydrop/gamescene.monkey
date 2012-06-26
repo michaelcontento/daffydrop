@@ -4,6 +4,7 @@ Private
 
 Import mojo
 Import bono
+Import bono.vendor.angelfont
 Import chute
 Import shape
 Import severity
@@ -277,7 +278,7 @@ Class GameScene Extends Scene
 
     Method LoadHighscoreMinValue:Void()
         Local highscore:IntHighscore = New IntHighscore(10)
-        highscore.Load()
+        StateStore.Load(highscore)
         minHighscore = highscore.Last().value
         isNewHighscoreRecord = False
     End
