@@ -50,6 +50,11 @@ Class Severity
         ShapeDropped()
     End
 
+    Method WarpTime:Void(diff:Int)
+        nextChuteAdvanceTime += diff
+        nextShapeDropTime += diff
+    End
+
     Method OnUpdate:Void()
         lastTime = Millisecs()
     End

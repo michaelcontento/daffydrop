@@ -35,6 +35,7 @@ Class GameScene Extends Scene
     Field backButton:Sprite
     Field isNewHighscoreRecord:Bool
     Field minHighscore:Int
+    Field pauseTime:Int
 
     Public
 
@@ -66,6 +67,11 @@ Class GameScene Extends Scene
     End
 
     Method OnEnter:Void()
+        If pauseTime > 0
+            OnEnterPaused()
+            Return
+        End
+
         score = 0
         gameOver = False
 
@@ -116,6 +122,14 @@ Class GameScene Extends Scene
     End
 
     Private
+
+    Method OnEnterPaused:Void()
+        Local diff:Int = Millisecs() - pauseTime
+        pauseTime = 0
+
+        lastComboTime += diff
+        severity.WarpTime(diff)
+    End
 
     Method HandleBackgroundSwipe:Void(event:TouchEvent)
         Local swipe:Vector2D = event.startDelta.Normalize()
