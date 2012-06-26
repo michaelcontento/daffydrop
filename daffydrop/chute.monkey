@@ -49,7 +49,9 @@ Class Chute Extends DisplayObject
             For Local posY:Int = 0 To height
                 DrawImage(bg, posX, posY)
             End
-            DrawImage(bottom, posX, height)
+            ' The end of the tube is a little bit wider and it's quite ugly if
+            ' it's aligned on the left
+            DrawImage(bottom, posX - 2, height)
         End
     End
 End
