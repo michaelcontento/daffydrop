@@ -12,7 +12,6 @@ Class HighscoreScene Extends Scene
 
     Field highscore:IntHighscore = New IntHighscore(10)
     Field font:AngelFont
-    Field backButton:Sprite
 
     Public
 
@@ -23,10 +22,6 @@ Class HighscoreScene Extends Scene
     Method OnCreate:Void()
         font = New AngelFont("CoRa")
         layer.Add(New Sprite("highscore_bg.jpg"))
-
-        backButton = New Sprite("back.png")
-        backButton.pos = director.size.Copy().Sub(backButton.size)
-        layer.Add(backButton)
     End
 
     Method OnEnter:Void()
@@ -44,12 +39,12 @@ Class HighscoreScene Extends Scene
         PopMatrix()
     End
 
-    Method OnUpdate:Void()
-        If KeyDown(KEY_B) Then scenes.Goto("menu")
+    Method OnKeyDown:Void(event:KeyEvent)
+        scenes.Goto("menu")
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        If backButton.Collide(event.pos) Then scenes.Goto("menu")
+        scenes.Goto("menu")
     End
 
     Private

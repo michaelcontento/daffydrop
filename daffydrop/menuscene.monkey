@@ -54,19 +54,26 @@ Class MenuScene Extends Scene
         layer.Add(lock)
     End
 
-    Method OnUpdate:Void()
-        If KeyDown(KEY_E) Then PlayEasy()
-        If KeyDown(KEY_N) Then PlayNormal()
-        If KeyDown(KEY_A) Then PlayAdvanced()
-        If KeyDown(KEY_H) Then scenes.Goto("highscore")
-        If KeyDown(KEY_L) Then toggleLock()
-    End
-
     Method OnTouchDown:Void(event:TouchEvent)
         If easy.Collide(event.pos) Then PlayEasy()
         If normal.Collide(event.pos) Then PlayNormal()
         If advanced.Collide(event.pos) Then PlayAdvanced()
         If highscore.Collide(event.pos) Then scenes.Goto("highscore")
+    End
+
+    Method OnKeyDown:Void(event:KeyEvent)
+        Select event.code
+        Case KEY_E
+            PlayEasy()
+        Case KEY_N
+            PlayNormal()
+        Case KEY_A
+            PlayAdvanced()
+        Case KEY_H
+            scenes.Goto("highscore")
+        Case KEY_L
+            toggleLock()
+        End
     End
 
     Private

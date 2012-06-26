@@ -23,6 +23,15 @@ Class PauseScene Extends Scene
         Super.OnRender()
     End
 
+    Method OnKeyDown:Void(event:KeyEvent)
+        Select event.code
+        Case KEY_SPACE, KEY_ENTER, KEY_P
+            scenes.Goto(scenes.prevScene)
+        Default
+            scenes.Goto("menu")
+        End
+    End
+
     Method OnTouchDown:Void(event:TouchEvent)
         scenes.Goto(scenes.prevScene)
     End

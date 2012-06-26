@@ -52,13 +52,21 @@ Class NewHighscoreScene Extends Scene
         input.Update()
     End
 
+    Method OnKeyDown:Void(event:KeyEvent)
+        If event.code = KEY_ENTER Then SaveAndContinue()
+    End
+
     Method OnTouchDown:Void(event:TouchEvent)
-        If save.Collide(event.pos)
-            Local level:String = " (" + CurrentSeverity().ToString() + ")"
-            StateStore.Load(highscore)
-            highscore.Add(input.text + level, score)
-            StateStore.Save(highscore)
-            scenes.Goto("menu")
-        End
+        If save.Collide(event.pos) Then SaveAndContinue()
+    End
+
+    Private
+
+    Method SaveAndContinue:Void()
+        Local level:String = " (" + CurrentSeverity().ToString() + ")"
+        StateStore.Load(highscore)
+        highscore.Add(input.text + level, score)
+        StateStore.Save(highscore)
+        scenes.Goto("menu")
     End
 End

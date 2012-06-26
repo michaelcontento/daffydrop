@@ -95,11 +95,6 @@ Class GameScene Extends Scene
         CheckShapeCollisions()
         DetectComboTrigger()
         DropNewShapeIfRequested()
-
-        If KeyDown(KEY_P) Then GotoPause()
-        If KeyDown(KEY_DOWN) Then FastDropMatchingShapes()
-        If KeyDown(KEY_LEFT) Then slider.SlideLeft()
-        If KeyDown(KEY_RIGHT) Then slider.SlideRight()
     End
 
     Method OnRender:Void()
@@ -110,8 +105,23 @@ Class GameScene Extends Scene
         OnRenderComboOverlay()
     End
 
+    Method OnKeyDown:Void(event:KeyEvent)
+        Select event.code
+        Case KEY_P
+            StartPause()
+        Case KEY_P
+            StartPause()
+        Case KEY_DOWN
+            FastDropMatchingShapes()
+        Case KEY_LEFT
+            slider.SlideLeft()
+        Case KEY_RIGHT
+            slider.SlideRight()
+        End
+    End
+
     Method OnTouchDown:Void(event:TouchEvent)
-        If pauseButton.Collide(event.pos) Then GotoPause()
+        If pauseButton.Collide(event.pos) Then StartPause()
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
@@ -124,7 +134,7 @@ Class GameScene Extends Scene
 
     Private
 
-    Method GotoPause:Void()
+    Method StartPause:Void()
         pauseTime = Millisecs()
         scenes.Goto("pause")
     End
