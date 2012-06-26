@@ -8,7 +8,7 @@ Import severity
 
 Public
 
-Class Chute Implements Animationable
+Class Chute Extends DisplayObject
     Private
 
     Field bottom:Image

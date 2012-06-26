@@ -13,7 +13,7 @@ Const TYPE_PLUS:Int = 1
 Const TYPE_STAR:Int = 2
 Const TYPE_TIRE:Int = 3
 
-Class Slider Implements Animationable
+Class Slider Extends DisplayObject
     Private
 
     Field config:IntList
@@ -23,6 +23,7 @@ Class Slider Implements Animationable
     Field direction:Int
     Field movementStart:Int
     Field movementActive:Bool
+    Field director:Director
 
     Public
 
@@ -31,7 +32,9 @@ Class Slider Implements Animationable
     Const LEFT:Int = 1
     Const RIGHT:Int = 2
 
-    Method New()
+    Method New(director:Director)
+        Self.director = director
+
         images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
         config = New IntList()
         config.AddLast(TYPE_CIRCLE)
@@ -41,10 +44,10 @@ Class Slider Implements Animationable
         configArray = config.ToArray()
 
         arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.pos.y = CurrentDirector().size.y - arrowRight.size.y
+        arrowRight.pos.y = director.size.y - arrowRight.size.y
 
         arrowLeft = New Sprite("arrow_ingame2.png")
-        arrowLeft.pos = CurrentDirector().size.Copy().Sub(arrowLeft.size)
+        arrowLeft.pos = director.size.Copy().Sub(arrowLeft.size)
     End
 
     Method SlideLeft:Void()
@@ -67,13 +70,12 @@ Class Slider Implements Animationable
 
     Method OnRender:Void()
         Local posX:Int = 45 + GetMovementOffset()
-        Local posY:Int = CurrentDirector().size.y - images[0].Height() - 60
+        Local posY:Int = director.size.y - images[0].Height() - 60
         Local img:Image
 
         PushMatrix()
             SetColor(255, 255, 255)
-            DrawRect(posX, posY + images[config.First()].Height(),
-            CurrentDirector().size.x, CurrentDirector().size.y)
+            DrawRect(posX, posY + images[config.First()].Height(), director.size.x, director.size.y)
         PopMatrix()
 
         If posX > 45

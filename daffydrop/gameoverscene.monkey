@@ -14,11 +14,11 @@ Class GameOverScene Extends Scene
 
     Method OnCreate:Void()
         Local image:Sprite = New Sprite("gameover.jpg")
-        image.Center()
+        director.Center(image)
         layer.Add(image)
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        CurrentDirector().scenes.Goto("menu")
+        scenes.Goto("menu")
     End
 End

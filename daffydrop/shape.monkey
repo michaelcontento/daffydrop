@@ -8,10 +8,11 @@ Import chute
 
 Public
 
-Class Shape Implements Animationable
+Class Shape Extends DisplayObject
     Private
 
     Field chute:Chute
+    Field director:Director
     Global SPEED_SLOW:Vector2D
     Global SPEED_FAST:Vector2D
 
@@ -19,11 +20,11 @@ Class Shape Implements Animationable
 
     Global images:Image[]
     Field isFast:Bool = False
-    Field pos:Vector2D
     Field type:Int
     Field lane:Int
 
-    Method New(type:Int, lane:Int, chute:Chute)
+    Method New(director:Director, type:Int, lane:Int, chute:Chute)
+        Self.director = director
         Self.type = type
         Self.lane = lane
         Self.chute = chute
@@ -31,6 +32,7 @@ Class Shape Implements Animationable
         If images.Length() = 0
             images = [LoadImage("circle_inside.png"), LoadImage("plus_inside.png"), LoadImage("star_inside.png"), LoadImage("tire_inside.png")]
         End
+
         Local posX:Int = 46 + (chute.bg.Width() * lane)
         Local posY:Int = chute.Height() - images[type].Height()
         pos = New Vector2D(posX, posY)
@@ -41,9 +43,9 @@ Class Shape Implements Animationable
 
     Method OnUpdate:Void()
         If isFast
-            pos.Add(SPEED_FAST.Copy().Mul(CurrentDirector().delta))
+            pos.Add(SPEED_FAST.Copy().Mul(director.delta))
         Else
-            pos.Add(SPEED_SLOW.Copy().Mul(CurrentDirector().delta))
+            pos.Add(SPEED_SLOW.Copy().Mul(director.delta))
         End
     End
 

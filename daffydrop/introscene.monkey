@@ -21,7 +21,7 @@ Class IntroScene Extends Scene
 
     Method OnCreate:Void()
         background = New Sprite("logo.jpg")
-        background.Center()
+        director.Center(background)
     End
 
     Method OnEnter:Void()
@@ -29,7 +29,7 @@ Class IntroScene Extends Scene
     End
 
     Method OnUpdate:Void()
-        If Millisecs() > timer Then CurrentDirector().scenes.Goto("menu")
+        If Millisecs() > timer Then scenes.Goto("menu")
     End
 
     Method OnRender:Void()

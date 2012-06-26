@@ -29,16 +29,16 @@ Class NewHighscoreScene Extends Scene
         input = New SimpleInput("Anonymous")
 
         Local image:Sprite = New Sprite("newhighscore.png")
-        image.Center()
+        director.Center(image)
         layer.Add(image)
 
         save = New Sprite("back.png")
-        save.pos = CurrentDirector().size.Copy().Sub(save.size)
-        save.CenterX()
+        save.pos = director.size.Copy().Sub(save.size)
+        director.CenterX(save)
         layer.Add(save)
 
-        input.x = CurrentDirector().center.x
-        input.y = CurrentDirector().center.y
+        input.x = director.center.x
+        input.y = director.center.y
     End
 
     Method OnRender:Void()
@@ -57,7 +57,7 @@ Class NewHighscoreScene Extends Scene
             highscore.Load()
             highscore.Add(input.text + level, score)
             highscore.Save()
-            CurrentDirector().scenes.Goto("menu")
+            scenes.Goto("menu")
         End
     End
 End

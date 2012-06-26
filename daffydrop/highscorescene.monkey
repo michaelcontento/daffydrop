@@ -24,7 +24,7 @@ Class HighscoreScene Extends Scene
         layer.Add(New Sprite("highscore_bg.jpg"))
 
         backButton = New Sprite("back.png")
-        backButton.pos = CurrentDirector().size.Copy().Sub(backButton.size)
+        backButton.pos = director.size.Copy().Sub(backButton.size)
         layer.Add(backButton)
     End
 
@@ -44,15 +44,11 @@ Class HighscoreScene Extends Scene
     End
 
     Method OnUpdate:Void()
-        If KeyDown(KEY_B)
-            CurrentDirector().scenes.Goto("menu")
-        End
+        If KeyDown(KEY_B) Then scenes.Goto("menu")
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        If backButton.Collide(event.pos)
-            CurrentDirector().scenes.Goto("menu")
-        End
+        If backButton.Collide(event.pos) Then scenes.Goto("menu")
     End
 
     Private
