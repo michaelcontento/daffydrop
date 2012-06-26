@@ -13,7 +13,9 @@ Class MenuScene Extends Scene
 
     Field easy:Sprite
     Field normal:Sprite
+    Field normalActive:Sprite
     Field advanced:Sprite
+    Field advancedActive:Sprite
     Field highscore:Sprite
     Field isLocked:Bool = True
     Field lock:Sprite
@@ -28,7 +30,9 @@ Class MenuScene Extends Scene
         Local offset:Vector2D = New Vector2D(0, 140)
         easy = New Sprite("01_02-easy.png", New Vector2D(0, 270))
         normal = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
+        normalActive = New Sprite("01_02-normal_active.png", normal.pos)
         advanced = New Sprite("01_02-advanced.png", normal.pos.Copy().Add(offset))
+        advancedActive = New Sprite("01_02-advanced_active.png", advanced.pos)
         highscore = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
 
         director.CenterX(easy)
@@ -71,8 +75,16 @@ Class MenuScene Extends Scene
         If isLocked
             isLocked = False
             layer.Remove(lock)
+            layer.Remove(normal)
+            layer.Remove(advanced)
+            layer.Add(normalActive)
+            layer.Add(advancedActive)
         Else
             isLocked = True
+            layer.Remove(normalActive)
+            layer.Remove(advancedActive)
+            layer.Add(normal)
+            layer.Add(advanced)
             layer.Add(lock)
         End
     End
