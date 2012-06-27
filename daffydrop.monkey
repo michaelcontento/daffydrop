@@ -22,6 +22,9 @@ Function Main:Int()
     Local director:Director = New Director(640, 960)
     director.inputController.touchFingers = 1
     director.inputController.touchRetainSize = 25
+#If TARGET="ios" Or TARGET="android"
+    director.inputController.trackKeys = False
+#End
     director.scenes.Add(New GameOverScene())
     director.scenes.Add(New GameScene())
     director.scenes.Add(New HighscoreScene())
