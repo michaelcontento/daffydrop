@@ -13,7 +13,7 @@ Const TYPE_PLUS:Int = 1
 Const TYPE_STAR:Int = 2
 Const TYPE_TIRE:Int = 3
 
-Class Slider Extends DisplayObject
+Class Slider Extends BaseObject
     Private
 
     Field config:IntList
@@ -23,7 +23,6 @@ Class Slider Extends DisplayObject
     Field direction:Int
     Field movementStart:Int
     Field movementActive:Bool
-    Field director:Director
 
     Public
 
@@ -32,9 +31,7 @@ Class Slider Extends DisplayObject
     Const LEFT:Int = 1
     Const RIGHT:Int = 2
 
-    Method New(director:Director)
-        Self.director = director
-
+    Method OnCreate:Void(director:Director)
         images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
         config = New IntList()
         config.AddLast(TYPE_CIRCLE)
@@ -48,6 +45,8 @@ Class Slider Extends DisplayObject
 
         arrowLeft = New Sprite("arrow_ingame2.png")
         arrowLeft.pos = director.size.Copy().Sub(arrowLeft.size)
+
+        Super.OnCreate(director)
     End
 
     Method SlideLeft:Void()
@@ -69,6 +68,7 @@ Class Slider Extends DisplayObject
     End
 
     Method OnRender:Void()
+        Super.OnRender()
         Local posX:Int = 45 + GetMovementOffset()
         Local posY:Int = director.size.y - images[0].Height() - 60
         Local img:Image
@@ -95,9 +95,6 @@ Class Slider Extends DisplayObject
 
         arrowLeft.OnRender()
         arrowRight.OnRender()
-    End
-
-    Method OnUpdate:Void()
     End
 
     Private

@@ -8,11 +8,10 @@ Import chute
 
 Public
 
-Class Shape Extends DisplayObject
+Class Shape Extends BaseObject
     Private
 
     Field chute:Chute
-    Field director:Director
     Global SPEED_SLOW:Vector2D
     Global SPEED_FAST:Vector2D
 
@@ -23,8 +22,7 @@ Class Shape Extends DisplayObject
     Field type:Int
     Field lane:Int
 
-    Method New(director:Director, type:Int, lane:Int, chute:Chute)
-        Self.director = director
+    Method New(type:Int, lane:Int, chute:Chute)
         Self.type = type
         Self.lane = lane
         Self.chute = chute
@@ -41,15 +39,17 @@ Class Shape Extends DisplayObject
         If Not SPEED_FAST Then SPEED_FAST = New Vector2D(0, 12)
     End
 
-    Method OnUpdate:Void()
+    Method OnUpdate:Void(delta:Float)
+        Super.OnUpdate(delta)
         If isFast
-            pos.Add(SPEED_FAST.Copy().Mul(director.delta))
+            pos.Add(SPEED_FAST.Copy().Mul(delta))
         Else
-            pos.Add(SPEED_SLOW.Copy().Mul(director.delta))
+            pos.Add(SPEED_SLOW.Copy().Mul(delta))
         End
     End
 
     Method OnRender:Void()
+        Super.OnRender()
         DrawImage(images[type], pos.x, pos.y)
     End
 End

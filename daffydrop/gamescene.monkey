@@ -13,7 +13,7 @@ Import newhighscorescene
 
 Public
 
-Class GameScene Extends Scene
+Class GameScene Extends BaseObject
     Private
 
     Const COMBO_DETECT_DURATION:Int = 250
@@ -23,9 +23,9 @@ Class GameScene Extends Scene
     Field severity:Severity
     Field chute:Chute
     Field slider:Slider
-    Field upperShapes:Layer
-    Field lowerShapes:Layer
-    Field errorAnimations:Layer
+    Field upperShapes:FanOut
+    Field lowerShapes:FanOut
+    Field errorAnimations:FanOut
     Field score:Int
     Field gameOver:Bool
     Field font:AngelFont
@@ -39,17 +39,13 @@ Class GameScene Extends Scene
 
     Public
 
-    Method New()
-        name = "game"
-    End
-
-    Method OnCreate:Void()
+    Method OnCreate:Void(director:Director)
         chute = New Chute()
-        lowerShapes = New Layer()
+        lowerShapes = New FanOut()
         severity = CurrentSeverity()
-        slider = New Slider(director)
-        upperShapes = New Layer()
-        errorAnimations = New Layer()
+        slider = New Slider()
+        upperShapes = New FanOut()
+        errorAnimations = New FanOut()
 
         font = New AngelFont("CoRa")
         LoadHighscoreMinValue()
@@ -65,6 +61,8 @@ Class GameScene Extends Scene
         pauseButton.pos = director.size.Copy().Sub(pauseButton.size)
         pauseButton.pos.y = 0
         layer.Add(pauseButton)
+
+        Super.OnCreate(director)
     End
 
     Method OnEnter:Void()
@@ -83,13 +81,13 @@ Class GameScene Extends Scene
         chute.Restart()
     End
 
-    Method OnUpdate:Void()
-        Super.OnUpdate()
+    Method OnUpdate:Void(delta:Float)
+        Super.OnUpdate(delta)
 
         CheckForGameOver()
         If gameOver Then HandleGameOver()
 
-        severity.OnUpdate()
+        severity.OnUpdate(delta)
         RemoveLostShapes()
         RemoveFinishedErroAnimations()
         CheckShapeCollisions()
@@ -104,6 +102,7 @@ Class GameScene Extends Scene
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
+        Super.OnKeyDown(event)
         Select event.code
         Case KEY_P
             StartPause()
@@ -119,10 +118,12 @@ Class GameScene Extends Scene
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
+        Super.OnTouchDown(event)
         If pauseButton.Collide(event.pos) Then StartPause()
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
+        Super.OnTouchUp(event)
         If event.startPos.y >= slider.pos.y
             HandleSliderSwipe(event)
         Else
@@ -134,7 +135,7 @@ Class GameScene Extends Scene
 
     Method StartPause:Void()
         pauseTime = Millisecs()
-        scenes.Goto("pause")
+        Router(director.handler).Goto("pause")
     End
 
     Method OnEnterPaused:Void()
@@ -187,10 +188,10 @@ Class GameScene Extends Scene
 
     Method HandleGameOver:Void()
         If isNewHighscoreRecord
-            NewHighscoreScene(scenes.Get("newhighscore")).score = score
-            scenes.Goto("newhighscore")
+            NewHighscoreScene(Router(director.handler).Get("newhighscore")).score = score
+            Router(director.handler).Goto("newhighscore")
         Else
-            scenes.Goto("gameover")
+            Router(director.handler).Goto("gameover")
         End
     End
 
@@ -203,7 +204,7 @@ Class GameScene Extends Scene
         Local directoySizeY:Int = director.size.y
         Local shape:Shape
 
-        For Local obj:Renderable = EachIn lowerShapes
+        For Local obj:DirectorEvents = EachIn lowerShapes
             shape = Shape(obj)
             If shape.pos.y > directoySizeY Then lowerShapes.Remove(shape)
         End
@@ -211,7 +212,7 @@ Class GameScene Extends Scene
 
     Method RemoveFinishedErroAnimations:Void()
         Local sprite:Sprite
-        For Local obj:Renderable = EachIn errorAnimations
+        For Local obj:DirectorEvents = EachIn errorAnimations
             sprite = Sprite(obj)
             If sprite.animationIsDone Then errorAnimations.Remove(sprite)
         End
@@ -219,14 +220,14 @@ Class GameScene Extends Scene
 
     Method DropNewShapeIfRequested:Void()
         If Not severity.ShapeShouldBeDropped() Then Return
-        upperShapes.Add(New Shape(director, RandomType(), RandomLane(), chute))
+        upperShapes.Add(New Shape(RandomType(), RandomLane(), chute))
         severity.ShapeDropped()
     End
 
     Method FastDropMatchingShapes:Void()
         Local shape:Shape
 
-        For Local obj:Renderable = EachIn upperShapes
+        For Local obj:DirectorEvents = EachIn upperShapes
             shape = Shape(obj)
             If shape.isFast Then Continue
             If slider.Match(shape) Then shape.isFast = True
@@ -237,7 +238,7 @@ Class GameScene Extends Scene
         Local checkPosY:Int = director.size.y - (slider.images[0].Height() / 2) - 15
         Local shape:Shape
 
-        For Local obj:Renderable = EachIn upperShapes
+        For Local obj:DirectorEvents = EachIn upperShapes
             shape = Shape(obj)
             If shape.pos.y + shape.images[0].Height() < checkPosY Then Continue
 

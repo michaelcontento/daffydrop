@@ -7,7 +7,7 @@ Import bono
 
 Public
 
-Class IntroScene Extends Scene
+Class IntroScene Extends NullObject
     Private
 
     Field background:Sprite
@@ -15,24 +15,20 @@ Class IntroScene Extends Scene
 
     Public
 
-    Method New()
-        name = "intro"
-    End
-
-    Method OnCreate:Void()
+    Method OnCreate:Void(director:Director)
         background = New Sprite("logo.jpg")
-        director.Center(background)
-    End
-
-    Method OnEnter:Void()
+        background.Center(director)
         timer = Millisecs() + 1500
+        Super.OnCreate(director)
     End
 
-    Method OnUpdate:Void()
-        If Millisecs() > timer Then scenes.Goto("menu")
+    Method OnUpdate:Void(delta:Float)
+        Super.OnUpdate(delta)
+        If Millisecs() > timer Then Router(director.handler).Goto("menu")
     End
 
     Method OnRender:Void()
+        Super.OnRender()
         Cls(255, 255, 255)
         background.OnRender()
     End

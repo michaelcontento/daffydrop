@@ -8,7 +8,7 @@ Import severity
 
 Public
 
-Class Chute Extends DisplayObject
+Class Chute Extends BaseObject
     Private
 
     Field bottom:Image
@@ -19,11 +19,12 @@ Class Chute Extends DisplayObject
 
     Field bg:Image
 
-    Method New()
+    Method OnCreate:Void(director:Director)
         bg = LoadImage("chute-bg.png")
         bottom = LoadImage("chute-bottom.png")
         severity = CurrentSeverity()
         Restart()
+        Super.OnCreate(director)
     End
 
     Method Restart:Void()
@@ -34,7 +35,8 @@ Class Chute Extends DisplayObject
         Return height
     End
 
-    Method OnUpdate:Void()
+    Method OnUpdate:Void(delta:Float)
+        Super.OnUpdate(delta)
         If severity.ChuteShouldAdvance()
             height += severity.ChuteAdvanceHeight()
             severity.ChuteMarkAsAdvanced()
@@ -42,6 +44,7 @@ Class Chute Extends DisplayObject
     End
 
     Method OnRender:Void()
+        Super.OnRender()
         Local posX:Int
         For Local lane:Int = 0 To 3
             posX = 46 + (bg.Width() * lane)

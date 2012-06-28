@@ -7,7 +7,7 @@ Import bono.vendor.angelfont
 
 Public
 
-Class HighscoreScene Extends Scene
+Class HighscoreScene Extends BaseObject
     Private
 
     Field highscore:IntHighscore = New IntHighscore(10)
@@ -15,23 +15,16 @@ Class HighscoreScene Extends Scene
 
     Public
 
-    Method New()
-        name = "highscore"
-    End
-
-    Method OnCreate:Void()
+    Method OnCreate:Void(director:Director)
         font = New AngelFont("CoRa")
         layer.Add(New Sprite("highscore_bg.jpg"))
-    End
-
-    Method OnEnter:Void()
         StateStore.Load(highscore)
         PrefillMissing()
+        Super.OnCreate(director)
     End
 
     Method OnRender:Void()
         Super.OnRender()
-
         PushMatrix()
             SetColor(255, 133, 0)
             Scale(1.5, 1.5)
@@ -40,11 +33,13 @@ Class HighscoreScene Extends Scene
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
-        scenes.Goto("menu")
+        Super.OnKeyDown(event)
+        Router(director.handler).Goto("menu")
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        scenes.Goto("menu")
+        Super.OnTouchDown(event)
+        Router(director.handler).Goto("menu")
     End
 
     Private

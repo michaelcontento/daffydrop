@@ -9,7 +9,7 @@ Import severity
 
 Public
 
-Class NewHighscoreScene Extends Scene
+Class NewHighscoreScene Extends BaseObject
     Private
 
     Field save:Sprite
@@ -21,42 +21,42 @@ Class NewHighscoreScene Extends Scene
 
     Field score:Int
 
-    Method New()
-        name = "newhighscore"
-    End
-
-    Method OnCreate:Void()
+    Method OnCreate:Void(director:Director)
         input = New SimpleInput("Anonymous")
 
         Local image:Sprite = New Sprite("newhighscore.png")
-        director.Center(image)
+        image.Center(director)
         layer.Add(image)
 
         save = New Sprite("back.png")
         save.pos = director.size.Copy().Sub(save.size)
-        director.CenterX(save)
+        save.CenterX(director)
         layer.Add(save)
 
         input.x = director.center.x
         input.y = director.center.y
+
+        Super.OnCreate(director)
     End
 
     Method OnRender:Void()
-        scenes.prevScene.OnRender()
         Super.OnRender()
+        Router(director.handler).previous.OnRender()
         input.Draw()
     End
 
-    Method OnUpdate:Void()
-        Super.OnUpdate()
+    Method OnUpdate:Void(delta:Float)
+        Super.OnUpdate(delta)
         input.Update()
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
+        Super.OnKeyDown(event)
         If event.code = KEY_ENTER Then SaveAndContinue()
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
+        Super.OnTouchDown(event)
         If save.Collide(event.pos) Then SaveAndContinue()
     End
 
@@ -67,6 +67,6 @@ Class NewHighscoreScene Extends Scene
         StateStore.Load(highscore)
         highscore.Add(input.text + level, score)
         StateStore.Save(highscore)
-        scenes.Goto("menu")
+        Router(director.handler).Goto("menu")
     End
 End

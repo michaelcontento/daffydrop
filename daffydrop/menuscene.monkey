@@ -8,7 +8,7 @@ Import severity
 
 Public
 
-Class MenuScene Extends Scene
+Class MenuScene Extends BaseObject
     Private
 
     Field easy:Sprite
@@ -22,11 +22,8 @@ Class MenuScene Extends Scene
 
     Public
 
-    Method New()
-        name = "menu"
-    End
 
-    Method OnCreate:Void()
+    Method OnCreate:Void(director:Director)
         Local offset:Vector2D = New Vector2D(0, 140)
         easy = New Sprite("01_02-easy.png", New Vector2D(0, 270))
         normal = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
@@ -35,10 +32,10 @@ Class MenuScene Extends Scene
         advancedActive = New Sprite("01_02-advanced_active.png", advanced.pos)
         highscore = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
 
-        director.CenterX(easy)
-        director.CenterX(normal)
-        director.CenterX(advanced)
-        director.CenterX(highscore)
+        easy.CenterX(director)
+        normal.CenterX(director)
+        advanced.CenterX(director)
+        highscore.CenterX(director)
 
         ' The fuck! Ugly but it works ;)
         Local pos:Vector2D = advanced.pos.Copy().Add(advanced.size).Sub(normal.pos).Div(2)
@@ -52,16 +49,20 @@ Class MenuScene Extends Scene
         layer.Add(advanced)
         layer.Add(highscore)
         layer.Add(lock)
+
+        Super.OnCreate(director)
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
+        Super.OnTouchDown(event)
         If easy.Collide(event.pos) Then PlayEasy()
         If normal.Collide(event.pos) Then PlayNormal()
         If advanced.Collide(event.pos) Then PlayAdvanced()
-        If highscore.Collide(event.pos) Then scenes.Goto("highscore")
+        If highscore.Collide(event.pos) Then Router(director.handler).Goto("highscore")
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
+        Super.OnKeyDown(event)
         Select event.code
         Case KEY_E
             PlayEasy()
@@ -70,7 +71,7 @@ Class MenuScene Extends Scene
         Case KEY_A
             PlayAdvanced()
         Case KEY_H
-            scenes.Goto("highscore")
+            Router(director.handler).Goto("highscore")
         Case KEY_L
             toggleLock()
         End
@@ -98,18 +99,18 @@ Class MenuScene Extends Scene
 
     Method PlayEasy:Void()
         CurrentSeverity().Set(EASY)
-        scenes.Goto("game")
+        Router(director.handler).Goto("game")
     End
 
     Method PlayNormal:Void()
         If isLocked Then Return
         CurrentSeverity().Set(NORMAL)
-        scenes.Goto("game")
+        Router(director.handler).Goto("game")
     End
 
     Method PlayAdvanced:Void()
         If isLocked Then Return
         CurrentSeverity().Set(ADVANCED)
-        scenes.Goto("game")
+        Router(director.handler).Goto("game")
     End
 End

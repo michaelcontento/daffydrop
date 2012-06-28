@@ -7,23 +7,21 @@ Import bono
 
 Public
 
-Class GameOverScene Extends Scene
-    Method New()
-        name = "gameover"
-    End
-
-    Method OnCreate:Void()
+Class GameOverScene Extends BaseObject
+    Method OnCreate:Void(director:Director)
         Local image:Sprite = New Sprite("gameover.jpg")
-        director.Center(image)
+        image.Center(director)
         layer.Add(image)
+        Super.OnCreate(director)
     End
 
     Method OnRender:Void()
-        scenes.prevScene.OnRender()
         Super.OnRender()
+        Router(director.handler).previous.OnRender()
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        scenes.Goto("menu")
+        Super.OnTouchDown(event)
+        Router(director.handler).Goto("menu")
     End
 End
