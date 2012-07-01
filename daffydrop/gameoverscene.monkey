@@ -7,26 +7,29 @@ Import bono
 
 Public
 
-Class GameOverScene Extends BaseObject
+Class GameOverScene Extends Partial
+    Private
+
+    Field overlay:Sprite
+
+    Public
+
     Method OnCreate:Void(director:Director)
-        Local image:Sprite = New Sprite("gameover.jpg")
-        image.Center(director)
-        layer.Add(image)
         Super.OnCreate(director)
+        overlay = New Sprite("gameover.jpg")
+        overlay.Center(director)
     End
 
     Method OnRender:Void()
-        Super.OnRender()
         Router(director.handler).previous.OnRender()
+        overlay.OnRender()
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        Super.OnTouchDown(event)
         Router(director.handler).Goto("menu")
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
-        Super.OnKeyDown(event)
         Router(director.handler).Goto("menu")
     End
 End

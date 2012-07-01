@@ -39,8 +39,8 @@ Class Shape Extends BaseObject
         If Not SPEED_FAST Then SPEED_FAST = New Vector2D(0, 12)
     End
 
-    Method OnUpdate:Void(delta:Float)
-        Super.OnUpdate(delta)
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
+        Super.OnUpdate(delta, frameTime)
         If isFast
             pos.Add(SPEED_FAST.Copy().Mul(delta))
         Else

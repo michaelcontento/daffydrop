@@ -4,20 +4,27 @@ Private
 
 Import mojo
 Import bono
+Import scene
 
 Public
 
-Class PauseScene Extends BaseObject
+Class PauseScene Extends Scene
+    Private
+
+    Field overlay:Sprite
+
+    Public
+
     Method OnCreate:Void(director:Director)
-        Local image:Sprite = New Sprite("pause.png")
-        image.Center(director)
-        layer.Add(image)
+        overlay = New Sprite("pause.png")
+        overlay.Center(director)
         Super.OnCreate(director)
     End
 
     Method OnRender:Void()
         Super.OnRender()
         Router(director.handler).previous.OnRender()
+        overlay.OnRender()
     End
 
     Method OnKeyDown:Void(event:KeyEvent)

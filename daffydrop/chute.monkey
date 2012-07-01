@@ -35,8 +35,8 @@ Class Chute Extends BaseObject
         Return height
     End
 
-    Method OnUpdate:Void(delta:Float)
-        Super.OnUpdate(delta)
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
+        Super.OnUpdate(delta, frameTime)
         If severity.ChuteShouldAdvance()
             height += severity.ChuteAdvanceHeight()
             severity.ChuteMarkAsAdvanced()

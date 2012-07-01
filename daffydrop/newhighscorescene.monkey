@@ -6,10 +6,11 @@ Import mojo
 Import bono
 Import bono.vendor.angelfont.simpleinput
 Import severity
+Import scene
 
 Public
 
-Class NewHighscoreScene Extends BaseObject
+Class NewHighscoreScene Extends Scene
     Private
 
     Field save:Sprite
@@ -45,8 +46,8 @@ Class NewHighscoreScene Extends BaseObject
         input.Draw()
     End
 
-    Method OnUpdate:Void(delta:Float)
-        Super.OnUpdate(delta)
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
+        Super.OnUpdate(delta, frameTime)
         input.Update()
     End
 

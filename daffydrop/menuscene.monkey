@@ -5,10 +5,11 @@ Private
 Import mojo
 Import bono
 Import severity
+Import scene
 
 Public
 
-Class MenuScene Extends BaseObject
+Class MenuScene Extends Scene
     Private
 
     Field easy:Sprite
@@ -21,7 +22,6 @@ Class MenuScene Extends BaseObject
     Field lock:Sprite
 
     Public
-
 
     Method OnCreate:Void(director:Director)
         Local offset:Vector2D = New Vector2D(0, 140)

@@ -9,11 +9,12 @@ Import chute
 Import shape
 Import severity
 Import slider
+Import scene
 Import newhighscorescene
 
 Public
 
-Class GameScene Extends BaseObject
+Class GameScene Extends Scene
     Private
 
     Const COMBO_DETECT_DURATION:Int = 250
@@ -81,13 +82,13 @@ Class GameScene Extends BaseObject
         chute.Restart()
     End
 
-    Method OnUpdate:Void(delta:Float)
-        Super.OnUpdate(delta)
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
+        Super.OnUpdate(delta, frameTime)
 
         CheckForGameOver()
         If gameOver Then HandleGameOver()
 
-        severity.OnUpdate(delta)
+        severity.OnUpdate(delta, frameTime)
         RemoveLostShapes()
         RemoveFinishedErroAnimations()
         CheckShapeCollisions()

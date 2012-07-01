@@ -7,7 +7,7 @@ Import bono
 
 Public
 
-Class IntroScene Extends NullObject
+Class IntroScene Extends Partial
     Private
 
     Field background:Sprite
@@ -22,8 +22,8 @@ Class IntroScene Extends NullObject
         Super.OnCreate(director)
     End
 
-    Method OnUpdate:Void(delta:Float)
-        Super.OnUpdate(delta)
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
+        Super.OnUpdate(delta, frameTime)
         If Millisecs() > timer Then Router(director.handler).Goto("menu")
     End
 
