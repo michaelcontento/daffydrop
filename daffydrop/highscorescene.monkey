@@ -7,7 +7,7 @@ Import bono.vendor.angelfont
 
 Public
 
-Class HighscoreScene Extends Partial
+Class HighscoreScene Extends Partial Implements RouterEvents
     Private
 
     Field background:Sprite
@@ -19,9 +19,15 @@ Class HighscoreScene Extends Partial
     Method OnCreate:Void(director:Director)
         font = New AngelFont("CoRa")
         background = New Sprite("highscore_bg.jpg")
+        Super.OnCreate(director)
+    End
+
+    Method OnEnter:Void()
         StateStore.Load(highscore)
         PrefillMissing()
-        Super.OnCreate(director)
+    End
+
+    Method OnLeave:Void()
     End
 
     Method OnRender:Void()

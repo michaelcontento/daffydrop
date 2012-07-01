@@ -14,7 +14,7 @@ Import newhighscorescene
 
 Public
 
-Class GameScene Extends Scene
+Class GameScene Extends Scene Implements RouterEvents
     Private
 
     Const COMBO_DETECT_DURATION:Int = 250
@@ -82,6 +82,13 @@ Class GameScene Extends Scene
         chute.Restart()
     End
 
+    Method OnPauseLeaveGame:Void()
+        pauseTime = 0
+    End
+
+    Method OnLeave:Void()
+    End
+
     Method OnUpdate:Void(delta:Float, frameTime:Float)
         Super.OnUpdate(delta, frameTime)
 
@@ -105,8 +112,6 @@ Class GameScene Extends Scene
     Method OnKeyDown:Void(event:KeyEvent)
         Super.OnKeyDown(event)
         Select event.code
-        Case KEY_P
-            StartPause()
         Case KEY_P
             StartPause()
         Case KEY_DOWN

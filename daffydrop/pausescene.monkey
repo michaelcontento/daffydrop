@@ -5,6 +5,7 @@ Private
 Import mojo
 Import bono
 Import scene
+Import gamescene
 
 Public
 
@@ -33,6 +34,7 @@ Class PauseScene Extends Scene
         Case KEY_SPACE, KEY_ENTER, KEY_P
             Router(director.handler).Goto(Router(director.handler).previousName)
         Default
+            GameScene(Router(director.handler).previous).OnPauseLeaveGame()
             Router(director.handler).Goto("menu")
         End
     End

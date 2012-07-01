@@ -10,7 +10,7 @@ Import scene
 
 Public
 
-Class NewHighscoreScene Extends Scene
+Class NewHighscoreScene Extends Scene Implements RouterEvents
     Private
 
     Field save:Sprite
@@ -21,6 +21,14 @@ Class NewHighscoreScene Extends Scene
     Public
 
     Field score:Int
+
+    Method OnEnter:Void()
+        EnableKeyboard()
+    End
+
+    Method OnLeave:Void()
+        DisableKeyboard()
+    End
 
     Method OnCreate:Void(director:Director)
         input = New SimpleInput("Anonymous")
