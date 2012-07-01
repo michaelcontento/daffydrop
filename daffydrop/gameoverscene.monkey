@@ -24,4 +24,9 @@ Class GameOverScene Extends BaseObject
         Super.OnTouchDown(event)
         Router(director.handler).Goto("menu")
     End
+
+    Method OnKeyDown:Void(event:KeyEvent)
+        Super.OnKeyDown(event)
+        Router(director.handler).Goto("menu")
+    End
 End
