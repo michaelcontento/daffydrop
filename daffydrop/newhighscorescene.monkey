@@ -23,11 +23,11 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
     Field score:Int
 
     Method OnEnter:Void()
-        EnableKeyboard()
+        director.inputController.trackKeys = True
     End
 
     Method OnLeave:Void()
-        DisableKeyboard()
+        director.inputController.trackKeys = False
     End
 
     Method OnCreate:Void(director:Director)

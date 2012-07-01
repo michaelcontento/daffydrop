@@ -36,9 +36,7 @@ Function Main:Int()
     Local director:Director = New Director(640, 960)
     director.inputController.touchFingers = 1
     director.inputController.touchRetainSize = 25
-#If TARGET="ios" Or TARGET="android"
     director.inputController.trackKeys = False
-#End
     director.Run(router)
     Return 0
 End
