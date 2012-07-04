@@ -27,14 +27,16 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
     End
 
     Method OnLeave:Void()
+#If TARGET<>"glfw" And TARGET<>"html5"
         director.inputController.trackKeys = False
+#End
     End
 
     Method OnCreate:Void(director:Director)
+        Local font:AngelFont = New AngelFont("CoRa")
         input = New SimpleInput("Anonymous")
 
         Local image:Sprite = New Sprite("newhighscore.png")
-        image.Center(director)
         layer.Add(image)
 
         save = New Sprite("back.png")
@@ -49,8 +51,8 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
     End
 
     Method OnRender:Void()
-        Super.OnRender()
         Router(director.handler).previous.OnRender()
+        Super.OnRender()
         input.Draw()
     End
 

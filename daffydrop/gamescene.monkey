@@ -133,6 +133,8 @@ Class GameScene Extends Scene Implements RouterEvents
             FastDropMatchingShapes()
         Case KEY_H
             Router(director.handler).Goto("gameover")
+        Case KEY_J
+            Router(director.handler).Goto("newhighscore")
         Case KEY_LEFT
             slider.SlideLeft()
         Case KEY_RIGHT

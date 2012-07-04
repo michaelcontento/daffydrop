@@ -34,7 +34,7 @@ Function Main:Int()
 #End
 
     Local director:Director = New Director(640, 960)
-#If TARGET="glfw"
+#If TARGET="glfw" Or TARGET="html5"
     director.inputController.trackKeys = True
 #End
     director.inputController.trackTouch = True
