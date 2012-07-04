@@ -19,7 +19,6 @@ Class GameOverScene Extends Partial
 
         overlay = New Sprite("gameover.png")
         overlay.OnCreate(director)
-        overlay.Center(director)
     End
 
     Method OnRender:Void()

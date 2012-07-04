@@ -131,6 +131,8 @@ Class GameScene Extends Scene Implements RouterEvents
             StartPause()
         Case KEY_DOWN
             FastDropMatchingShapes()
+        Case KEY_H
+            Router(director.handler).Goto("gameover")
         Case KEY_LEFT
             slider.SlideLeft()
         Case KEY_RIGHT
