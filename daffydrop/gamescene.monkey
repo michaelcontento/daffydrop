@@ -17,7 +17,7 @@ Public
 Class GameScene Extends Scene Implements RouterEvents
     Private
 
-    Const COMBO_DETECT_DURATION:Int = 250
+    Const COMBO_DETECT_DURATION:Int = 300
     Const COMBO_DISPLAY_DURATION:Int = 750
 
     Field severity:Severity
