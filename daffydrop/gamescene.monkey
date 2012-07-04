@@ -19,7 +19,6 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Const COMBO_DETECT_DURATION:Int = 250
     Const COMBO_DISPLAY_DURATION:Int = 750
-    Const COMBO_SCALE:Float = 150.0
 
     Field severity:Severity
     Field chute:Chute
@@ -29,14 +28,16 @@ Class GameScene Extends Scene Implements RouterEvents
     Field errorAnimations:FanOut
     Field score:Int
     Field gameOver:Bool
-    Field font:AngelFont
+    Field scoreFont:Font
+    Field comboFont:Font
+    Field comboAnimation:Animation
     Field lastMatchTime:Int[] = [0, 0, 0, 0]
-    Field lastComboCounter:Int
-    Field lastComboTime:Int
     Field isNewHighscoreRecord:Bool
     Field pauseButton:Sprite
     Field minHighscore:Int
     Field pauseTime:Int
+    Field comboPending:Bool
+    Field comboPendingSince:Int
 
     Public
 
@@ -48,7 +49,25 @@ Class GameScene Extends Scene Implements RouterEvents
         upperShapes = New FanOut()
         errorAnimations = New FanOut()
 
-        font = New AngelFont("CoRa")
+        scoreFont = New Font("CoRa")
+        scoreFont.pos = New Vector2D(director.center.x, director.size.y - 50)
+        scoreFont.text = "Score: 0"
+        scoreFont.align = Font.CENTER
+
+        comboFont = New Font("CoRa", director.center)
+        comboFont.text = "COMBO x 2"
+        comboFont.pos.x -= 70
+
+        ' FIXME: CENTER alignment is not handled properly :/
+        comboFont.pos.y -= 150
+        'comboFont.align = Font.CENTER
+
+        comboAnimation = New Animation(2, 0, COMBO_DISPLAY_DURATION)
+        comboAnimation.effect = New FaderScale()
+        comboAnimation.transition = New TransitionInCubic()
+        comboAnimation.Add(comboFont)
+        comboAnimation.Pause()
+
         LoadHighscoreMinValue()
 
         layer.Add(New Sprite("bg_960x640.png"))
@@ -57,6 +76,8 @@ Class GameScene Extends Scene Implements RouterEvents
         layer.Add(upperShapes)
         layer.Add(errorAnimations)
         layer.Add(chute)
+        layer.Add(scoreFont)
+        layer.Add(comboAnimation)
 
         pauseButton = New Sprite("pause-button.png")
         pauseButton.pos = director.size.Copy().Sub(pauseButton.size)
@@ -103,12 +124,6 @@ Class GameScene Extends Scene Implements RouterEvents
         DropNewShapeIfRequested()
     End
 
-    Method OnRender:Void()
-        Super.OnRender()
-        OnRenderScore()
-        OnRenderComboOverlay()
-    End
-
     Method OnKeyDown:Void(event:KeyEvent)
         Super.OnKeyDown(event)
         Select event.code
@@ -148,7 +163,6 @@ Class GameScene Extends Scene Implements RouterEvents
         Local diff:Int = Millisecs() - pauseTime
         pauseTime = 0
 
-        lastComboTime += diff
         severity.WarpTime(diff)
     End
 
@@ -166,30 +180,6 @@ Class GameScene Extends Scene Implements RouterEvents
         Else
             slider.SlideRight()
         End
-    End
-
-    Method OnRenderScore:Void()
-        font.DrawText("Score: " + score,
-            director.center.x,
-            director.size.y - 50,
-            AngelFont.ALIGN_CENTER)
-    End
-
-    Method OnRenderComboOverlay:Void()
-        If lastComboTime = 0 Then Return
-
-        Local delta:Int = (lastComboTime + COMBO_DISPLAY_DURATION) - Millisecs()
-        If delta < 0 Then
-            lastComboTime = 0
-            Return
-        End
-
-        Local scale:Float = COMBO_SCALE / COMBO_DISPLAY_DURATION * delta / 100.0
-        PushMatrix()
-            Translate(director.center.x, director.center.y)
-            Scale(scale, scale)
-            font.DrawText("COMBO x " + lastComboCounter, 0, 0, AngelFont.ALIGN_CENTER)
-        PopMatrix()
     End
 
     Method HandleGameOver:Void()
@@ -260,25 +250,35 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Method DetectComboTrigger:Void()
         Local lanesNotZero:Int
-        Local charge:Bool
+        Local hotLanes:Int
         Local now:Int = Millisecs()
 
-        For Local lane:Int = 0 To lastMatchTime.Length() - 1
+        For Local lane:Int = 0 Until lastMatchTime.Length()
             If lastMatchTime[lane] = 0 Then Continue
 
             lanesNotZero += 1
-            If lastMatchTime[lane] + COMBO_DETECT_DURATION < now
-                charge = True
+            If lastMatchTime[lane] + COMBO_DETECT_DURATION >= now
+                hotLanes += 1
+
+                If hotLanes >= 2 And Not comboPending
+                    comboPending = True
+                    comboPendingSince = now
+                End
+            Else
+                ' Reset cold lanes
+                If Not comboPending Then lastMatchTime[lane] = 0
             End
         End
 
-        If Not charge Then Return
-        lastMatchTime = [0, 0, 0, 0]
+        If Not comboPending Then Return
+        If comboPendingSince + COMBO_DETECT_DURATION > now Then Return
 
-        If lanesNotZero < 2 Then Return
+        lastMatchTime = [0, 0, 0, 0]
+        comboPending = False
+
         IncrementScore(10 * lanesNotZero)
-        lastComboTime = now
-        lastComboCounter = lanesNotZero
+        comboFont.text = "COMBO x " + lanesNotZero
+        comboAnimation.Restart()
     End
 
     Method OnMatch:Void(shape:Shape)
@@ -288,6 +288,7 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Method IncrementScore:Void(value:Int)
         score += value
+        scoreFont.text = "Score: " + score
 
         If Not isNewHighscoreRecord And score > minHighscore
             isNewHighscoreRecord = True
