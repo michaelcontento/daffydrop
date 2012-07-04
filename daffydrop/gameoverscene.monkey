@@ -16,7 +16,9 @@ Class GameOverScene Extends Partial
 
     Method OnCreate:Void(director:Director)
         Super.OnCreate(director)
-        overlay = New Sprite("gameover.jpg")
+
+        overlay = New Sprite("gameover.png")
+        overlay.OnCreate(director)
         overlay.Center(director)
     End
 

@@ -18,7 +18,7 @@ Class HighscoreScene Extends Partial Implements RouterEvents
 
     Method OnCreate:Void(director:Director)
         font = New AngelFont("CoRa")
-        background = New Sprite("highscore_bg.jpg")
+        background = New Sprite("highscore_bg.png")
         Super.OnCreate(director)
     End
 
