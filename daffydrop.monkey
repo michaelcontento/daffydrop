@@ -34,9 +34,12 @@ Function Main:Int()
 #End
 
     Local director:Director = New Director(640, 960)
+#If TARGET="glfw"
+    director.inputController.trackKeys = True
+#End
+    director.inputController.trackTouch = True
     director.inputController.touchFingers = 1
     director.inputController.touchRetainSize = 25
-    director.inputController.trackKeys = False
     director.Run(router)
     Return 0
 End
