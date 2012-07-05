@@ -33,12 +33,14 @@ Class GameScene Extends Scene Implements RouterEvents
     Field comboAnimation:Animation
     Field lastMatchTime:Int[] = [0, 0, 0, 0]
     Field isNewHighscoreRecord:Bool
+    Field falseSpriteStrack:Stack<Sprite> = New Stack<Sprite>()
     Field pauseButton:Sprite
     Field minHighscore:Int
     Field pauseTime:Int
     Field comboPending:Bool
     Field comboPendingSince:Int
     Field checkPosY:Float
+    Field collisionCheckedLastUpdate:Bool
 
     Public
 
@@ -115,7 +117,14 @@ Class GameScene Extends Scene Implements RouterEvents
         severity.OnUpdate(delta, frameTime)
 
         If HandleGameOver() Then Return
-        CheckShapeCollisions()
+
+        If collisionCheckedLastUpdate
+            collisionCheckedLastUpdate = False
+        Else
+            collisionCheckedLastUpdate = True
+            CheckShapeCollisions()
+        End
+
         DetectComboTrigger()
         DropNewShapeIfRequested()
 
@@ -228,7 +237,10 @@ Class GameScene Extends Scene Implements RouterEvents
         Local sprite:Sprite
         For Local obj:DirectorEvents = EachIn errorAnimations
             sprite = Sprite(obj)
-            If sprite.animationIsDone Then errorAnimations.Remove(sprite)
+            If sprite.animationIsDone
+                errorAnimations.Remove(sprite)
+                falseSpriteStrack.Push(sprite)
+            End
         End
     End
 
@@ -317,8 +329,17 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method OnMissmatch:Void(shape:Shape)
+        Local sprite:Sprite
+        If falseSpriteStrack.Length() > 0
+            sprite = falseSpriteStrack.Pop()
+        Else
+            sprite = New Sprite("false.png", 140, 88, 6, 100)
+        End
+        sprite.pos = shape.pos
+        sprite.Restart()
+
         lastMatchTime = [0, 0, 0, 0]
-        errorAnimations.Add(New Sprite("false.png", 140, 88, 6, 100, shape.pos))
+        errorAnimations.Add(sprite)
     End
 
     Method RandomType:Int()
