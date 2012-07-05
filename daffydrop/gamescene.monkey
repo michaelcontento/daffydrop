@@ -27,7 +27,7 @@ Class GameScene Extends Scene Implements RouterEvents
     Field lowerShapes:FanOut
     Field errorAnimations:FanOut
     Field score:Int
-    Field gameOver:Bool
+    Field lastSlowUpdate:Float
     Field scoreFont:Font
     Field comboFont:Font
     Field comboAnimation:Animation
@@ -38,6 +38,7 @@ Class GameScene Extends Scene Implements RouterEvents
     Field pauseTime:Int
     Field comboPending:Bool
     Field comboPendingSince:Int
+    Field checkPosY:Float
 
     Public
 
@@ -49,6 +50,10 @@ Class GameScene Extends Scene Implements RouterEvents
         upperShapes = New FanOut()
         errorAnimations = New FanOut()
 
+        pauseButton = New Sprite("pause-button.png")
+        pauseButton.pos = director.size.Copy().Sub(pauseButton.size)
+        pauseButton.pos.y = 0
+
         scoreFont = New Font("CoRa")
         scoreFont.pos = New Vector2D(director.center.x, director.size.y - 50)
         scoreFont.text = "Score: 0"
@@ -57,7 +62,6 @@ Class GameScene Extends Scene Implements RouterEvents
         comboFont = New Font("CoRa", director.center)
         comboFont.text = "COMBO x 2"
         comboFont.pos.x -= 70
-
         ' FIXME: CENTER alignment is not handled properly :/
         comboFont.pos.y -= 150
         'comboFont.align = Font.CENTER
@@ -78,13 +82,11 @@ Class GameScene Extends Scene Implements RouterEvents
         layer.Add(chute)
         layer.Add(scoreFont)
         layer.Add(comboAnimation)
-
-        pauseButton = New Sprite("pause-button.png")
-        pauseButton.pos = director.size.Copy().Sub(pauseButton.size)
-        pauseButton.pos.y = 0
         layer.Add(pauseButton)
 
         Super.OnCreate(director)
+
+        checkPosY = director.size.y - (slider.images[0].Height() / 2) - 15
     End
 
     Method OnEnter:Void()
@@ -94,8 +96,6 @@ Class GameScene Extends Scene Implements RouterEvents
         End
 
         score = 0
-        gameOver = False
-
         lowerShapes.Clear()
         upperShapes.Clear()
         errorAnimations.Clear()
@@ -112,29 +112,31 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
         Super.OnUpdate(delta, frameTime)
-
-        CheckForGameOver()
-        If gameOver Then HandleGameOver()
-
         severity.OnUpdate(delta, frameTime)
-        RemoveLostShapes()
-        RemoveFinishedErroAnimations()
+
+        If HandleGameOver() Then Return
         CheckShapeCollisions()
         DetectComboTrigger()
         DropNewShapeIfRequested()
+
+        lastSlowUpdate += frameTime
+        If lastSlowUpdate >= 1000
+            lastSlowUpdate = 0
+            RemoveLostShapes()
+            RemoveFinishedErroAnimations()
+        End
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
-        Super.OnKeyDown(event)
         Select event.code
         Case KEY_P
             StartPause()
         Case KEY_DOWN
             FastDropMatchingShapes()
         Case KEY_H
-            Router(director.handler).Goto("gameover")
+            router.Goto("gameover")
         Case KEY_J
-            Router(director.handler).Goto("newhighscore")
+            router.Goto("newhighscore")
         Case KEY_LEFT
             slider.SlideLeft()
         Case KEY_RIGHT
@@ -143,12 +145,19 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        Super.OnTouchDown(event)
         If pauseButton.Collide(event.pos) Then StartPause()
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
-        Super.OnTouchUp(event)
+        If event.endTime - event.startTime > 2000
+            If event.startPos.y >= slider.pos.y
+                router.Goto("gameover")
+            Else
+                router.Goto("newhighscore")
+            End
+            Return
+        End
+
         If event.startPos.y >= slider.pos.y
             HandleSliderSwipe(event)
         Else
@@ -156,11 +165,16 @@ Class GameScene Extends Scene Implements RouterEvents
         End
     End
 
+    Method OnTouchMove:Void(event:TouchEvent)
+        ' PERFORMANCE OPTIMIZATION
+        ' This prevents the event delegation to ALL object in the layer
+    End
+
     Private
 
     Method StartPause:Void()
         pauseTime = Millisecs()
-        Router(director.handler).Goto("pause")
+        router.Goto("pause")
     End
 
     Method OnEnterPaused:Void()
@@ -186,22 +200,22 @@ Class GameScene Extends Scene Implements RouterEvents
         End
     End
 
-    Method HandleGameOver:Void()
-        If isNewHighscoreRecord
-            NewHighscoreScene(Router(director.handler).Get("newhighscore")).score = score
-            Router(director.handler).Goto("newhighscore")
-        Else
-            Router(director.handler).Goto("gameover")
-        End
-    End
-
-    Method CheckForGameOver:Void()
+    Method HandleGameOver:Bool()
         Local sliderHeight:Int = director.size.y - slider.images[0].Height() - 40
-        gameOver = (chute.Height() >= sliderHeight)
+        If (chute.Height() < sliderHeight) Then Return False
+
+        If isNewHighscoreRecord
+            NewHighscoreScene(router.Get("newhighscore")).score = score
+            router.Goto("newhighscore")
+        Else
+            router.Goto("gameover")
+        End
+
+        Return True
     End
 
     Method RemoveLostShapes:Void()
-        Local directoySizeY:Int = director.size.y
+        Local directoySizeY:Float = director.size.y
         Local shape:Shape
 
         For Local obj:DirectorEvents = EachIn lowerShapes
@@ -235,7 +249,6 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method CheckShapeCollisions:Void()
-        Local checkPosY:Int = director.size.y - (slider.images[0].Height() / 2) - 15
         Local shape:Shape
 
         For Local obj:DirectorEvents = EachIn upperShapes

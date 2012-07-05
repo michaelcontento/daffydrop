@@ -10,12 +10,14 @@ Class Scene Extends Partial
     Private
 
     Field _layer:FanOut = New FanOut()
+    Field _router:Router
 
     Public
 
     Method OnCreate:Void(director:Director)
         Super.OnCreate(director)
         _layer.OnCreate(director)
+        _router = Router(director.handler)
     End
 
     Method OnLoading:Void()
@@ -64,5 +66,9 @@ Class Scene Extends Partial
 
     Method layer:FanOut() Property
         Return _layer
+    End
+
+    Method router:Router() Property
+        Return _router
     End
 End

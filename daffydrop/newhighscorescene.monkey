@@ -35,29 +35,28 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
     Method OnCreate:Void(director:Director)
         Local font:AngelFont = New AngelFont("CoRa")
         input = New SimpleInput("Anonymous")
+        input.x = director.center.x
+        input.y = director.center.y
 
         Local image:Sprite = New Sprite("newhighscore.png")
         layer.Add(image)
 
         save = New Sprite("back.png")
-        save.pos = director.size.Copy().Sub(save.size)
-        save.CenterX(director)
         layer.Add(save)
 
-        input.x = director.center.x
-        input.y = director.center.y
-
         Super.OnCreate(director)
+
+        save.pos = director.size.Copy().Sub(save.size)
+        save.CenterX(director)
     End
 
     Method OnRender:Void()
-        Router(director.handler).previous.OnRender()
+        router.previous.OnRender()
         Super.OnRender()
         input.Draw()
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
-        Super.OnUpdate(delta, frameTime)
         input.Update()
     End
 
@@ -67,7 +66,6 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        Super.OnTouchDown(event)
         If save.Collide(event.pos) Then SaveAndContinue()
     End
 
@@ -78,6 +76,6 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
         StateStore.Load(highscore)
         highscore.Add(input.text + level, score)
         StateStore.Save(highscore)
-        Router(director.handler).Goto("menu")
+        router.Goto("menu")
     End
 End

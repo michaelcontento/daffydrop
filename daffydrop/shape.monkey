@@ -31,8 +31,8 @@ Class Shape Extends BaseObject
             images = [LoadImage("circle_inside.png"), LoadImage("plus_inside.png"), LoadImage("star_inside.png"), LoadImage("tire_inside.png")]
         End
 
-        Local posX:Int = 46 + (chute.bg.Width() * lane)
-        Local posY:Int = chute.Height() - images[type].Height()
+        Local posX:Float = 46 + (chute.bg.Width() * lane)
+        Local posY:Float = chute.Height() - images[type].Height()
         pos = New Vector2D(posX, posY)
 
         If Not SPEED_SLOW Then SPEED_SLOW = New Vector2D(0, 4)
@@ -40,7 +40,6 @@ Class Shape Extends BaseObject
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
-        Super.OnUpdate(delta, frameTime)
         If isFast
             pos.Add(SPEED_FAST.Copy().Mul(delta))
         Else
@@ -49,7 +48,6 @@ Class Shape Extends BaseObject
     End
 
     Method OnRender:Void()
-        Super.OnRender()
         DrawImage(images[type], pos.x, pos.y)
     End
 End

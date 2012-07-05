@@ -2,12 +2,12 @@ Strict
 
 Private
 
-Import mojo
 Import bono
+Import scene
 
 Public
 
-Class GameOverScene Extends Partial
+Class GameOverScene Extends Scene
     Private
 
     Field overlay:Sprite
@@ -22,15 +22,15 @@ Class GameOverScene Extends Partial
     End
 
     Method OnRender:Void()
-        Router(director.handler).previous.OnRender()
+        router.previous.OnRender()
         overlay.OnRender()
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        Router(director.handler).Goto("menu")
+        router.Goto("menu")
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
-        Router(director.handler).Goto("menu")
+        router.Goto("menu")
     End
 End

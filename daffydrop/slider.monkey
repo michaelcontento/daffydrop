@@ -23,6 +23,7 @@ Class Slider Extends BaseObject
     Field direction:Int
     Field movementStart:Int
     Field movementActive:Bool
+    Field posY:Float
 
     Public
 
@@ -47,6 +48,8 @@ Class Slider Extends BaseObject
         arrowLeft.pos = director.size.Copy().Sub(arrowLeft.size)
 
         Super.OnCreate(director)
+
+        posY = director.size.y - images[0].Height() - 60
     End
 
     Method SlideLeft:Void()
@@ -68,9 +71,7 @@ Class Slider Extends BaseObject
     End
 
     Method OnRender:Void()
-        Super.OnRender()
-        Local posX:Int = 45 + GetMovementOffset()
-        Local posY:Int = director.size.y - images[0].Height() - 60
+        Local posX:Float = 45 + GetMovementOffset()
         Local img:Image
 
         PushMatrix()

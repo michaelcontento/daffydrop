@@ -55,7 +55,7 @@ Class Severity
         nextShapeDropTime += diff
     End
 
-    Method OnUpdate:Void(delta:Int, frameTime:Float)
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
         lastTime = Millisecs()
     End
 

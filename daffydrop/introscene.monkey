@@ -2,34 +2,36 @@ Strict
 
 Private
 
-Import mojo
+Import mojo.graphics
 Import bono
+Import scene
 
 Public
 
-Class IntroScene Extends Partial
+Class IntroScene Extends Scene
     Private
 
     Field background:Sprite
     Field timer:Int
+    Const DURATION:Int = 1500
 
     Public
 
     Method OnCreate:Void(director:Director)
         background = New Sprite("logo.jpg")
-        background.Center(director)
-        timer = Millisecs() + 1500
+        layer.Add(background)
+
         Super.OnCreate(director)
+        background.Center(director)
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
-        Super.OnUpdate(delta, frameTime)
-        If Millisecs() > timer Then Router(director.handler).Goto("menu")
+        If timer >= DURATION Then router.Goto("menu")
+        timer += frameTime
     End
 
     Method OnRender:Void()
-        Super.OnRender()
         Cls(255, 255, 255)
-        background.OnRender()
+        Super.OnRender()
     End
 End

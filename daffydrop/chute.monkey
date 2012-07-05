@@ -36,7 +36,6 @@ Class Chute Extends BaseObject
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
-        Super.OnUpdate(delta, frameTime)
         If severity.ChuteShouldAdvance()
             height += severity.ChuteAdvanceHeight()
             severity.ChuteMarkAsAdvanced()
@@ -44,12 +43,11 @@ Class Chute Extends BaseObject
     End
 
     Method OnRender:Void()
-        Super.OnRender()
-        Local posX:Int
+        Local posX:Float
         For Local lane:Int = 0 To 3
             posX = 46 + (bg.Width() * lane)
 
-            For Local posY:Int = 0 To height
+            For Local posY:Float = 0 To height
                 DrawImage(bg, posX, posY)
             End
             ' The end of the tube is a little bit wider and it's quite ugly if

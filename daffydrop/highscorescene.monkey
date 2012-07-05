@@ -4,10 +4,11 @@ Private
 
 Import bono
 Import bono.vendor.angelfont
+Import scene
 
 Public
 
-Class HighscoreScene Extends Partial Implements RouterEvents
+Class HighscoreScene Extends Scene Implements RouterEvents
     Private
 
     Field background:Sprite
@@ -18,7 +19,10 @@ Class HighscoreScene Extends Partial Implements RouterEvents
 
     Method OnCreate:Void(director:Director)
         font = New AngelFont("CoRa")
+
         background = New Sprite("highscore_bg.png")
+        background.OnCreate(director)
+
         Super.OnCreate(director)
     End
 
@@ -31,7 +35,6 @@ Class HighscoreScene Extends Partial Implements RouterEvents
     End
 
     Method OnRender:Void()
-        Super.OnRender()
         background.OnRender()
         PushMatrix()
             SetColor(255, 133, 0)
@@ -41,13 +44,11 @@ Class HighscoreScene Extends Partial Implements RouterEvents
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
-        Super.OnKeyDown(event)
-        Router(director.handler).Goto("menu")
+        router.Goto("menu")
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        Super.OnTouchDown(event)
-        Router(director.handler).Goto("menu")
+        router.Goto("menu")
     End
 
     Private

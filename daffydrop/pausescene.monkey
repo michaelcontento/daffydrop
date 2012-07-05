@@ -18,29 +18,28 @@ Class PauseScene Extends Scene
 
     Method OnCreate:Void(director:Director)
         overlay = New Sprite("pause.png")
-        overlay.Center(director)
+        layer.Add(overlay)
+
         Super.OnCreate(director)
+        overlay.Center(director)
     End
 
     Method OnRender:Void()
         Super.OnRender()
-        Router(director.handler).previous.OnRender()
-        overlay.OnRender()
+        router.previous.OnRender()
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
-        Super.OnKeyDown(event)
         Select event.code
         Case KEY_SPACE, KEY_ENTER, KEY_P
-            Router(director.handler).Goto(Router(director.handler).previousName)
+            router.Goto(router.previousName)
         Default
-            GameScene(Router(director.handler).previous).OnPauseLeaveGame()
-            Router(director.handler).Goto("menu")
+            GameScene(router.previous).OnPauseLeaveGame()
+            router.Goto("menu")
         End
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        Super.OnTouchDown(event)
-        Router(director.handler).Goto(Router(director.handler).previousName)
+        router.Goto(router.previousName)
     End
 End

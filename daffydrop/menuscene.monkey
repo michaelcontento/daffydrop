@@ -32,11 +32,6 @@ Class MenuScene Extends Scene
         advancedActive = New Sprite("01_02-advanced_active.png", advanced.pos)
         highscore = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
 
-        easy.CenterX(director)
-        normal.CenterX(director)
-        advanced.CenterX(director)
-        highscore.CenterX(director)
-
         ' The fuck! Ugly but it works ;)
         Local pos:Vector2D = advanced.pos.Copy().Add(advanced.size).Sub(normal.pos).Div(2)
         pos.y += normal.pos.y
@@ -51,18 +46,21 @@ Class MenuScene Extends Scene
         layer.Add(lock)
 
         Super.OnCreate(director)
+
+        easy.CenterX(director)
+        normal.CenterX(director)
+        advanced.CenterX(director)
+        highscore.CenterX(director)
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        Super.OnTouchDown(event)
         If easy.Collide(event.pos) Then PlayEasy()
         If normal.Collide(event.pos) Then PlayNormal()
         If advanced.Collide(event.pos) Then PlayAdvanced()
-        If highscore.Collide(event.pos) Then Router(director.handler).Goto("highscore")
+        If highscore.Collide(event.pos) Then router.Goto("highscore")
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
-        Super.OnKeyDown(event)
         Select event.code
         Case KEY_E
             PlayEasy()
@@ -71,7 +69,7 @@ Class MenuScene Extends Scene
         Case KEY_A
             PlayAdvanced()
         Case KEY_H
-            Router(director.handler).Goto("highscore")
+            router.Goto("highscore")
         Case KEY_L
             toggleLock()
         End
@@ -99,18 +97,18 @@ Class MenuScene Extends Scene
 
     Method PlayEasy:Void()
         CurrentSeverity().Set(EASY)
-        Router(director.handler).Goto("game")
+        router.Goto("game")
     End
 
     Method PlayNormal:Void()
         If isLocked Then Return
         CurrentSeverity().Set(NORMAL)
-        Router(director.handler).Goto("game")
+        router.Goto("game")
     End
 
     Method PlayAdvanced:Void()
         If isLocked Then Return
         CurrentSeverity().Set(ADVANCED)
-        Router(director.handler).Goto("game")
+        router.Goto("game")
     End
 End
