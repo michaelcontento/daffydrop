@@ -5,6 +5,7 @@ Private
 Import bono
 Import bono.vendor.angelfont
 Import scene
+Import gamehighscore
 
 Public
 
@@ -12,7 +13,7 @@ Class HighscoreScene Extends Scene Implements RouterEvents
     Private
 
     Field background:Sprite
-    Field highscore:IntHighscore = New IntHighscore(10)
+    Field highscore:GameHighscore = New GameHighscore()
     Field font:AngelFont
 
     Public
@@ -28,7 +29,6 @@ Class HighscoreScene Extends Scene Implements RouterEvents
 
     Method OnEnter:Void()
         StateStore.Load(highscore)
-        PrefillMissing()
     End
 
     Method OnLeave:Void()
@@ -53,18 +53,12 @@ Class HighscoreScene Extends Scene Implements RouterEvents
 
     Private
 
-    Method PrefillMissing:Void()
-        While highscore.Count() < highscore.maxCount
-            highscore.Add("..........", 0)
-        End
-    End
-
     Method DrawEntries:Void()
-        Local posY:Int = 180
+        Local posY:Int = 190
         For Local score:Score<Int> = EachIn highscore
-            posY += 30
-            font.DrawText(score.value, 130, posY, AngelFont.ALIGN_RIGHT)
-            font.DrawText(score.key, 140, posY)
+            font.DrawText(score.value, 100, posY, AngelFont.ALIGN_RIGHT)
+            font.DrawText(score.key, 110, posY)
+            posY += 35
         End
     End
 End

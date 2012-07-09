@@ -7,13 +7,14 @@ Import bono
 Import bono.vendor.angelfont.simpleinput
 Import severity
 Import scene
+Import gamehighscore
 
 Public
 
 Class NewHighscoreScene Extends Scene Implements RouterEvents
     Private
 
-    Field highscore:IntHighscore = New IntHighscore(10)
+    Field highscore:GameHighscore = New GameHighscore()
     Field continueBtn:Sprite
     Field input:SimpleInput
     Const MAX_LENGTH:Int = 15
@@ -75,9 +76,9 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
     Private
 
     Method SaveAndContinue:Void()
-        Local level:String = " (" + CurrentSeverity().ToString() + ")"
+        Local level:String = CurrentSeverity().ToString() + " "
         StateStore.Load(highscore)
-        highscore.Add(input.text + level, score)
+        highscore.Add(level + input.text, score)
         StateStore.Save(highscore)
         router.Goto("menu")
     End

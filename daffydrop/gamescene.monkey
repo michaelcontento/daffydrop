@@ -11,6 +11,7 @@ Import severity
 Import slider
 Import scene
 Import newhighscorescene
+Import gamehighscore
 
 Public
 
@@ -145,6 +146,7 @@ Class GameScene Extends Scene Implements RouterEvents
         Case KEY_H
             router.Goto("gameover")
         Case KEY_J
+            NewHighscoreScene(router.Get("newhighscore")).score = score
             router.Goto("newhighscore")
         Case KEY_LEFT
             slider.SlideLeft()
@@ -162,6 +164,7 @@ Class GameScene Extends Scene Implements RouterEvents
             If event.startPos.y >= slider.pos.y
                 router.Goto("gameover")
             Else
+                NewHighscoreScene(router.Get("newhighscore")).score = score
                 router.Goto("newhighscore")
             End
             Return
@@ -351,7 +354,7 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method LoadHighscoreMinValue:Void()
-        Local highscore:IntHighscore = New IntHighscore(10)
+        Local highscore:GameHighscore = New GameHighscore()
         StateStore.Load(highscore)
         minHighscore = highscore.Last().value
         isNewHighscoreRecord = Not (highscore.Count() = highscore.maxCount)

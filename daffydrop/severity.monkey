@@ -41,7 +41,7 @@ Class Severity
         ElseIf level = NORMAL
             Return "normal"
         Else
-            Return "advanced"
+            Return "adv."
         End
     End
 
