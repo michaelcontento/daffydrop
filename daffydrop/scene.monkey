@@ -6,13 +6,19 @@ Import bono
 
 Public
 
-Class Scene Extends Partial
+Class Scene Extends Partial Implements RouterEvents
     Private
 
     Field _layer:FanOut = New FanOut()
     Field _router:Router
 
     Public
+
+    Method OnEnter:Void()
+    End
+
+    Method OnLeave:Void()
+    End
 
     Method OnCreate:Void(director:Director)
         Super.OnCreate(director)
