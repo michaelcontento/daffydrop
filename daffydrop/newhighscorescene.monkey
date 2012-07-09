@@ -13,8 +13,8 @@ Public
 Class NewHighscoreScene Extends Scene Implements RouterEvents
     Private
 
-    Field save:Sprite
     Field highscore:IntHighscore = New IntHighscore(10)
+    Field continueBtn:Sprite
     Field input:SimpleInput
     Const MAX_LENGTH:Int = 15
 
@@ -22,32 +22,35 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
 
     Field score:Int
 
+    Method OnCreate:Void(director:Director)
+        Local font:AngelFont = New AngelFont("CoRa")
+        input = New SimpleInput("Anonymous")
+
+        Local background:Sprite = New Sprite("newhighscore.png")
+        layer.Add(background)
+
+        continueBtn = New Sprite("01_06-continue.png")
+        layer.Add(continueBtn)
+
+        Super.OnCreate(director)
+
+    End
+
     Method OnEnter:Void()
+#If TARGET<>"glfw" And TARGET<>"html5"
         director.inputController.trackKeys = True
+#End
+        input.x = 90
+        input.y = 430
+
+        continueBtn.CenterX(director)
+        continueBtn.pos.y = input.y + 100
     End
 
     Method OnLeave:Void()
 #If TARGET<>"glfw" And TARGET<>"html5"
         director.inputController.trackKeys = False
 #End
-    End
-
-    Method OnCreate:Void(director:Director)
-        Local font:AngelFont = New AngelFont("CoRa")
-        input = New SimpleInput("Anonymous")
-        input.x = director.center.x
-        input.y = director.center.y
-
-        Local image:Sprite = New Sprite("newhighscore.png")
-        layer.Add(image)
-
-        save = New Sprite("back.png")
-        layer.Add(save)
-
-        Super.OnCreate(director)
-
-        save.pos = director.size.Copy().Sub(save.size)
-        save.CenterX(director)
     End
 
     Method OnRender:Void()
@@ -66,7 +69,7 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
-        If save.Collide(event.pos) Then SaveAndContinue()
+        If continueBtn.Collide(event.pos) Then SaveAndContinue()
     End
 
     Private
