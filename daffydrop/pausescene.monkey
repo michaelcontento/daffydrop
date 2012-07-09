@@ -44,11 +44,11 @@ Class PauseScene Extends Scene
 
     Method OnKeyDown:Void(event:KeyEvent)
         Select event.code
-        Case KEY_SPACE, KEY_ENTER, KEY_P
-            router.Goto(router.previousName)
-        Default
+        Case KEY_ESCAPE, KEY_Q
             GameScene(router.previous).OnPauseLeaveGame()
             router.Goto("menu")
+        Default
+            router.Goto(router.previousName)
         End
     End
 
