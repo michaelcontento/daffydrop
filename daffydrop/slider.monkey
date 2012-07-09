@@ -18,8 +18,6 @@ Class Slider Extends BaseObject
 
     Field config:IntList
     Field configArray:Int[]
-    Field arrowRight:Sprite
-    Field arrowLeft:Sprite
     Field direction:Int
     Field movementStart:Int
     Field movementActive:Bool
@@ -27,6 +25,8 @@ Class Slider Extends BaseObject
 
     Public
 
+    Field arrowLeft:Sprite
+    Field arrowRight:Sprite
     Field images:Image[]
     Const DURATION:Int = 500
     Const LEFT:Int = 1
@@ -41,11 +41,11 @@ Class Slider Extends BaseObject
         config.AddLast(TYPE_TIRE)
         configArray = config.ToArray()
 
-        arrowRight = New Sprite("arrow_ingame.png")
-        arrowRight.pos.y = director.size.y - arrowRight.size.y
+        arrowLeft = New Sprite("arrow_ingame.png")
+        arrowLeft.pos.y = director.size.y - arrowLeft.size.y
 
-        arrowLeft = New Sprite("arrow_ingame2.png")
-        arrowLeft.pos = director.size.Copy().Sub(arrowLeft.size)
+        arrowRight = New Sprite("arrow_ingame2.png")
+        arrowRight.pos = director.size.Copy().Sub(arrowRight.size)
 
         Super.OnCreate(director)
 
@@ -67,7 +67,7 @@ Class Slider Extends BaseObject
     End
 
     Method pos:Vector2D() Property
-        Return arrowRight.pos
+        Return arrowLeft.pos
     End
 
     Method OnRender:Void()
@@ -94,8 +94,8 @@ Class Slider Extends BaseObject
             posX += images[type].Width()
         End
 
-        arrowLeft.OnRender()
         arrowRight.OnRender()
+        arrowLeft.OnRender()
     End
 
     Private
