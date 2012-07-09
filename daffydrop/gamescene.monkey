@@ -20,6 +20,7 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Const COMBO_DETECT_DURATION:Int = 300
     Const COMBO_DISPLAY_DURATION:Int = 750
+    Const NEW_HIGHSCORE_DISPLAY_DURATION:Int = 1500
 
     Field severity:Severity
     Field chute:Chute
@@ -27,9 +28,11 @@ Class GameScene Extends Scene Implements RouterEvents
     Field upperShapes:FanOut
     Field lowerShapes:FanOut
     Field errorAnimations:FanOut
+    Field newHighscoreAnimation:Animation
     Field score:Int
     Field lastSlowUpdate:Float
     Field scoreFont:Font
+    Field newHighscoreFont:Font
     Field comboFont:Font
     Field comboAnimation:Animation
     Field lastMatchTime:Int[] = [0, 0, 0, 0]
@@ -64,9 +67,9 @@ Class GameScene Extends Scene Implements RouterEvents
 
         comboFont = New Font("CoRa", director.center.Copy())
         comboFont.text = "COMBO x 2"
-        comboFont.pos.x -= 70
-        ' FIXME: CENTER alignment is not handled properly :/
         comboFont.pos.y -= 150
+        ' FIXME: CENTER alignment is not handled properly :/
+        comboFont.pos.x -= 70
         'comboFont.align = Font.CENTER
 
         comboAnimation = New Animation(2, 0, COMBO_DISPLAY_DURATION)
@@ -75,6 +78,19 @@ Class GameScene Extends Scene Implements RouterEvents
         comboAnimation.Add(comboFont)
         comboAnimation.Pause()
 
+        newHighscoreFont = New Font("CoRa", director.center.Copy())
+        newHighscoreFont.text = "NEW HIGHSCORE"
+        newHighscoreFont.pos.y /= 2
+        ' FIXME: CENTER alignment is not handled properly :/
+        newHighscoreFont.pos.x -= 120
+        'newHighscoreFont.align = Font.CENTER
+
+        newHighscoreAnimation = New Animation(2, 0, NEW_HIGHSCORE_DISPLAY_DURATION)
+        newHighscoreAnimation.effect = New FaderScale()
+        newHighscoreAnimation.transition = New TransitionInCubic()
+        newHighscoreAnimation.Add(newHighscoreFont)
+        newHighscoreAnimation.Pause()
+
         LoadHighscoreMinValue()
 
         layer.Add(New Sprite("bg_960x640.png"))
@@ -82,6 +98,7 @@ Class GameScene Extends Scene Implements RouterEvents
         layer.Add(slider)
         layer.Add(upperShapes)
         layer.Add(errorAnimations)
+        layer.Add(newHighscoreAnimation)
         layer.Add(chute)
         layer.Add(scoreFont)
         layer.Add(comboAnimation)
@@ -324,13 +341,10 @@ Class GameScene Extends Scene Implements RouterEvents
         score += value
         scoreFont.text = "Score: " + score
 
-        If Not isNewHighscoreRecord And score > minHighscore
+        If Not isNewHighscoreRecord And score >= minHighscore
             isNewHighscoreRecord = True
-            OnNewHighscoreRecord()
+            newHighscoreAnimation.Restart()
         End
-    End
-
-    Method OnNewHighscoreRecord:Void()
     End
 
     Method OnMissmatch:Void(shape:Shape)
