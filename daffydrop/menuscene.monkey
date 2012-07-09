@@ -24,8 +24,8 @@ Class MenuScene Extends Scene
     Public
 
     Method OnCreate:Void(director:Director)
-        Local offset:Vector2D = New Vector2D(0, 140)
-        easy = New Sprite("01_02-easy.png", New Vector2D(0, 270))
+        Local offset:Vector2D = New Vector2D(0, 150)
+        easy = New Sprite("01_02-easy.png", New Vector2D(0, 290))
         normal = New Sprite("01_02-normal.png", easy.pos.Copy().Add(offset))
         normalActive = New Sprite("01_02-normal_active.png", normal.pos)
         advanced = New Sprite("01_02-advanced.png", normal.pos.Copy().Add(offset))
