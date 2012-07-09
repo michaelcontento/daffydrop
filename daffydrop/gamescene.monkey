@@ -61,7 +61,7 @@ Class GameScene Extends Scene Implements RouterEvents
         scoreFont.text = "Score: 0"
         scoreFont.align = Font.CENTER
 
-        comboFont = New Font("CoRa", director.center)
+        comboFont = New Font("CoRa", director.center.Copy())
         comboFont.text = "COMBO x 2"
         comboFont.pos.x -= 70
         ' FIXME: CENTER alignment is not handled properly :/
