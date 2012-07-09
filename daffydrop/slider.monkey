@@ -76,7 +76,7 @@ Class Slider Extends BaseObject
 
         PushMatrix()
             SetColor(255, 255, 255)
-            DrawRect(posX, posY + images[config.First()].Height(), director.size.x, director.size.y)
+            DrawRect(0, posY + images[config.First()].Height(), director.size.x, director.size.y)
         PopMatrix()
 
         If posX > 46
