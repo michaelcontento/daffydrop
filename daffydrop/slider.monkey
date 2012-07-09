@@ -71,7 +71,7 @@ Class Slider Extends BaseObject
     End
 
     Method OnRender:Void()
-        Local posX:Float = 45 + GetMovementOffset()
+        Local posX:Float = 46 + GetMovementOffset()
         Local img:Image
 
         PushMatrix()
@@ -79,12 +79,12 @@ Class Slider Extends BaseObject
             DrawRect(posX, posY + images[config.First()].Height(), director.size.x, director.size.y)
         PopMatrix()
 
-        If posX > 45
+        If posX > 46
             img = images[config.Last()]
             DrawImage(img, (img.Width() * -1) + posX, posY)
         End
 
-        If posX < 45
+        If posX < 46
             img = images[config.First()]
             DrawImage(img, (img.Width() * 4) + posX, posY)
         End

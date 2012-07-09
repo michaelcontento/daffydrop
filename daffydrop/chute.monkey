@@ -30,7 +30,7 @@ Class Chute Extends BaseObject
     End
 
     Method Restart:Void()
-        height = 50
+        height = 75
     End
 
     Method Height:Int()
