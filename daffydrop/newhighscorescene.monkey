@@ -71,6 +71,6 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
         StateStore.Load(highscore)
         highscore.Add(level + input.text, score)
         StateStore.Save(highscore)
-        router.Goto("menu")
+        router.Goto("highscore")
     End
 End
