@@ -15,8 +15,14 @@ Public
 
 #GLFW_WINDOW_WIDTH=480
 #GLFW_WINDOW_HEIGHT=720
+
 #IOS_ACCELEROMETER_ENABLED="false"
-#DISPLAY_LINK_ENABLED="true"
+#IOS_DISPLAY_LINK_ENABLED="true"
+#IOS_RETINA_ENABLED="true"
+
+#ANDROID_APP_LABEL="DaffyDrop"
+#ANDROID_APP_PACKAGE="com.coragames.daffydrop"
+#ANDROID_NATIVE_GL_ENABLED="true"
 
 Function Main:Int()
     Local router:Router = New Router()
