@@ -28,7 +28,7 @@ Class Slider Extends BaseObject
     Field arrowLeft:Sprite
     Field arrowRight:Sprite
     Field images:Image[]
-    Const DURATION:Int = 500
+    Const DURATION:Int = 300
     Const LEFT:Int = 1
     Const RIGHT:Int = 2
 
