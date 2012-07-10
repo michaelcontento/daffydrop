@@ -34,6 +34,14 @@ Class HighscoreScene Extends Scene Implements RouterEvents
     Method OnLeave:Void()
     End
 
+#If TARGET<>"glfw" And TARGET<>"html5"
+    Field disableTimer:Float
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
+        disableTimer += frameTime
+        If disableTimer >= 500 Then director.inputController.trackKeys = False
+    End
+#End
+
     Method OnRender:Void()
         background.OnRender()
         PushMatrix()

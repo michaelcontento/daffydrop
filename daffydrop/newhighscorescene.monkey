@@ -10,7 +10,7 @@ Import gamehighscore
 
 Public
 
-Class NewHighscoreScene Extends Scene Implements RouterEvents
+Class NewHighscoreScene Extends Scene
     Private
 
     Field highscore:GameHighscore = New GameHighscore()
@@ -33,7 +33,6 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
         layer.Add(input)
 
         Super.OnCreate(director)
-
     End
 
     Method OnEnter:Void()
@@ -42,12 +41,6 @@ Class NewHighscoreScene Extends Scene Implements RouterEvents
 #End
         continueBtn.CenterX(director)
         continueBtn.pos.y = input.pos.y + 175
-    End
-
-    Method OnLeave:Void()
-#If TARGET<>"glfw" And TARGET<>"html5"
-        director.inputController.trackKeys = False
-#End
     End
 
     Method OnRender:Void()
