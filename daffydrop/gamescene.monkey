@@ -327,6 +327,7 @@ Class GameScene Extends Scene Implements RouterEvents
         lastMatchTime = [0, 0, 0, 0]
         comboPending = False
 
+        chute.height -= 20
         IncrementScore(10 * lanesNotZero)
         comboFont.text = "COMBO x " + lanesNotZero
         comboAnimation.Restart()
@@ -356,6 +357,7 @@ Class GameScene Extends Scene Implements RouterEvents
         End
         sprite.pos = shape.pos
         sprite.Restart()
+        chute.height += 10
 
         lastMatchTime = [0, 0, 0, 0]
         errorAnimations.Add(sprite)

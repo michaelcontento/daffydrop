@@ -30,21 +30,11 @@ Class Severity
     Field lastTime:Int
     Field shapeTypes:Int[] = [0, 1, 2, 3]
     Field lastTypes:IntStack = New IntStack()
-    Field activatedShapes:Int = 2
 
     Public
 
     Method Set:Void(level:Int)
         Self.level = level
-
-        Select level
-        Case EASY
-            activatedShapes = 2
-        Case NORMAL
-            activatedShapes = 3
-        Case ADVANCED
-            activatedShapes = 4
-        End
 
         lastTypes.Clear()
         RandomizeShapeTypes()
@@ -80,11 +70,24 @@ Class Severity
     End
 
     Method ChuteAdvanceHeight:Int()
-        Return 25
+        If level = EASY
+            Return 20
+        ElseIf level = NORMAL
+            Return 25
+        Else
+            Return 30
+        End
     End
 
     Method ChuteMarkAsAdvanced:Void()
-        nextChuteAdvanceTime = lastTime + 3000
+        Select level
+        Case EASY
+            nextChuteAdvanceTime = lastTime + Rnd(6000, 7000)
+        Case NORMAL
+            nextChuteAdvanceTime = lastTime + Rnd(5000, 6000)
+        Case ADVANCED
+            nextChuteAdvanceTime = lastTime + Rnd(4000, 5000)
+        End
     End
 
     Method ShapeShouldBeDropped:Bool()
@@ -96,6 +99,16 @@ Class Severity
     End
 
     Method RandomType:Int()
+        Local activatedShapes:Int
+        Select level
+        Case EASY
+            activatedShapes = 2
+        Case NORMAL
+            activatedShapes = 3
+        Case ADVANCED
+            activatedShapes = 4
+        End
+
         Local newType:Int
         Local finished:Bool
 

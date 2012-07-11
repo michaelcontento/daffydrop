@@ -13,11 +13,11 @@ Class Chute Extends BaseObject
 
     Field bottom:Image
     Field severity:Severity
-    Field height:Int
     Field width:Int
 
     Public
 
+    Field height:Int
     Field bg:Image
 
     Method OnCreate:Void(director:Director)
