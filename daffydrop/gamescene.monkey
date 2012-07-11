@@ -121,6 +121,7 @@ Class GameScene Extends Scene Implements RouterEvents
         errorAnimations.Clear()
         severity.Restart()
         chute.Restart()
+        slider.Restart()
     End
 
     Method OnPauseLeaveGame:Void()
@@ -232,8 +233,7 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method HandleGameOver:Bool()
-        Local sliderHeight:Int = director.size.y - slider.images[0].Height() - 40
-        If (chute.Height() < sliderHeight) Then Return False
+        If (chute.Height() < slider.arrowLeft.pos.y) Then Return False
 
         If isNewHighscoreRecord
             NewHighscoreScene(router.Get("newhighscore")).score = score
@@ -268,7 +268,7 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Method DropNewShapeIfRequested:Void()
         If Not severity.ShapeShouldBeDropped() Then Return
-        upperShapes.Add(New Shape(RandomType(), RandomLane(), chute))
+        upperShapes.Add(New Shape(severity.RandomType(), severity.RandomLane(), chute))
         severity.ShapeDropped()
     End
 
@@ -359,14 +359,6 @@ Class GameScene Extends Scene Implements RouterEvents
 
         lastMatchTime = [0, 0, 0, 0]
         errorAnimations.Add(sprite)
-    End
-
-    Method RandomType:Int()
-        Return Int(Rnd() * 10) Mod 4
-    End
-
-    Method RandomLane:Int()
-        Return Int(Rnd() * 10) Mod 4
     End
 
     Method LoadHighscoreMinValue:Void()

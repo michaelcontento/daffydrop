@@ -5,6 +5,7 @@ Private
 Import mojo
 Import bono
 Import shape
+Import severity
 
 Public
 
@@ -16,7 +17,7 @@ Const TYPE_TIRE:Int = 3
 Class Slider Extends BaseObject
     Private
 
-    Field config:IntList
+    Field config:IntList = New IntList()
     Field configArray:Int[]
     Field direction:Int
     Field movementStart:Int
@@ -34,12 +35,7 @@ Class Slider Extends BaseObject
 
     Method OnCreate:Void(director:Director)
         images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
-        config = New IntList()
-        config.AddLast(TYPE_CIRCLE)
-        config.AddLast(TYPE_PLUS)
-        config.AddLast(TYPE_STAR)
-        config.AddLast(TYPE_TIRE)
-        configArray = config.ToArray()
+        InitializeConfig()
 
         arrowLeft = New Sprite("arrow_ingame.png")
         arrowLeft.pos.y = director.size.y - arrowLeft.size.y
@@ -50,6 +46,12 @@ Class Slider Extends BaseObject
         Super.OnCreate(director)
 
         posY = director.size.y - images[0].Height() - 60
+    End
+
+    Method Restart:Void()
+        InitializeConfig()
+        movementActive = False
+        movementStart = 0
     End
 
     Method SlideLeft:Void()
@@ -138,5 +140,14 @@ Class Slider Extends BaseObject
         If movementActive Then Return False
         If shape.type = configArray[shape.lane] Then Return True
         Return False
+    End
+
+    Method InitializeConfig:Void()
+        config.Clear()
+        config.AddLast(CurrentSeverity().RandomType())
+        config.AddLast(CurrentSeverity().RandomType())
+        config.AddLast(CurrentSeverity().RandomType())
+        config.AddLast(CurrentSeverity().RandomType())
+        configArray = config.ToArray()
     End
 End

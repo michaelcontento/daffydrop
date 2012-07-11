@@ -28,11 +28,26 @@ Class Severity
     Field nextChuteAdvanceTime:Int
     Field nextShapeDropTime:Int
     Field lastTime:Int
+    Field shapeTypes:Int[] = [0, 1, 2, 3]
+    Field lastTypes:IntStack = New IntStack()
+    Field activatedShapes:Int = 2
 
     Public
 
     Method Set:Void(level:Int)
         Self.level = level
+
+        Select level
+        Case EASY
+            activatedShapes = 2
+        Case NORMAL
+            activatedShapes = 3
+        Case ADVANCED
+            activatedShapes = 4
+        End
+
+        lastTypes.Clear()
+        RandomizeShapeTypes()
     End
 
     Method ToString:String()
@@ -48,6 +63,7 @@ Class Severity
     Method Restart:Void()
         ChuteMarkAsAdvanced()
         ShapeDropped()
+        RandomizeShapeTypes()
     End
 
     Method WarpTime:Void(diff:Int)
@@ -77,5 +93,48 @@ Class Severity
 
     Method ShapeDropped:Void()
         nextShapeDropTime = lastTime + 1000
+    End
+
+    Method RandomType:Int()
+        Local newType:Int
+        Local finished:Bool
+
+        Repeat
+            finished = True
+            newType = Int(Rnd(0, activatedShapes))
+
+            If lastTypes.Length() >= 2
+                If lastTypes.Get(0) = newType
+                    If lastTypes.Get(1) = newType
+                        finished = False
+                    End
+                End
+            End
+        Until finished = True
+
+        If lastTypes.Length() >= 2 Then lastTypes.Remove(0)
+        lastTypes.Push(newType)
+        Return shapeTypes[newType]
+    End
+
+    Method RandomLane:Int()
+        Return Int(Rnd(0, 4))
+    End
+
+    Private
+
+    Method RandomizeShapeTypes:Void()
+        Local swapIndex:Int
+        Local tmpType:Int
+
+        For Local i:Int = 0 Until shapeTypes.Length()
+            Repeat
+                swapIndex = Int(Rnd(0, shapeTypes.Length()))
+            Until swapIndex <> i
+
+            tmpType = shapeTypes[i]
+            shapeTypes[i] = shapeTypes[swapIndex]
+            shapeTypes[swapIndex] = tmpType
+        End
     End
 End
