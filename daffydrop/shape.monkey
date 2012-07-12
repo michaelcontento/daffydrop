@@ -31,7 +31,7 @@ Class Shape Extends BaseObject
             images = [LoadImage("circle_inside.png"), LoadImage("plus_inside.png"), LoadImage("star_inside.png"), LoadImage("tire_inside.png")]
         End
 
-        Local posX:Float = 46 + (chute.bg.Width() * lane)
+        Local posX:Float = 46 + (images[0].Width() * lane)
         Local posY:Float = chute.Height() - images[type].Height()
         pos = New Vector2D(posX, posY)
 
