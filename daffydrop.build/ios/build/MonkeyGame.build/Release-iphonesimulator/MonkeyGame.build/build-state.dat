@@ -1,0 +1,224 @@
+TMonkeyGame
+v4
+r1
+cCheck dependencies
+cProcessInfoPlistFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/Info.plist MonkeyGame-Info.plist
+cCompileXIB /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
+cCpResource data build/Release-iphonesimulator/MonkeyGame.app/data
+cProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
+cLd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame normal i386
+cGenerateDSYMFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app.dSYM /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame
+cTouch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk
+c000000004F593CBA0000000000000110
+t1331248314
+s272
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/AVFoundation.framework/AVFoundation
+c000000004E7806CF000000000018D430
+t1316488911
+s1627184
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox
+c000000004E72F1F200000000002F4210
+t1316155890
+s3097104
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics
+c000000004E72F1CC0000000000245480
+t1316155852
+s2380928
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Foundation
+c000000004E72F2960000000000353830
+t1316156054
+s3487792
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
+c000000004E72F28F0000000000001534
+t1316156047
+s5428
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/OpenAL.framework/OpenAL
+c000000004E72F2280000000000029350
+t1316155944
+s168784
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/OpenGLES.framework/OpenGLES
+c000000004E72F52C000000000001D2E0
+t1316156716
+s119520
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/QuartzCore.framework/QuartzCore
+c000000004E72F69C00000000001A9D20
+t1316157084
+s1744160
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIKit.h
+c000000004E78066A0000000000000BCB
+t1316488810
+s3019
+
+N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/UIKit.framework/UIKit
+c000000004E7806AB00000000008F7390
+t1316488875
+s9401232
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
+c000000004FFF46D100000000000036DE
+t1342129873
+s14046
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch
+c000000004FFF46D100000000000000BD
+t1342129873
+s189
+i<Foundation/Foundation.h>
+i<UIKit/UIKit.h>
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/MonkeyGame.LinkFileList
+c000000004FFF46D200000000000000B0
+t1342129874
+s176
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o
+t1342130126
+s1119000
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app
+t1342130126
+s238
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app.dSYM
+t1342130126
+s102
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/Info.plist
+t1342129874
+s815
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MainWindow.nib
+t1342129875
+s1977
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame
+t1342130126
+s473844
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/PkgInfo
+t1342129874
+s8
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/data
+t1342130124
+s1190
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data
+c000000004FFF47EC000000000000050C
+t1342130156
+s1292
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.h
+c000000004FFF46D100000000000006F8
+t1342129873
+s1784
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm
+c000000004FFF47ED00000000000433A7
+t1342130157
+s275367
+
+N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth
+t1342129875
+s4712168
+
+NMonkeyGame-Info.plist
+c000000004FFF46D100000000000004AA
+t1342129873
+s1194
+
+CCheck dependencies
+r0
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection18"Check dependenciesd0b64e6d7fafb541^86af5b6d7fafb541^---0#1#0#--18"Check dependencies36"9AE01C86-9B6E-4C6B-807D-5A1FC8827156-
+
+CCompileC build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
+s363822957.498916
+e363822960.046911
+r1
+xCompileC
+xbuild/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm
+xnormal
+xi386
+xobjective-c++
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection100"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mmfce17f6d7fafb541^3a020c707fafb541^---0#0#0#-19%DVTDocumentLocation2@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3871"CompileC build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c++ -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wno-arc-abi -Wc++0x-extensions -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o36"BF20BED5-037E-4245-81CE-2E08109E6F1D-
+
+CCompileXIB /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
+s363822674.109888
+e363822675.105407
+r1
+xCompileXIB
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection109"Compiling /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib63461c527eafb541^dbfd1a537eafb541^---0#0#0#-19%DVTDocumentLocation2@115"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib0000000000000000^1358"CompileXIB MainWindow.xib    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv IBC_MINIMUM_COMPATIBILITY_VERSION 3.0    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    setenv XCODE_DEVELOPER_USR_PATH /Developer/usr/bin/..    /Developer/usr/bin/ibtool --errors --warnings --notices --output-format human-readable-text --compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MainWindow.nib /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib --sdk /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk36"BAA9B89A-D4BA-4BC0-B7F3-A4DEFC394384-
+
+CCpResource data build/Release-iphonesimulator/MonkeyGame.app/data
+s363822957.371678
+e363822957.485411
+r1
+xCpResource
+xdata
+xbuild/Release-iphonesimulator/MonkeyGame.app/data
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection54"Copy build/Release-iphonesimulator/MonkeyGame.app/datae1415f6d7fafb541^91437c6d7fafb541^---0#0#0#-19%DVTDocumentLocation2@151"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/data/0000000000000000^1203"CpResource data build/Release-iphonesimulator/MonkeyGame.app/data    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app36"37D99E8A-17BC-48EB-86F8-D95B5025DDE8-
+
+CGenerateDSYMFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app.dSYM /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame
+s363822960.101718
+e363822960.152490
+r1
+xGenerateDSYMFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app.dSYM
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection145"Generating /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app.dSYM14241a707fafb541^740927707fafb541^---0#0#0#-19%DVTDocumentLocation2@151"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app.dSYM/0000000000000000^1218"GenerateDSYMFile build/Release-iphonesimulator/MonkeyGame.app.dSYM build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/usr/bin/dsymutil /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app.dSYM36"149786BC-0941-464D-918C-7902DF27A3DA-
+
+CLd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame normal i386
+s363822960.053714
+e363822960.095483
+r1
+xLd
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame
+xnormal
+xi386
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection145"Link /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame0edc0d707fafb541^e77118707fafb541^---0#0#0#--1963"Ld build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame normal i386    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv MACOSX_DEPLOYMENT_TARGET 10.6    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang++ -arch i386 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -L/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -filelist /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/MonkeyGame.LinkFileList -mmacosx-version-min=10.6 -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -no_implicit_dylibs -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -framework Foundation -framework UIKit -framework CoreGraphics -framework OpenGLES -framework QuartzCore -framework OpenAL -framework AudioToolbox -framework AVFoundation -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/MonkeyGame36"943DC36E-CD6C-4297-ACA1-61DD524E3643-
+
+CProcessInfoPlistFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/Info.plist MonkeyGame-Info.plist
+s363822674.097109
+e363822674.102404
+r1
+xProcessInfoPlistFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/Info.plist
+xMonkeyGame-Info.plist
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection29"Process MonkeyGame-Info.plist72fc18527eafb541^d2361a527eafb541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame-Info.plist0000000000000000^1290"ProcessInfoPlistFile build/Release-iphonesimulator/MonkeyGame.app/Info.plist MonkeyGame-Info.plist    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-infoPlistUtility MonkeyGame-Info.plist -genpkginfo /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app/Info.plist36"6C8058A1-89F6-4A1E-9761-D02816B37762-
+
+CProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
+s363822675.113599
+e363822675.478305
+r1
+xProcessPCH++
+x/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth
+xMonkeyGame_Prefix.pch
+xnormal
+xi386
+xobjective-c++
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pch76351d537eafb541^43727a537eafb541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch0000000000000000^3794"ProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c++-header -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wno-arc-abi -Wc++0x-extensions -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/MonkeyGame.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.d36"8FA86FEF-51F7-4C4B-81D0-360049CB48E8-
+
+CTouch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app
+s363822960.161089
+e363822960.164502
+r1
+xTouch
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection135"Touch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app9c5329707fafb541^111d2a707fafb541^---0#0#0#--987"Touch build/Release-iphonesimulator/MonkeyGame.app    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /usr/bin/touch -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/MonkeyGame.app36"02BE505C-CF22-401A-944F-4C1B3AEFD998-
+

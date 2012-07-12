@@ -1,0 +1,745 @@
+TMonkeyGame
+v4
+r1
+cCheck dependencies
+cProcessInfoPlistFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Info.plist MonkeyGame-Info.plist
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources/English.lproj/InfoPlist.strings English.lproj/InfoPlist.strings
+cCpResource data build/Debug/MonkeyGame.app/Contents/Resources/data
+cProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 c++ com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/enable.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/enable.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/fullscreen.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/fullscreen.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/glext.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/glext.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/image.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/image.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/init.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/init.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/input.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/input.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/joystick.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/joystick.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stream.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/stream.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/tga.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/tga.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/thread.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/thread.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/time.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/time.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/window.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/window.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_enable.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_enable.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_fullscreen.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_glext.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_glext.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_init.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_joystick.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_joystick.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_thread.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_thread.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_time.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_time.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_window.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stb_image.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../stb/stb_image.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.cpp normal x86_64 c++ com.apple.compilers.llvm.clang.1_0.compiler
+cLd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/MacOS/MonkeyGame normal x86_64
+cTouch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app
+
+N/Developer/SDKs/MacOSX10.6.sdk
+c000000004F593CC100000000000000EE
+t1331248321
+s238
+
+N/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/Cocoa.framework/Headers/Cocoa.h
+c0000000040C4AA6800000000000001E5
+t1086630504
+s485
+
+N/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/OpenAL.framework/OpenAL
+c000000004E2F297D000000000000DA50
+t1311713661
+s55888
+
+N/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/OpenGL.framework/OpenGL
+c000000004E2F297E000000000000DB4C
+t1311713662
+s56140
+
+N/System/Library/Frameworks/Cocoa.framework/Cocoa
+c000000004EAB279F0000000000006560
+t1319839647
+s25952
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/../../include/GL/glfw.h
+c000000004FFDE2590000000000004D30
+t1342038617
+s19760
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_enable.m
+c000000004FFDE2590000000000000811
+t1342038617
+s2065
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m
+c000000004FFDE2590000000000001001
+t1342038617
+s4097
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_glext.m
+c000000004FFDE2590000000000000A14
+t1342038617
+s2580
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m
+c000000004FFDE2590000000000002502
+t1342038617
+s9474
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_joystick.m
+c000000004FFDE2590000000000000990
+t1342038617
+s2448
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_thread.c
+c000000004FFDE2590000000000002F09
+t1342038617
+s12041
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_time.m
+c000000004FFDE2590000000000000E97
+t1342038617
+s3735
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m
+c000000004FFDE259000000000000649B
+t1342038617
+s25755
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/platform.h
+c000000004FFDE2590000000000001D0A
+t1342038617
+s7434
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/enable.c
+c000000004FFDE2590000000000002170
+t1342038617
+s8560
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/fullscreen.c
+c000000004FFDE2590000000000000C97
+t1342038617
+s3223
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/glext.c
+c000000004FFDE2590000000000001A54
+t1342038617
+s6740
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/image.c
+c000000004FFDE2590000000000004597
+t1342038617
+s17815
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/init.c
+c000000004FFDE2590000000000000D54
+t1342038617
+s3412
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/input.c
+c000000004FFDE2590000000000001DC4
+t1342038617
+s7620
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/internal.h
+c000000004FFDE259000000000000260F
+t1342038617
+s9743
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/joystick.c
+c000000004FFDE2590000000000000CB0
+t1342038617
+s3248
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/stream.c
+c000000004FFDE25900000000000013EF
+t1342038617
+s5103
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/tga.c
+c000000004FFDE2590000000000002D6A
+t1342038617
+s11626
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/thread.c
+c000000004FFDE259000000000000257F
+t1342038617
+s9599
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/time.c
+c000000004FFDE2590000000000000AA3
+t1342038617
+s2723
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/window.c
+c000000004FFDE2590000000000007861
+t1342038617
+s30817
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.cpp
+c000000004FFF4DC80000000000083219
+t1342131656
+s537113
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.h
+c000000004FFDE2590000000000000282
+t1342038617
+s642
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../openal/include/al.h
+c000000004FFDE259000000000000674B
+t1342038617
+s26443
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../openal/include/alc.h
+c000000004FFDE259000000000000205A
+t1342038617
+s8282
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../stb/stb_image.c
+c000000004FFDE2590000000000028444
+t1342038617
+s164932
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/English.lproj/InfoPlist.strings
+c000000004FFDE259000000000000002D
+t1342038617
+s45
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame_Prefix.pch
+c000000004FFDE2590000000000000097
+t1342038617
+s151
+i<Cocoa/Cocoa.h>
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app
+t1342131457
+s102
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Info.plist
+t1342038618
+s1288
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/MacOS/MonkeyGame
+t1342131457
+s1378692
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/PkgInfo
+t1342038618
+s8
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources/English.lproj/InfoPlist.strings
+t1342038618
+s92
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources/data
+t1342131456
+s1292
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/MonkeyGame.LinkFileList
+c000000004FFDE25A0000000000000EB4
+t1342038618
+s3764
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_enable.o
+t1342038619
+s2488
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_fullscreen.o
+t1342038619
+s6840
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_glext.o
+t1342038619
+s3660
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_init.o
+t1342038619
+s29636
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_joystick.o
+t1342038619
+s3040
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_thread.o
+t1342038618
+s11144
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_time.o
+t1342038619
+s5116
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_window.o
+t1342038619
+s52208
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/enable.o
+t1342038618
+s7224
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/fullscreen.o
+t1342038618
+s3788
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/glext.o
+t1342038618
+s5708
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/image.o
+t1342038618
+s12552
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/init.o
+t1342038618
+s7172
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/input.o
+t1342038618
+s6600
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/joystick.o
+t1342038618
+s3448
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/main.o
+t1342131457
+s1727092
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stb_image.o
+t1342038618
+s163588
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stream.o
+t1342038618
+s7100
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/tga.o
+t1342038618
+s8720
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/thread.o
+t1342038618
+s9292
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/time.o
+t1342038618
+s2888
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/window.o
+t1342038618
+s19380
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/data
+c000000004FFF4DC8000000000000050C
+t1342131656
+s1292
+
+N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch.pth
+t1342038618
+s77728
+
+N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch.pth
+t1342038618
+s74144
+
+N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch.pth
+t1342038618
+s10323988
+
+NMonkeyGame-Info.plist
+c000000004FFDE25900000000000003EA
+t1342038617
+s1002
+
+CCheck dependencies
+r0
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection18"Check dependencies5dc5ea4885afb541^13ba234985afb541^---0#1#0#--18"Check dependencies36"73FA892B-D602-4D7C-9312-491B6F2755AC-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_enable.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_enable.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731419.031151
+e363731419.073604
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_enable.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_enable.m
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection132"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_enable.m422308db19aeb541^45da12db19aeb541^---0#0#0#-19%DVTDocumentLocation2@140"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_enable.m0000000000000000^2959"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_enable.o ../glfw/lib/cocoa/cocoa_enable.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_enable.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_enable.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_enable.o36"B3E452CC-9DEA-4ACA-85F6-01B139CB8A37-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_fullscreen.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731419.031207
+e363731419.127998
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_fullscreen.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m:79:33: warning: 'CGDisplayAvailableModes' is deprecated [-Wdeprecated-declarations,8]
+o     NSArray *modes = (NSArray *)CGDisplayAvailableModes( CGMainDisplayID() );
+o                                 ^
+o1 warning generated.
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection136"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m165008db19aeb541^3be220db19aeb541^-350"/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m:79:33: warning: 'CGDisplayAvailableModes' is deprecated [-Wdeprecated-declarations,8]     NSArray *modes = (NSArray *)CGDisplayAvailableModes( CGMainDisplayID() );                                 ^1 warning generated.1(21%IDEActivityLogMessage2@39"'CGDisplayAvailableModes' is deprecated-363731419#0#215#-1#-23%DVTTextDocumentLocation3@135"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/glfw/lib/cocoa/cocoa_fullscreen.m0000000000000000^78#32#78#32#18446744073709551615#0#12"Deprecations--0#0#0#-19%DVTDocumentLocation4@144"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m0000000000000000^2979"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_fullscreen.o ../glfw/lib/cocoa/cocoa_fullscreen.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_fullscreen.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_fullscreen.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_fullscreen.o36"00EC2B6F-5368-4613-B981-1350D0871C63-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_glext.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_glext.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731419.031959
+e363731419.113386
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_glext.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_glext.m
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection131"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_glext.mb05708db19aeb541^020e1ddb19aeb541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_glext.m0000000000000000^2954"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_glext.o ../glfw/lib/cocoa/cocoa_glext.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_glext.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_glext.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_glext.o36"38711E7B-4B0F-48DC-91E7-0A8513978DE4-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_init.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731419.074881
+e363731419.129033
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_init.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m:252:18: warning: 'CGDisplayCurrentMode' is deprecated [-Wdeprecated-declarations,8]
+o         (NSDictionary *)CGDisplayCurrentMode( CGMainDisplayID() );
+o                         ^
+o1 warning generated.
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection130"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m9c5113db19aeb541^3e0821db19aeb541^-323"/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m:252:18: warning: 'CGDisplayCurrentMode' is deprecated [-Wdeprecated-declarations,8]         (NSDictionary *)CGDisplayCurrentMode( CGMainDisplayID() );                         ^1 warning generated.1(21%IDEActivityLogMessage2@36"'CGDisplayCurrentMode' is deprecated-363731419#0#207#-1#-23%DVTTextDocumentLocation3@129"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/glfw/lib/cocoa/cocoa_init.m0000000000000000^251#17#251#17#18446744073709551615#0#12"Deprecations--0#0#0#-19%DVTDocumentLocation4@138"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m0000000000000000^2949"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_init.o ../glfw/lib/cocoa/cocoa_init.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_init.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_init.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_init.o36"F2C2CBB8-28BC-4512-B5CD-68282C24D4CF-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_joystick.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_joystick.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731419.117455
+e363731419.144869
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_joystick.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_joystick.m
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection134"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_joystick.m0d351edb19aeb541^922325db19aeb541^---0#0#0#-19%DVTDocumentLocation2@142"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_joystick.m0000000000000000^2969"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_joystick.o ../glfw/lib/cocoa/cocoa_joystick.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_joystick.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_joystick.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_joystick.o36"BFBF126D-5734-4548-87CE-759C11D90F55-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_thread.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_thread.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.630520
+e363731418.680225
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_thread.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_thread.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection132"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_thread.cf4c2a1da19aeb541^1328aeda19aeb541^---0#0#0#-19%DVTDocumentLocation2@140"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_thread.c0000000000000000^2776"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_thread.o ../glfw/lib/cocoa/cocoa_thread.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_thread.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_thread.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_thread.o36"6033BB99-5004-4164-A531-645F233679BB-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_time.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_time.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731419.129252
+e363731419.155828
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_time.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_time.m
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection130"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_time.me83221db19aeb541^8ae427db19aeb541^---0#0#0#-19%DVTDocumentLocation2@138"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_time.m0000000000000000^2949"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_time.o ../glfw/lib/cocoa/cocoa_time.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_time.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_time.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_time.o36"2FC72C75-A93A-4C9D-BD4E-4AFC884A1F23-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_window.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731419.129308
+e363731419.191337
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_window.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:474:13: warning: 'CGDisplayBestModeForParametersAndRefreshRateWithProperty' is deprecated [-Wdeprecated-declarations,8]
+o             CGDisplayBestModeForParametersAndRefreshRateWithProperty(
+o             ^
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:516:9: warning: 'CGDisplaySwitchToMode' is deprecated [-Wdeprecated-declarations,8]
+o         CGDisplaySwitchToMode( CGMainDisplayID(), fullscreenMode );
+o         ^
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:623:9: warning: 'CGDisplaySwitchToMode' is deprecated [-Wdeprecated-declarations,8]
+o         CGDisplaySwitchToMode( CGMainDisplayID(),
+o         ^
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:876:5: warning: 'CGSetLocalEventsSuppressionInterval' is deprecated [-Wdeprecated-declarations,8]
+o     CGSetLocalEventsSuppressionInterval( 0.0 );
+o     ^
+o4 warnings generated.
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection132"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.md13f21db19aeb541^cafb30db19aeb541^-1192"/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:474:13: warning: 'CGDisplayBestModeForParametersAndRefreshRateWithProperty' is deprecated [-Wdeprecated-declarations,8]             CGDisplayBestModeForParametersAndRefreshRateWithProperty(             ^/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:516:9: warning: 'CGDisplaySwitchToMode' is deprecated [-Wdeprecated-declarations,8]         CGDisplaySwitchToMode( CGMainDisplayID(), fullscreenMode );         ^/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:623:9: warning: 'CGDisplaySwitchToMode' is deprecated [-Wdeprecated-declarations,8]         CGDisplaySwitchToMode( CGMainDisplayID(),         ^/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m:876:5: warning: 'CGSetLocalEventsSuppressionInterval' is deprecated [-Wdeprecated-declarations,8]     CGSetLocalEventsSuppressionInterval( 0.0 );     ^4 warnings generated.4(21%IDEActivityLogMessage2@72"'CGDisplayBestModeForParametersAndRefreshRateWithProperty' is deprecated-363731419#0#245#-1#-23%DVTTextDocumentLocation3@131"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/glfw/lib/cocoa/cocoa_window.m0000000000000000^473#12#473#12#18446744073709551615#0#12"Deprecations--2@37"'CGDisplaySwitchToMode' is deprecated-363731419#331#209#-1#-3@131"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/glfw/lib/cocoa/cocoa_window.m0000000000000000^515#8#515#8#18446744073709551615#0#12"Deprecations--2@37"'CGDisplaySwitchToMode' is deprecated-363731419#620#209#-1#-3@131"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/glfw/lib/cocoa/cocoa_window.m0000000000000000^622#8#622#8#18446744073709551615#0#12"Deprecations--2@51"'CGSetLocalEventsSuppressionInterval' is deprecated-363731419#891#223#-1#-3@131"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/glfw/lib/cocoa/cocoa_window.m0000000000000000^875#4#875#4#18446744073709551615#0#12"Deprecations--0#0#0#-19%DVTDocumentLocation4@140"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m0000000000000000^2959"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_window.o ../glfw/lib/cocoa/cocoa_window.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_window.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/cocoa/cocoa_window.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/cocoa_window.o36"6427FAB3-812E-49E7-A654-B65EBB0712A9-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/enable.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/enable.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.263406
+e363731418.499271
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/enable.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/enable.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection120"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/enable.c008c43da19aeb541^fed17fda19aeb541^---0#0#0#-19%DVTDocumentLocation2@128"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/enable.c0000000000000000^2734"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/enable.o ../glfw/lib/enable.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/enable.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/enable.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/enable.o36"07746C39-F771-44FB-874A-68C2CF2A4DCB-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/fullscreen.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/fullscreen.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.263419
+e363731418.493217
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/fullscreen.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/fullscreen.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection124"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/fullscreen.cbd8b43da19aeb541^24437eda19aeb541^---0#0#0#-19%DVTDocumentLocation2@132"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/fullscreen.c0000000000000000^2754"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/fullscreen.o ../glfw/lib/fullscreen.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/fullscreen.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/fullscreen.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/fullscreen.o36"76E2D55C-2788-4139-A586-6137AB5D974D-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/glext.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/glext.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.263468
+e363731418.493214
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/glext.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/glext.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection119"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/glext.ce78d43da19aeb541^c7487eda19aeb541^---0#0#0#-19%DVTDocumentLocation2@127"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/glext.c0000000000000000^2729"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/glext.o ../glfw/lib/glext.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/glext.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/glext.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/glext.o36"C1012E1F-9F8D-402E-BC48-77FEB15520DC-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/image.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/image.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.494503
+e363731418.569734
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/image.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/image.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection119"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/image.c5fb57eda19aeb541^27da91da19aeb541^---0#0#0#-19%DVTDocumentLocation2@127"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/image.c0000000000000000^2729"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/image.o ../glfw/lib/image.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/image.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/image.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/image.o36"6EBAF93C-C9E6-4D1C-AD91-D844BDA23A54-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/init.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/init.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.494542
+e363731418.550848
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/init.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/init.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection118"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/init.c70b57eda19aeb541^e90f8dda19aeb541^---0#0#0#-19%DVTDocumentLocation2@126"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/init.c0000000000000000^2724"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/init.o ../glfw/lib/init.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/init.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/init.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/init.o36"6FA09BC8-5F9E-42D2-ADB7-CF8152589392-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/input.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/input.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.500535
+e363731418.552374
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/input.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/input.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection119"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/input.cdd4180da19aeb541^d26d8dda19aeb541^---0#0#0#-19%DVTDocumentLocation2@127"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/input.c0000000000000000^2729"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/input.o ../glfw/lib/input.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/input.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/input.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/input.o36"CEF8FED8-D98D-44AB-B6B7-49EA5FA53510-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/joystick.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/joystick.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.552142
+e363731418.583818
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/joystick.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/joystick.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection122"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/joystick.c8e758dda19aeb541^3a7595da19aeb541^---0#0#0#-19%DVTDocumentLocation2@130"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/joystick.c0000000000000000^2744"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/joystick.o ../glfw/lib/joystick.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/joystick.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/joystick.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/joystick.o36"D9EEB4D9-248C-4DEC-B09B-5D600432452A-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.cpp normal x86_64 c++ com.apple.compilers.llvm.clang.1_0.compiler
+s363824457.278644
+e363824458.579159
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/main.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.cpp
+xnormal
+xx86_64
+xc++
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection111"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.cpp6878474985afb541^3142944a85afb541^---0#0#0#-19%DVTDocumentLocation2@119"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.cpp0000000000000000^2750"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/main.o ../main.cpp normal x86_64 c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c++ -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wc++0x-extensions -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/main.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../main.cpp -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/main.o36"6F6A958A-1BB7-446D-9FDB-665DFCBD0A02-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stb_image.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../stb/stb_image.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.633633
+e363731418.802430
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stb_image.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../stb/stb_image.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection118"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../stb/stb_image.cdf52a2da19aeb541^666bcdda19aeb541^---0#0#0#-19%DVTDocumentLocation2@126"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../stb/stb_image.c0000000000000000^2739"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stb_image.o ../stb/stb_image.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stb_image.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../stb/stb_image.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stb_image.o36"387BA372-1647-4350-8337-D529C6DBA026-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stream.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/stream.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.553553
+e363731418.589359
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stream.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/stream.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection120"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/stream.cf7cd8dda19aeb541^05e196da19aeb541^---0#0#0#-19%DVTDocumentLocation2@128"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/stream.c0000000000000000^2734"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stream.o ../glfw/lib/stream.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stream.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/stream.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/stream.o36"519A0D86-F57E-41C4-B64F-1AFE5F6CB451-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/tga.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/tga.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.570978
+e363731418.622071
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/tga.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/tga.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection117"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/tga.cd44992da19aeb541^3e409fda19aeb541^---0#0#0#-19%DVTDocumentLocation2@125"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/tga.c0000000000000000^2719"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/tga.o ../glfw/lib/tga.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/tga.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/tga.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/tga.o36"30B7DEEA-85F5-4D6A-9405-5E0E4EA7FDED-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/thread.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/thread.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.585074
+e363731418.632484
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/thread.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/thread.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection120"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/thread.c3ae995da19aeb541^a7eba1da19aeb541^---0#0#0#-19%DVTDocumentLocation2@128"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/thread.c0000000000000000^2734"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/thread.o ../glfw/lib/thread.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/thread.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/thread.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/thread.o36"B303B26C-1393-4893-BC88-B42E273C66FA-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/time.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/time.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.590904
+e363731418.629249
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/time.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/time.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection118"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/time.c6f6397da19aeb541^3a20a1da19aeb541^---0#0#0#-19%DVTDocumentLocation2@126"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/time.c0000000000000000^2724"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/time.o ../glfw/lib/time.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/time.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/time.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/time.o36"7BC704B8-C6AB-4D1D-B974-F220E8C27E46-
+
+CCompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/window.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/window.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.623335
+e363731418.683341
+r1
+xCompileC
+xbuild/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/window.o
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/window.c
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection120"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/window.ce7c39fda19aeb541^a2efaeda19aeb541^---0#0#0#-19%DVTDocumentLocation2@128"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/window.c0000000000000000^2734"CompileC build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/window.o ../glfw/lib/window.c normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/window.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/../glfw/lib/window.c -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/window.o36"2239AA88-1D41-4FDF-A075-1A1AA01ED025-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources/English.lproj/InfoPlist.strings English.lproj/InfoPlist.strings
+s363731418.035733
+e363731418.086642
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources/English.lproj/InfoPlist.strings
+xEnglish.lproj/InfoPlist.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection36"Copy English.lproj/InfoPlist.strings464009da19aeb541^2c2e16da19aeb541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/English.lproj/InfoPlist.strings0000000000000000^502"CopyStringsFile build/Debug/MonkeyGame.app/Contents/Resources/English.lproj/InfoPlist.strings English.lproj/InfoPlist.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding UTF-16 --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources/English.lproj -- English.lproj/InfoPlist.strings36"B48995AA-A886-49DA-8D7B-8CE38EEB449A-
+
+CCpResource data build/Debug/MonkeyGame.app/Contents/Resources/data
+s363824457.157781
+e363824457.257452
+r1
+xCpResource
+xdata
+xbuild/Debug/MonkeyGame.app/Contents/Resources/data
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection55"Copy build/Debug/MonkeyGame.app/Contents/Resources/data707d284985afb541^e2e9414985afb541^---0#0#0#-19%DVTDocumentLocation2@159"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources/data/0000000000000000^513"CpResource data build/Debug/MonkeyGame.app/Contents/Resources/data    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/data /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Resources36"87CAB45A-2CB2-4549-A0E3-C87BBDAB8EEF-
+
+CLd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/MacOS/MonkeyGame normal x86_64
+s363824458.585442
+e363824458.644442
+r1
+xLd
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/MacOS/MonkeyGame
+xnormal
+xx86_64
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection149"Link /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/MacOS/MonkeyGame12fa954a85afb541^76fba44a85afb541^---0#0#0#--928"Ld build/Debug/MonkeyGame.app/Contents/MacOS/MonkeyGame normal x86_64    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv MACOSX_DEPLOYMENT_TARGET 10.6    /Developer/usr/bin/clang++ -arch x86_64 -isysroot /Developer/SDKs/MacOSX10.6.sdk -L/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -filelist /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/Objects-normal/x86_64/MonkeyGame.LinkFileList -mmacosx-version-min=10.6 -framework Cocoa -framework OpenGL -framework OpenAL -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/MacOS/MonkeyGame36"4108DA6A-73CC-467F-9F73-43852DD6B6AA-
+
+CProcessInfoPlistFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Info.plist MonkeyGame-Info.plist
+s363731418.024155
+e363731418.027963
+r1
+xProcessInfoPlistFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Info.plist
+xMonkeyGame-Info.plist
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection29"Process MonkeyGame-Info.plist9c4e06da19aeb541^412807da19aeb541^---0#0#0#-19%DVTDocumentLocation2@129"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame-Info.plist0000000000000000^568"ProcessInfoPlistFile build/Debug/MonkeyGame.app/Contents/Info.plist MonkeyGame-Info.plist    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    builtin-infoPlistUtility MonkeyGame-Info.plist -genpkginfo /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/PkgInfo -expandbuildsettings -platform macosx -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app/Contents/Info.plist36"6104639D-65EE-4385-B19F-FF70BFCD2731-
+
+CProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.228273
+e363731418.256338
+r1
+xProcessPCH
+x/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch.pth
+xMonkeyGame_Prefix.pch
+xnormal
+xx86_64
+xc
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pch96953ada19aeb541^47b041da19aeb541^---0#0#0#-19%DVTDocumentLocation2@129"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame_Prefix.pch0000000000000000^2657"ProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c-header -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-brkuqerbitrraucpdukqcncojgoo/MonkeyGame_Prefix.pch.d36"8548F5B9-5CD1-4376-9AC9-70F7E9F2E9D8-
+
+CProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.228275
+e363731419.024749
+r1
+xProcessPCH
+x/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch.pth
+xMonkeyGame_Prefix.pch
+xnormal
+xx86_64
+xobjective-c
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pcha7953ada19aeb541^265606db19aeb541^---0#0#0#-19%DVTDocumentLocation2@129"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame_Prefix.pch0000000000000000^2840"ProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x objective-c-header -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=gnu99 -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-dbicoqmnaejbjifaixtnxtengrov/MonkeyGame_Prefix.pch.d36"B0BB400A-9E14-4ADC-BEAF-8F318DBC5227-
+
+CProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 c++ com.apple.compilers.llvm.clang.1_0.compiler
+s363731418.228277
+e363731418.256773
+r1
+xProcessPCH++
+x/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch.pth
+xMonkeyGame_Prefix.pch
+xnormal
+xx86_64
+xc++
+xcom.apple.compilers.llvm.clang.1_0.compiler
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pchea953ada19aeb541^7bbb41da19aeb541^---0#0#0#-19%DVTDocumentLocation2@129"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame_Prefix.pch0000000000000000^2699"ProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal x86_64 c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    setenv LANG en_US.US-ASCII    /Developer/usr/bin/clang -x c++-header -arch x86_64 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -O0 -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wc++0x-extensions -isysroot /Developer/SDKs/MacOSX10.6.sdk -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-generated-files.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-own-target-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-all-target-headers.hmap -iquote /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/MonkeyGame-project-headers.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/include -I../glfw/include -I../glfw/lib -I../openal/include -I../glfw/lib/cocoa -I../stb -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources/x86_64 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/MonkeyGame.build/Debug/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-aofveedrcvwfloeaxieynbutoaqf/MonkeyGame_Prefix.pch.d36"538DA930-996B-4198-BD93-98A630B3C725-
+
+CTouch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app
+s363824458.651923
+e363824458.655265
+r1
+xTouch
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection124"Touch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app2bf7a64a85afb541^b6bfa74a85afb541^---0#0#0#--273"Touch build/Debug/MonkeyGame.app    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode    /usr/bin/touch -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/glfw/xcode/build/Debug/MonkeyGame.app36"EF4F50EE-DCA3-4F02-A282-4A930D62DFB5-
+

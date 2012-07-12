@@ -1,0 +1,6 @@
+# view AndroidManifest.xml #generated:17
+-keep class com.coragames.daffydrop.MonkeyGame { <init>(...); }
+
+# view res/layout/main.xml #generated:7
+-keep class com.coragames.daffydrop.MonkeyGame$MonkeyView { <init>(...); }
+
