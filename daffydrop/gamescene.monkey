@@ -20,7 +20,7 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Const COMBO_DETECT_DURATION:Int = 300
     Const COMBO_DISPLAY_DURATION:Int = 750
-    Const NEW_HIGHSCORE_DISPLAY_DURATION:Int = 1500
+    Const NEW_HIGHSCORE_DISPLAY_DURATION:Int = 2000
 
     Field severity:Severity
     Field chute:Chute
