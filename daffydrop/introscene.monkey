@@ -18,16 +18,25 @@ Class IntroScene Extends Scene
     Public
 
     Method OnCreate:Void(director:Director)
+#If TARGET<>"ios"
         background = New Sprite("logo.jpg")
         layer.Add(background)
+#End
 
         Super.OnCreate(director)
+
+#If TARGET<>"ios"
         background.Center(director)
+#End
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
+#If TARGET="ios"
+        router.Goto("menu")
+#Else
         If timer >= DURATION Then router.Goto("menu")
         timer += frameTime
+#End
     End
 
     Method OnRender:Void()
