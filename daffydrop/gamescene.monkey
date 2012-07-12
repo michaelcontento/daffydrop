@@ -342,10 +342,10 @@ Class GameScene Extends Scene Implements RouterEvents
         layer.Add(comboAnimation)
     End
 
-    Method OnRender:Void()
-        Super.OnRender()
-        DrawText("SLODOWN: " + CurrentSeverity().progress, 100, 100)
-    End
+    'Method OnRender:Void()
+    '    Super.OnRender()
+    '    DrawText("SLODOWN: " + CurrentSeverity().progress, 100, 100)
+    'End
 
     Method OnMatch:Void(shape:Shape)
         lastMatchTime[shape.lane] = Millisecs()
