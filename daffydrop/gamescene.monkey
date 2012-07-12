@@ -153,10 +153,10 @@ Class GameScene Extends Scene Implements RouterEvents
             RemoveLostShapes()
             RemoveFinishedErroAnimations()
 
-            If Not comboAnimation.isPlaying()
+            If Not comboAnimation.IsPlaying()
                 layer.Remove(comboAnimation)
             End
-            If Not newHighscoreAnimation.isPlaying()
+            If Not newHighscoreAnimation.IsPlaying()
                 layer.Remove(newHighscoreAnimation)
             End
         End
