@@ -46,6 +46,7 @@ Class MenuScene Extends Scene
         layer.Add(lock)
 
         Super.OnCreate(director)
+        toggleLock()
 
         easy.CenterX(director)
         normal.CenterX(director)

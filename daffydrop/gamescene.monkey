@@ -99,9 +99,9 @@ Class GameScene Extends Scene Implements RouterEvents
         layer.Add(upperShapes)
         layer.Add(errorAnimations)
         layer.Add(newHighscoreAnimation)
+        layer.Add(comboAnimation)
         layer.Add(chute)
         layer.Add(scoreFont)
-        layer.Add(comboAnimation)
         layer.Add(pauseButton)
 
         Super.OnCreate(director)
@@ -133,7 +133,6 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
         Super.OnUpdate(delta, frameTime)
-        severity.OnUpdate(delta, frameTime)
 
         If HandleGameOver() Then Return
 
@@ -145,6 +144,7 @@ Class GameScene Extends Scene Implements RouterEvents
         End
 
         DetectComboTrigger()
+        severity.OnUpdate(delta, frameTime)
         DropNewShapeIfRequested()
 
         lastSlowUpdate += frameTime
@@ -152,6 +152,13 @@ Class GameScene Extends Scene Implements RouterEvents
             lastSlowUpdate = 0
             RemoveLostShapes()
             RemoveFinishedErroAnimations()
+
+            If Not comboAnimation.isPlaying()
+                layer.Remove(comboAnimation)
+            End
+            If Not newHighscoreAnimation.isPlaying()
+                layer.Remove(newHighscoreAnimation)
+            End
         End
     End
 
@@ -327,10 +334,17 @@ Class GameScene Extends Scene Implements RouterEvents
         lastMatchTime = [0, 0, 0, 0]
         comboPending = False
 
-        chute.height -= 20
+        chute.height = Max(75, chute.height - 35)
         IncrementScore(10 * lanesNotZero)
         comboFont.text = "COMBO x " + lanesNotZero
+
         comboAnimation.Restart()
+        layer.Add(comboAnimation)
+    End
+
+    Method OnRender:Void()
+        Super.OnRender()
+        DrawText("SLODOWN: " + CurrentSeverity().progress, 100, 100)
     End
 
     Method OnMatch:Void(shape:Shape)
@@ -345,6 +359,7 @@ Class GameScene Extends Scene Implements RouterEvents
         If Not isNewHighscoreRecord And score >= minHighscore
             isNewHighscoreRecord = True
             newHighscoreAnimation.Restart()
+            layer.Add(newHighscoreAnimation)
         End
     End
 
@@ -357,7 +372,7 @@ Class GameScene Extends Scene Implements RouterEvents
         End
         sprite.pos = shape.pos
         sprite.Restart()
-        chute.height += 10
+        chute.height += 15
 
         lastMatchTime = [0, 0, 0, 0]
         errorAnimations.Add(sprite)

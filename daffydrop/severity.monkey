@@ -29,15 +29,19 @@ Class Severity
     Field nextShapeDropTime:Int
     Field lastTime:Int
     Field shapeTypes:Int[] = [0, 1, 2, 3]
+    Field laneTimes:Int[] = [0, 0, 0, 0]
     Field lastTypes:IntStack = New IntStack()
+    Field activatedShapes:Int
+    Field startTime:Int
+    Field slowDownDuration:Int
 
     Public
 
+    Field progress:Float = 1.0
+
     Method Set:Void(level:Int)
         Self.level = level
-
-        lastTypes.Clear()
-        RandomizeShapeTypes()
+        Restart()
     End
 
     Method ToString:String()
@@ -51,18 +55,38 @@ Class Severity
     End
 
     Method Restart:Void()
+        Select level
+        Case EASY
+            activatedShapes = 2
+            slowDownDuration = 120000
+        Case NORMAL
+            activatedShapes = 3
+            slowDownDuration = 90000
+        Case ADVANCED
+            activatedShapes = 4
+            slowDownDuration = 60000
+        End
+
+        lastTypes.Clear()
         ChuteMarkAsAdvanced()
         ShapeDropped()
         RandomizeShapeTypes()
+        progress = 1.0
+        startTime = Millisecs()
     End
 
     Method WarpTime:Void(diff:Int)
         nextChuteAdvanceTime += diff
         nextShapeDropTime += diff
+        lastTime += diff
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
         lastTime = Millisecs()
+        If progress > 0
+            progress = 1.0 - (1.0 / slowDownDuration * (lastTime - startTime))
+            progress = Max(0.0, progress)
+        End
     End
 
     Method ChuteShouldAdvance:Bool()
@@ -70,24 +94,23 @@ Class Severity
     End
 
     Method ChuteAdvanceHeight:Int()
-        If level = EASY
-            Return 20
-        ElseIf level = NORMAL
-            Return 25
-        Else
-            Return 30
-        End
+        Return 40
     End
 
     Method ChuteMarkAsAdvanced:Void()
+        nextChuteAdvanceTime = Rnd(1700, 3000)
+
         Select level
         Case EASY
-            nextChuteAdvanceTime = lastTime + Rnd(6000, 7000)
+            nextChuteAdvanceTime += 2500 * progress
         Case NORMAL
-            nextChuteAdvanceTime = lastTime + Rnd(5000, 6000)
+            nextChuteAdvanceTime += 2000 * progress
         Case ADVANCED
-            nextChuteAdvanceTime = lastTime + Rnd(4000, 5000)
+            nextChuteAdvanceTime += 1500 * progress
         End
+
+        nextChuteAdvanceTime *= 2
+        nextChuteAdvanceTime += lastTime
     End
 
     Method ShapeShouldBeDropped:Bool()
@@ -95,20 +118,27 @@ Class Severity
     End
 
     Method ShapeDropped:Void()
-        nextShapeDropTime = lastTime + 1000
+        Select level
+        Case EASY
+            nextShapeDropTime = lastTime + Rnd(450, 1800 + (2500 * progress))
+        Case NORMAL
+            nextShapeDropTime = lastTime + Rnd(350, 1700 + (2100 * progress))
+        Case ADVANCED
+            nextShapeDropTime = lastTime + Rnd(250, 1600 + (1700 * progress))
+        End
+    End
+
+    Method MinSliderTypes:Int()
+        If level = EASY
+            Return 2
+        ElseIf level = NORMAL
+            Return 3
+        Else
+            Return 4
+        End
     End
 
     Method RandomType:Int()
-        Local activatedShapes:Int
-        Select level
-        Case EASY
-            activatedShapes = 2
-        Case NORMAL
-            activatedShapes = 3
-        Case ADVANCED
-            activatedShapes = 4
-        End
-
         Local newType:Int
         Local finished:Bool
 
@@ -130,8 +160,38 @@ Class Severity
         Return shapeTypes[newType]
     End
 
+    Method ConfigureSlider:Void(config:IntList)
+        Local usedTypes:IntSet = New IntSet()
+        config.Clear()
+
+        For Local i:Int = 0 Until MinSliderTypes()
+            usedTypes.Insert(shapeTypes[i])
+            config.AddLast(shapeTypes[i])
+        End
+
+        While config.Count() < 4
+            If usedTypes.Count() >= activatedShapes Or Rnd() < 0.5
+                config.AddLast(shapeTypes[Int(Rnd(0, usedTypes.Count()))])
+            Else
+                config.AddLast(shapeTypes[usedTypes.Count()])
+                usedTypes.Insert(shapeTypes[usedTypes.Count()])
+            End
+        End
+
+        activatedShapes = usedTypes.Count()
+    End
+
     Method RandomLane:Int()
-        Return Int(Rnd(0, 4))
+        Local newLane:Int
+        Local now:Int = Millisecs()
+
+        Repeat
+            newLane = Int(Rnd(0, 4))
+        Until laneTimes[newLane] < now
+
+        laneTimes[newLane] = now + 1000
+
+        Return newLane
     End
 
     Private

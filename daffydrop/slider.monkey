@@ -35,7 +35,6 @@ Class Slider Extends BaseObject
 
     Method OnCreate:Void(director:Director)
         images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
-        InitializeConfig()
 
         arrowLeft = New Sprite("arrow_ingame.png")
         arrowLeft.pos.y = director.size.y - arrowLeft.size.y
@@ -143,11 +142,7 @@ Class Slider Extends BaseObject
     End
 
     Method InitializeConfig:Void()
-        config.Clear()
-        config.AddLast(CurrentSeverity().RandomType())
-        config.AddLast(CurrentSeverity().RandomType())
-        config.AddLast(CurrentSeverity().RandomType())
-        config.AddLast(CurrentSeverity().RandomType())
+        CurrentSeverity().ConfigureSlider(config)
         configArray = config.ToArray()
     End
 End

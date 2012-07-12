@@ -35,8 +35,8 @@ Class Shape Extends BaseObject
         Local posY:Float = chute.Height() - images[type].Height()
         pos = New Vector2D(posX, posY)
 
-        If Not SPEED_SLOW Then SPEED_SLOW = New Vector2D(0, 4)
-        If Not SPEED_FAST Then SPEED_FAST = New Vector2D(0, 12)
+        If Not SPEED_SLOW Then SPEED_SLOW = New Vector2D(0, 3)
+        If Not SPEED_FAST Then SPEED_FAST = New Vector2D(0, 10)
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
