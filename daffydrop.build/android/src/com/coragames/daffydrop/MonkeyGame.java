@@ -2944,6 +2944,7 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 			return false;
 		}
 		if(f_isNewHighscoreRecord){
+			m_director().m_inputController().f_trackKeys=true;
 			bb_directorevents_DirectorEvents t_=m_router().m_Get("newhighscore");
 			(t_ instanceof bb_newhighscorescene_NewHighscoreScene ? (bb_newhighscorescene_NewHighscoreScene)t_ : null).f_score=f_score;
 			m_router().m_Goto("newhighscore");
@@ -3262,7 +3263,6 @@ class bb_newhighscorescene_NewHighscoreScene extends bb_scene_Scene{
 		super.m_OnCreate(t_director);
 	}
 	public void m_OnEnter(){
-		m_director().m_inputController().f_trackKeys=true;
 		f_continueBtn.m_CenterX(m_director());
 		f_continueBtn.m_pos().f_y=f_input.m_pos().f_y+175.0f;
 	}
@@ -3643,7 +3643,6 @@ class bb_inputcontroller_InputController extends Object{
 		f__touchFingers=t_number;
 	}
 	int f_touchRetainSize=5;
-	boolean f_trackKeys=false;
 	bb_vector2d_Vector2D f_scale=(new bb_vector2d_Vector2D()).g_new(0.0f,0.0f);
 	boolean[] f_isTouchDown=new boolean[31];
 	bb_touchevent_TouchEvent[] f_touchEvents=new bb_touchevent_TouchEvent[31];
@@ -3691,6 +3690,7 @@ class bb_inputcontroller_InputController extends Object{
 			}
 		}
 	}
+	boolean f_trackKeys=false;
 	boolean f_keyboardEnabled=false;
 	bb_set_IntSet f_keysActive=(new bb_set_IntSet()).g_new();
 	bb_map_IntMap2 f_keyEvents=(new bb_map_IntMap2()).g_new();

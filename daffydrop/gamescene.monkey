@@ -228,6 +228,9 @@ Class GameScene Extends Scene Implements RouterEvents
         If (chute.Height() < slider.arrowLeft.pos.y) Then Return False
 
         If isNewHighscoreRecord
+#If TARGET<>"glfw" And TARGET<>"html5"
+            director.inputController.trackKeys = True
+#End
             NewHighscoreScene(router.Get("newhighscore")).score = score
             router.Goto("newhighscore")
         Else

@@ -3691,12 +3691,12 @@ class bb_inputcontroller_InputController : public Object{
 	bool f_trackTouch;
 	int f__touchFingers;
 	int f_touchRetainSize;
-	bool f_trackKeys;
 	bb_vector2d_Vector2D* f_scale;
 	Array<bool > f_isTouchDown;
 	Array<bb_touchevent_TouchEvent* > f_touchEvents;
 	Array<bool > f_touchDownDispatched;
 	Float f_touchMinDistance;
+	bool f_trackKeys;
 	bool f_keyboardEnabled;
 	bb_set_IntSet* f_keysActive;
 	bb_map_IntMap2* f_keyEvents;
@@ -5573,6 +5573,7 @@ bool bb_gamescene_GameScene::m_HandleGameOver(){
 		return false;
 	}
 	if(f_isNewHighscoreRecord){
+		m_director()->m_inputController()->f_trackKeys=true;
 		dynamic_cast<bb_newhighscorescene_NewHighscoreScene*>(m_router()->m_Get(String(L"newhighscore")))->f_score=f_score;
 		m_router()->m_Goto(String(L"newhighscore"));
 	}else{
@@ -5909,7 +5910,6 @@ void bb_newhighscorescene_NewHighscoreScene::m_OnCreate(bb_director_Director* t_
 	bb_scene_Scene::m_OnCreate(t_director);
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnEnter(){
-	m_director()->m_inputController()->f_trackKeys=true;
 	f_continueBtn->m_CenterX(m_director());
 	f_continueBtn->m_pos()->f_y=f_input->m_pos()->f_y+FLOAT(175.0);
 }
@@ -6333,12 +6333,12 @@ bb_inputcontroller_InputController::bb_inputcontroller_InputController(){
 	f_trackTouch=false;
 	f__touchFingers=1;
 	f_touchRetainSize=5;
-	f_trackKeys=false;
 	f_scale=(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(0.0));
 	f_isTouchDown=Array<bool >(31);
 	f_touchEvents=Array<bb_touchevent_TouchEvent* >(31);
 	f_touchDownDispatched=Array<bool >(31);
 	f_touchMinDistance=FLOAT(5.0);
+	f_trackKeys=false;
 	f_keyboardEnabled=false;
 	f_keysActive=(new bb_set_IntSet)->g_new();
 	f_keyEvents=(new bb_map_IntMap2)->g_new();

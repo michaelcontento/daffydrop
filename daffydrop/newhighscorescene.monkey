@@ -36,9 +36,6 @@ Class NewHighscoreScene Extends Scene
     End
 
     Method OnEnter:Void()
-#If TARGET<>"glfw" And TARGET<>"html5"
-        director.inputController.trackKeys = True
-#End
         continueBtn.CenterX(director)
         continueBtn.pos.y = input.pos.y + 175
     End
