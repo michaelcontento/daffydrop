@@ -166,16 +166,11 @@ Class GameScene Extends Scene Implements RouterEvents
         Select event.code
         Case KEY_P
             StartPause()
-        Case KEY_DOWN
+        Case KEY_DOWN, CHAR_DOWN
             FastDropMatchingShapes()
-        Case KEY_H
-            router.Goto("gameover")
-        Case KEY_J
-            NewHighscoreScene(router.Get("newhighscore")).score = score
-            router.Goto("newhighscore")
-        Case KEY_LEFT
+        Case KEY_LEFT, CHAR_LEFT
             slider.SlideLeft()
-        Case KEY_RIGHT
+        Case KEY_RIGHT, CHAR_RIGHT
             slider.SlideRight()
         End
     End
@@ -187,16 +182,6 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
-        If event.endTime - event.startTime > 2000
-            If event.startPos.y >= slider.pos.y
-                router.Goto("gameover")
-            Else
-                NewHighscoreScene(router.Get("newhighscore")).score = score
-                router.Goto("newhighscore")
-            End
-            Return
-        End
-
         If event.startPos.y >= slider.pos.y
             HandleSliderSwipe(event)
         Else
