@@ -104,7 +104,7 @@ Class GameScene Extends Scene Implements RouterEvents
 
         Super.OnCreate(director)
 
-        checkPosY = director.size.y - (slider.images[0].Height() / 2) - 15
+        checkPosY = director.size.y - (slider.images[0].Height() / 2)
     End
 
     Method OnEnter:Void()
