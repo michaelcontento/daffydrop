@@ -91,7 +91,7 @@ Class GameScene Extends Scene Implements RouterEvents
         newHighscoreAnimation.Add(newHighscoreFont)
         newHighscoreAnimation.Pause()
 
-        layer.Add(New Sprite("bg_960x640.png"))
+        layer.Add(New Sprite("bg_960x640.jpg"))
         layer.Add(lowerShapes)
         layer.Add(slider)
         layer.Add(upperShapes)
@@ -104,7 +104,7 @@ Class GameScene Extends Scene Implements RouterEvents
 
         Super.OnCreate(director)
 
-        checkPosY = director.size.y - (slider.images[0].Height() / 2)
+        checkPosY = director.size.y - (slider.images[0].Height() / 2) - 5
     End
 
     Method OnEnter:Void()

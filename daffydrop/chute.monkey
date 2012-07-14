@@ -22,7 +22,7 @@ Class Chute Extends BaseObject
 
     Method OnCreate:Void(director:Director)
         bg = LoadImage("chute-bg.png")
-        width = bg.Width()
+        width = bg.Width() + 4
         bottom = LoadImage("chute-bottom.png")
         severity = CurrentSeverity()
         Restart()
@@ -46,17 +46,17 @@ Class Chute Extends BaseObject
 
     Method OnRender:Void()
         For Local posY:Float = 0 To height Step 6
-            DrawImage(bg, 46 + width * 0, posY)
-            DrawImage(bg, 46 + width * 1, posY)
-            DrawImage(bg, 46 + width * 2, posY)
-            DrawImage(bg, 46 + width * 3, posY)
+            DrawImage(bg, 44 + width * 0, posY)
+            DrawImage(bg, 44 + width * 1, posY)
+            DrawImage(bg, 44 + width * 2, posY)
+            DrawImage(bg, 44 + width * 3, posY)
         End
 
         ' The end of the tube is a little bit wider and it's quite ugly if
         ' it's aligned on the left
-        DrawImage(bottom, 46 - 2 + width * 0, height)
-        DrawImage(bottom, 46 - 2 + width * 1, height)
-        DrawImage(bottom, 46 - 2 + width * 2, height)
-        DrawImage(bottom, 46 - 2 + width * 3, height)
+        DrawImage(bottom, 44 - 2 + width * 0, height)
+        DrawImage(bottom, 44 - 2 + width * 1, height)
+        DrawImage(bottom, 44 - 2 + width * 2, height)
+        DrawImage(bottom, 44 - 2 + width * 3, height)
     End
 End

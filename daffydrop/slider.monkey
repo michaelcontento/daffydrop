@@ -38,9 +38,11 @@ Class Slider Extends BaseObject
 
         arrowLeft = New Sprite("arrow_ingame.png")
         arrowLeft.pos.y = director.size.y - arrowLeft.size.y
+        arrowLeft.pos.x -= 4
 
         arrowRight = New Sprite("arrow_ingame2.png")
         arrowRight.pos = director.size.Copy().Sub(arrowRight.size)
+        arrowRight.pos.x += 4
 
         Super.OnCreate(director)
 
@@ -72,7 +74,7 @@ Class Slider Extends BaseObject
     End
 
     Method OnRender:Void()
-        Local posX:Float = 46 + GetMovementOffset()
+        Local posX:Float = 44 + GetMovementOffset()
         Local img:Image
 
         PushMatrix()
@@ -80,12 +82,12 @@ Class Slider Extends BaseObject
             DrawRect(0, posY + images[config.First()].Height(), director.size.x, director.size.y)
         PopMatrix()
 
-        If posX > 46
+        If posX > 44
             img = images[config.Last()]
             DrawImage(img, (img.Width() * -1) + posX, posY)
         End
 
-        If posX < 46
+        If posX < 44
             img = images[config.First()]
             DrawImage(img, (img.Width() * 4) + posX, posY)
         End
