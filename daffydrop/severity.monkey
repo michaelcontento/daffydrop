@@ -61,10 +61,10 @@ Class Severity
             slowDownDuration = 120000
         Case NORMAL
             activatedShapes = 3
-            slowDownDuration = 90000
+            slowDownDuration = 100000
         Case ADVANCED
             activatedShapes = 4
-            slowDownDuration = 60000
+            slowDownDuration = 80000
         End
 
         lastTypes.Clear()
@@ -98,15 +98,15 @@ Class Severity
     End
 
     Method ChuteMarkAsAdvanced:Void()
-        nextChuteAdvanceTime = Rnd(1700, 3000)
+        nextChuteAdvanceTime = Rnd(2000, 4000)
 
         Select level
         Case EASY
-            nextChuteAdvanceTime += 2500 * progress
+            nextChuteAdvanceTime += 5000 * progress
         Case NORMAL
-            nextChuteAdvanceTime += 2000 * progress
+            nextChuteAdvanceTime += 4000 * progress
         Case ADVANCED
-            nextChuteAdvanceTime += 1500 * progress
+            nextChuteAdvanceTime += 3000 * progress
         End
 
         nextChuteAdvanceTime *= 2
@@ -189,7 +189,7 @@ Class Severity
             newLane = Int(Rnd(0, 4))
         Until laneTimes[newLane] < now
 
-        laneTimes[newLane] = now + 1000
+        laneTimes[newLane] = now + 1400
 
         Return newLane
     End

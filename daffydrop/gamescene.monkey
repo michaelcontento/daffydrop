@@ -40,6 +40,7 @@ Class GameScene Extends Scene Implements RouterEvents
     Field falseSpriteStrack:Stack<Sprite> = New Stack<Sprite>()
     Field pauseButton:Sprite
     Field minHighscore:Int
+    Field ignoreFirstTouchUp:Bool
     Field pauseTime:Int
     Field comboPending:Bool
     Field comboPendingSince:Int
@@ -62,7 +63,6 @@ Class GameScene Extends Scene Implements RouterEvents
 
         scoreFont = New Font("CoRa")
         scoreFont.pos = New Vector2D(director.center.x, director.size.y - 50)
-        scoreFont.text = "Score: 0"
         scoreFont.align = Font.CENTER
 
         comboFont = New Font("CoRa", director.center.Copy())
@@ -91,8 +91,6 @@ Class GameScene Extends Scene Implements RouterEvents
         newHighscoreAnimation.Add(newHighscoreFont)
         newHighscoreAnimation.Pause()
 
-        LoadHighscoreMinValue()
-
         layer.Add(New Sprite("bg_960x640.png"))
         layer.Add(lowerShapes)
         layer.Add(slider)
@@ -115,13 +113,16 @@ Class GameScene Extends Scene Implements RouterEvents
             Return
         End
 
+        ignoreFirstTouchUp = True
         score = 0
+        scoreFont.text = "Score: 0"
         lowerShapes.Clear()
         upperShapes.Clear()
         errorAnimations.Clear()
         severity.Restart()
         chute.Restart()
         slider.Restart()
+        LoadHighscoreMinValue()
     End
 
     Method OnPauseLeaveGame:Void()
@@ -182,6 +183,11 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method OnTouchUp:Void(event:TouchEvent)
+        If ignoreFirstTouchUp
+            ignoreFirstTouchUp = False
+            Return
+        End
+
         If event.startPos.y >= slider.pos.y
             HandleSliderSwipe(event)
         Else
@@ -215,7 +221,7 @@ Class GameScene Extends Scene Implements RouterEvents
 
     Method HandleSliderSwipe:Void(event:TouchEvent)
         Local swipe:Vector2D = event.startDelta.Normalize()
-        If Abs(swipe.x) <= 0.2 Then Return
+        If Abs(swipe.x) <= 0.4 Then Return
 
         If swipe.x < 0
             slider.SlideLeft()
@@ -225,7 +231,7 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method HandleGameOver:Bool()
-        If (chute.Height() < slider.arrowLeft.pos.y) Then Return False
+        If (chute.Height() < slider.arrowLeft.pos.y + 40) Then Return False
 
         If isNewHighscoreRecord
 #If TARGET<>"glfw" And TARGET<>"html5"
@@ -323,7 +329,7 @@ Class GameScene Extends Scene Implements RouterEvents
         comboPending = False
 
         chute.height = Max(75, chute.height - 35)
-        IncrementScore(10 * lanesNotZero)
+        IncrementScore(15 * lanesNotZero)
         comboFont.text = "COMBO x " + lanesNotZero
 
         comboAnimation.Restart()
