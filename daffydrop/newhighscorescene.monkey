@@ -24,7 +24,11 @@ Class NewHighscoreScene Extends Scene
     Field score:Int
 
     Method OnCreate:Void(director:Director)
+#If TARGET="ios" Or TARGET="android"
+        Local background:Sprite = New Sprite("newhighscore_mobile.png")
+#Else
         Local background:Sprite = New Sprite("newhighscore.png")
+#End
         layer.Add(background)
 
         continueBtn = New Sprite("01_06-continue.png")
