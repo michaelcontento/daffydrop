@@ -18,6 +18,9 @@ Class HighscoreScene Extends Scene Implements RouterEvents
 
     Public
 
+    Field lastScoreKey:String
+    Field lastScoreValue:Int
+
     Method OnCreate:Void(director:Director)
         font = New AngelFont("CoRa")
 
@@ -32,6 +35,8 @@ Class HighscoreScene Extends Scene Implements RouterEvents
     End
 
     Method OnLeave:Void()
+        lastScoreValue = 0
+        lastScoreKey = ""
     End
 
 #If TARGET<>"glfw" And TARGET<>"html5"
@@ -63,10 +68,21 @@ Class HighscoreScene Extends Scene Implements RouterEvents
 
     Method DrawEntries:Void()
         Local posY:Int = 190
+        Local found:Bool
+
         For Local score:Score<Int> = EachIn highscore
+            If (Not found) And (score.value = lastScoreValue) And (score.key = lastScoreKey)
+                SetColor(255, 255, 255)
+            End
+
             font.DrawText(score.value, 100, posY, AngelFont.ALIGN_RIGHT)
             font.DrawText(score.key, 110, posY)
             posY += 35
+
+            If (Not found) And (score.value = lastScoreValue) And (score.key = lastScoreKey)
+                SetColor(255, 133, 0)
+                found = True
+            End
         End
     End
 End

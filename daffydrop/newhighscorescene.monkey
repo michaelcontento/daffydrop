@@ -7,6 +7,7 @@ Import bono
 Import severity
 Import scene
 Import gamehighscore
+Import highscorescene
 
 Public
 
@@ -61,6 +62,9 @@ Class NewHighscoreScene Extends Scene
         StateStore.Load(highscore)
         highscore.Add(level + input.text, score)
         StateStore.Save(highscore)
+
+        HighscoreScene(router.Get("highscore")).lastScoreKey = level + input.text
+        HighscoreScene(router.Get("highscore")).lastScoreValue = score
         router.Goto("highscore")
     End
 End
