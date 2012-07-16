@@ -6588,7 +6588,7 @@ void bb_gamescene_GameScene::m_DetectComboTrigger(){
 	int t_[]={0,0,0,0};
 	gc_assign(f_lastMatchTime,Array<int >(t_,4));
 	f_comboPending=false;
-	f_chute->f_height=bb_math_Max(75,f_chute->f_height-35);
+	f_chute->f_height=bb_math_Max(75,f_chute->f_height-18*t_lanesNotZero);
 	m_IncrementScore(15*t_lanesNotZero);
 	f_comboFont->m_text(String(L"COMBO x ")+String(t_lanesNotZero));
 	f_comboAnimation->m_Restart();
@@ -7013,9 +7013,11 @@ int bb_director_Director::m_OnRender(){
 	bb_graphics_Scale(f__scale->f_x,f__scale->f_y);
 	bb_graphics_SetScissor(FLOAT(0.0),FLOAT(0.0),f__device->f_x,f__device->f_y);
 	bb_graphics_Cls(FLOAT(0.0),FLOAT(0.0),FLOAT(0.0));
+	bb_graphics_PushMatrix();
 	if((f__handler)!=0){
 		f__handler->m_OnRender();
 	}
+	bb_graphics_PopMatrix();
 	bb_graphics_PopMatrix();
 	return 0;
 }
