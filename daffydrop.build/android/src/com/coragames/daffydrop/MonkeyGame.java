@@ -2273,11 +2273,15 @@ class bb_scene_Scene extends bb_partial_Partial implements bb_routerevents_Route
 	}
 	bb_fanout_FanOut f__layer=(new bb_fanout_FanOut()).g_new();
 	bb_router_Router f__router=null;
+	static bb_graphics_Image g_blend;
 	public void m_OnCreate(bb_director_Director t_director){
 		super.m_OnCreate(t_director);
 		f__layer.m_OnCreate(t_director);
 		bb_directorevents_DirectorEvents t_=t_director.m_handler();
 		f__router=(t_ instanceof bb_router_Router ? (bb_router_Router)t_ : null);
+		if(!((g_blend)!=null)){
+			g_blend=bb_graphics.bb_graphics_LoadImage("blend.png",1,bb_graphics_Image.g_DefaultFlags);
+		}
 	}
 	public bb_fanout_FanOut m_layer(){
 		return f__layer;
@@ -2317,6 +2321,11 @@ class bb_scene_Scene extends bb_partial_Partial implements bb_routerevents_Route
 	}
 	public bb_router_Router m_router(){
 		return f__router;
+	}
+	public void m_RenderBlend(){
+		for(int t_posY=0;(float)(t_posY)<m_director().m_size().f_y;t_posY=t_posY+8){
+			bb_graphics.bb_graphics_DrawImage(g_blend,0.0f,(float)(t_posY),0);
+		}
 	}
 }
 class bb_introscene_IntroScene extends bb_scene_Scene{
@@ -2693,7 +2702,7 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 	bb_sprite_Sprite f_highscore=null;
 	bb_sprite_Sprite f_lock=null;
 	boolean f_isLocked=true;
-	public void m_toggleLock(){
+	public void m_ToggleLock(){
 		if(f_isLocked){
 			f_isLocked=false;
 			m_layer().m_Remove(f_lock);
@@ -2729,18 +2738,48 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 		m_layer().m_Add4(f_highscore);
 		m_layer().m_Add4(f_lock);
 		super.m_OnCreate(t_director);
-		m_toggleLock();
 		f_easy.m_CenterX(t_director);
 		f_normal.m_CenterX(t_director);
 		f_advanced.m_CenterX(t_director);
 		f_highscore.m_CenterX(t_director);
+		bb_iap.bb_iap_InitInAppPurchases("com.coragames.daffydrop",new String[]{"com.coragames.daffydrop.fullversion"});
+		if((bb_iap.bb_iap_isProductPurchased("com.coragames.daffydrop.fullversion"))!=0){
+			m_ToggleLock();
+		}
 	}
+	boolean f_paymentProcessing=false;
 	public void m_PlayEasy(){
 		bb_severity.bb_severity_CurrentSeverity().m_Set5(0);
 		m_router().m_Goto("game");
 	}
+	bb_font_Font f_waitingText=null;
+	bb_sprite_Sprite f_waitingImage=null;
+	public void m_InitializeWaitingImages(){
+		f_waitingText=(new bb_font_Font()).g_new("CoRa",null);
+		f_waitingText.m_OnCreate(m_director());
+		f_waitingText.m_text("Loading");
+		f_waitingText.m_align(1);
+		f_waitingText.m_pos2(m_director().m_center().m_Copy());
+		f_waitingImage=(new bb_sprite_Sprite()).g_new("star_inside.png",null);
+		f_waitingImage.m_OnCreate(m_director());
+		f_waitingImage.m_Center(m_director());
+		bb_vector2d_Vector2D t_=f_waitingImage.m_pos();
+		t_.f_y=t_.f_y-50.0f;
+	}
+	public void m_HandleLocked(){
+		if(f_paymentProcessing){
+			return;
+		}
+		if(!f_isLocked){
+			return;
+		}
+		m_InitializeWaitingImages();
+		f_paymentProcessing=true;
+		bb_iap.bb_iap_buyProduct("com.coragames.daffydrop.fullversion");
+	}
 	public void m_PlayNormal(){
 		if(f_isLocked){
+			m_HandleLocked();
 			return;
 		}
 		bb_severity.bb_severity_CurrentSeverity().m_Set5(1);
@@ -2748,12 +2787,16 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 	}
 	public void m_PlayAdvanced(){
 		if(f_isLocked){
+			m_HandleLocked();
 			return;
 		}
 		bb_severity.bb_severity_CurrentSeverity().m_Set5(2);
 		m_router().m_Goto("game");
 	}
 	public void m_OnTouchDown(bb_touchevent_TouchEvent t_event){
+		if(f_paymentProcessing){
+			return;
+		}
 		if(f_easy.m_Collide(t_event.m_pos())){
 			m_PlayEasy();
 		}
@@ -2766,8 +2809,14 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 		if(f_highscore.m_Collide(t_event.m_pos())){
 			m_router().m_Goto("highscore");
 		}
+		if(f_lock.m_Collide(t_event.m_pos())){
+			m_HandleLocked();
+		}
 	}
 	public void m_OnKeyDown(bb_keyevent_KeyEvent t_event){
+		if(f_paymentProcessing){
+			return;
+		}
 		int t_1=t_event.m_code();
 		if(t_1==69){
 			m_PlayEasy();
@@ -2780,13 +2829,46 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 				}else{
 					if(t_1==72){
 						m_router().m_Goto("highscore");
-					}else{
-						if(t_1==76){
-							m_toggleLock();
-						}
 					}
 				}
 			}
+		}
+	}
+	public void m_OnUpdate(float t_delta,float t_frameTime){
+		super.m_OnUpdate(t_delta,t_frameTime);
+		if(!f_isLocked){
+			return;
+		}
+		if(!f_paymentProcessing){
+			return;
+		}
+		if(bb_iap.bb_iap_isPurchaseInProgress()){
+			return;
+		}
+		f_paymentProcessing=false;
+		if(!((bb_iap.bb_iap_isProductPurchased("com.coragames.daffydrop.fullversion"))!=0)){
+			return;
+		}
+		m_ToggleLock();
+	}
+	public void m_OnRender(){
+		super.m_OnRender();
+		if(f_paymentProcessing){
+			m_RenderBlend();
+			bb_graphics.bb_graphics_PushMatrix();
+			bb_graphics.bb_graphics_Translate(-m_director().m_center().f_x,-m_director().m_center().f_y);
+			bb_graphics.bb_graphics_Scale(2.0f,2.0f);
+			f_waitingImage.m_OnRender();
+			bb_graphics.bb_graphics_PushMatrix();
+			bb_graphics.bb_graphics_Translate(-2.0f,1.0f);
+			bb_graphics.bb_graphics_SetColor(47.0f,85.0f,98.0f);
+			f_waitingText.m_OnRender();
+			bb_graphics.bb_graphics_PopMatrix();
+			bb_graphics.bb_graphics_PushMatrix();
+			bb_graphics.bb_graphics_SetColor(255.0f,255.0f,255.0f);
+			f_waitingText.m_OnRender();
+			bb_graphics.bb_graphics_PopMatrix();
+			bb_graphics.bb_graphics_PopMatrix();
 		}
 	}
 }
@@ -2799,7 +2881,7 @@ class bb_highscorescene_HighscoreScene extends bb_scene_Scene implements bb_rout
 	bb_sprite_Sprite f_background=null;
 	public void m_OnCreate(bb_director_Director t_director){
 		f_font=(new bb_angelfont2_AngelFont()).g_new("CoRa");
-		f_background=(new bb_sprite_Sprite()).g_new("highscore_bg.png",null);
+		f_background=(new bb_sprite_Sprite()).g_new("highscore_bg.jpg",null);
 		f_background.m_OnCreate(t_director);
 		super.m_OnCreate(t_director);
 	}
@@ -2807,7 +2889,11 @@ class bb_highscorescene_HighscoreScene extends bb_scene_Scene implements bb_rout
 	public void m_OnEnter(){
 		bb_statestore_StateStore.g_Load(f_highscore);
 	}
+	int f_lastScoreValue=0;
+	String f_lastScoreKey="";
 	public void m_OnLeave(){
+		f_lastScoreValue=0;
+		f_lastScoreKey="";
 	}
 	float f_disableTimer=.0f;
 	public void m_OnUpdate(float t_delta,float t_frameTime){
@@ -2817,20 +2903,27 @@ class bb_highscorescene_HighscoreScene extends bb_scene_Scene implements bb_rout
 		}
 	}
 	public void m_DrawEntries(){
-		int t_posY=190;
+		int t_posY=290;
+		boolean t_found=false;
 		bb_list_Enumerator2 t_=f_highscore.m_ObjectEnumerator();
 		while(t_.m_HasNext()){
 			bb_score_Score t_score=t_.m_NextObject();
-			f_font.m_DrawText2(String.valueOf(t_score.f_value),100,t_posY,2);
-			f_font.m_DrawText(t_score.f_key,110,t_posY);
-			t_posY+=35;
+			if(!t_found && t_score.f_value==f_lastScoreValue && (t_score.f_key.compareTo(f_lastScoreKey)==0)){
+				bb_graphics.bb_graphics_SetColor(3.0f,105.0f,187.0f);
+			}
+			f_font.m_DrawText2(String.valueOf(t_score.f_value),150,t_posY,2);
+			f_font.m_DrawText(t_score.f_key,160,t_posY);
+			t_posY+=55;
+			if(!t_found && t_score.f_value==f_lastScoreValue && (t_score.f_key.compareTo(f_lastScoreKey)==0)){
+				bb_graphics.bb_graphics_SetColor(95.0f,85.0f,83.0f);
+				t_found=true;
+			}
 		}
 	}
 	public void m_OnRender(){
 		f_background.m_OnRender();
 		bb_graphics.bb_graphics_PushMatrix();
-		bb_graphics.bb_graphics_SetColor(255.0f,133.0f,0.0f);
-		bb_graphics.bb_graphics_Scale(1.5f,1.5f);
+		bb_graphics.bb_graphics_SetColor(95.0f,85.0f,83.0f);
 		m_DrawEntries();
 		bb_graphics.bb_graphics_PopMatrix();
 	}
@@ -2858,14 +2951,6 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 	bb_animation_Animation f_comboAnimation=null;
 	bb_font_Font f_newHighscoreFont=null;
 	bb_animation_Animation f_newHighscoreAnimation=null;
-	int f_minHighscore=0;
-	boolean f_isNewHighscoreRecord=false;
-	public void m_LoadHighscoreMinValue(){
-		bb_gamehighscore_GameHighscore t_highscore=(new bb_gamehighscore_GameHighscore()).g_new();
-		bb_statestore_StateStore.g_Load(t_highscore);
-		f_minHighscore=t_highscore.m_Last().f_value;
-		f_isNewHighscoreRecord=!(t_highscore.m_Count()==t_highscore.m_maxCount());
-	}
 	float f_checkPosY=.0f;
 	public void m_OnCreate(bb_director_Director t_director){
 		f_chute=(new bb_chute_Chute()).g_new();
@@ -2878,33 +2963,34 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 		f_pauseButton.m_pos2(t_director.m_size().m_Copy().m_Sub(f_pauseButton.m_size()));
 		f_pauseButton.m_pos().f_y=0.0f;
 		f_scoreFont=(new bb_font_Font()).g_new("CoRa",null);
-		f_scoreFont.m_pos2((new bb_vector2d_Vector2D()).g_new(t_director.m_center().f_x,t_director.m_size().f_y-50.0f));
-		f_scoreFont.m_text("Score: 0");
+		f_scoreFont.m_pos2((new bb_vector2d_Vector2D()).g_new(t_director.m_center().f_x,t_director.m_size().f_y-65.0f));
 		f_scoreFont.m_align(1);
+		f_scoreFont.f_color=(new bb_color_Color()).g_new(3.0f,105.0f,187.0f,1.0f);
 		f_comboFont=(new bb_font_Font()).g_new("CoRa",t_director.m_center().m_Copy());
+		f_comboFont.f_color=(new bb_color_Color()).g_new(3.0f,105.0f,187.0f,1.0f);
 		f_comboFont.m_text("COMBO x 2");
 		bb_vector2d_Vector2D t_=f_comboFont.m_pos();
 		t_.f_y=t_.f_y-150.0f;
 		bb_vector2d_Vector2D t_2=f_comboFont.m_pos();
-		t_2.f_x=t_2.f_x-70.0f;
-		f_comboAnimation=(new bb_animation_Animation()).g_new(2.0f,0.0f,750.0f);
+		t_2.f_x=t_2.f_x-130.0f;
+		f_comboAnimation=(new bb_animation_Animation()).g_new(1.8f,0.0f,850.0f);
 		f_comboAnimation.f_effect=((new bb_fader_FaderScale()).g_new());
 		f_comboAnimation.f_transition=((new bb_transition_TransitionInCubic()).g_new());
 		f_comboAnimation.m_Add4(f_comboFont);
 		f_comboAnimation.m_Pause();
 		f_newHighscoreFont=(new bb_font_Font()).g_new("CoRa",t_director.m_center().m_Copy());
+		f_newHighscoreFont.f_color=(new bb_color_Color()).g_new(209.0f,146.0f,31.0f,1.0f);
 		f_newHighscoreFont.m_text("NEW HIGHSCORE");
 		bb_vector2d_Vector2D t_3=f_newHighscoreFont.m_pos();
 		t_3.f_y=t_3.f_y/2.0f;
 		bb_vector2d_Vector2D t_4=f_newHighscoreFont.m_pos();
-		t_4.f_x=t_4.f_x-120.0f;
-		f_newHighscoreAnimation=(new bb_animation_Animation()).g_new(2.0f,0.0f,2000.0f);
+		t_4.f_x=t_4.f_x-200.0f;
+		f_newHighscoreAnimation=(new bb_animation_Animation()).g_new(1.5f,0.0f,2500.0f);
 		f_newHighscoreAnimation.f_effect=((new bb_fader_FaderScale()).g_new());
 		f_newHighscoreAnimation.f_transition=((new bb_transition_TransitionInCubic()).g_new());
 		f_newHighscoreAnimation.m_Add4(f_newHighscoreFont);
 		f_newHighscoreAnimation.m_Pause();
-		m_LoadHighscoreMinValue();
-		m_layer().m_Add4((new bb_sprite_Sprite()).g_new("bg_960x640.png",null));
+		m_layer().m_Add4((new bb_sprite_Sprite()).g_new("bg_960x640.jpg",null));
 		m_layer().m_Add4(f_lowerShapes);
 		m_layer().m_Add4(f_slider);
 		m_layer().m_Add4(f_upperShapes);
@@ -2915,7 +3001,7 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 		m_layer().m_Add4(f_scoreFont);
 		m_layer().m_Add4(f_pauseButton);
 		super.m_OnCreate(t_director);
-		f_checkPosY=t_director.m_size().f_y-(float)(f_slider.f_images[0].m_Height()/2)-15.0f;
+		f_checkPosY=t_director.m_size().f_y-(float)(f_slider.f_images[0].m_Height()/2)-5.0f;
 	}
 	int f_pauseTime=0;
 	public void m_OnEnterPaused(){
@@ -2923,24 +3009,36 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 		f_pauseTime=0;
 		f_severity.m_WarpTime(t_diff);
 	}
+	boolean f_ignoreFirstTouchUp=false;
 	int f_score=0;
+	int f_minHighscore=0;
+	boolean f_isNewHighscoreRecord=false;
+	public void m_LoadHighscoreMinValue(){
+		bb_gamehighscore_GameHighscore t_highscore=(new bb_gamehighscore_GameHighscore()).g_new();
+		bb_statestore_StateStore.g_Load(t_highscore);
+		f_minHighscore=t_highscore.m_Last().f_value;
+		f_isNewHighscoreRecord=!(t_highscore.m_Count()==t_highscore.m_maxCount());
+	}
 	public void m_OnEnter(){
 		if(f_pauseTime>0){
 			m_OnEnterPaused();
 			return;
 		}
+		f_ignoreFirstTouchUp=true;
 		f_score=0;
+		f_scoreFont.m_text("Score: 0");
 		f_lowerShapes.m_Clear();
 		f_upperShapes.m_Clear();
 		f_errorAnimations.m_Clear();
 		f_severity.m_Restart();
 		f_chute.m_Restart();
 		f_slider.m_Restart();
+		m_LoadHighscoreMinValue();
 	}
 	public void m_OnLeave(){
 	}
 	public boolean m_HandleGameOver(){
-		if((float)(f_chute.m_Height())<f_slider.f_arrowLeft.m_pos().f_y){
+		if((float)(f_chute.m_Height())<f_slider.f_arrowLeft.m_pos().f_y+40.0f){
 			return false;
 		}
 		if(f_isNewHighscoreRecord){
@@ -3012,7 +3110,7 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 				continue;
 			}
 			t_lanesNotZero+=1;
-			if(f_lastMatchTime[t_lane]+300>=t_now){
+			if(f_lastMatchTime[t_lane]+325>=t_now){
 				t_hotLanes+=1;
 				if(t_hotLanes>=2 && !f_comboPending){
 					f_comboPending=true;
@@ -3027,13 +3125,13 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 		if(!f_comboPending){
 			return;
 		}
-		if(f_comboPendingSince+300>t_now){
+		if(f_comboPendingSince+325>t_now){
 			return;
 		}
 		f_lastMatchTime=new int[]{0,0,0,0};
 		f_comboPending=false;
-		f_chute.f_height=bb_math.bb_math_Max(75,f_chute.f_height-35);
-		m_IncrementScore(10*t_lanesNotZero);
+		f_chute.f_height=bb_math.bb_math_Max(75,f_chute.f_height-18*t_lanesNotZero);
+		m_IncrementScore(15*t_lanesNotZero);
 		f_comboFont.m_text("COMBO x "+String.valueOf(t_lanesNotZero));
 		f_comboAnimation.m_Restart();
 		m_layer().m_Add4(f_comboAnimation);
@@ -3149,7 +3247,7 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 	}
 	public void m_HandleSliderSwipe(bb_touchevent_TouchEvent t_event){
 		bb_vector2d_Vector2D t_swipe=t_event.m_startDelta().m_Normalize();
-		if(bb_math.bb_math_Abs2(t_swipe.f_x)<=0.2f){
+		if(bb_math.bb_math_Abs2(t_swipe.f_x)<=0.4f){
 			return;
 		}
 		if(t_swipe.f_x<0.0f){
@@ -3165,6 +3263,10 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 		}
 	}
 	public void m_OnTouchUp(bb_touchevent_TouchEvent t_event){
+		if(f_ignoreFirstTouchUp){
+			f_ignoreFirstTouchUp=false;
+			return;
+		}
 		if(t_event.m_startPos().f_y>=f_slider.m_pos().f_y){
 			m_HandleSliderSwipe(t_event);
 		}else{
@@ -3182,15 +3284,22 @@ class bb_gameoverscene_GameOverScene extends bb_scene_Scene{
 		super.g_new();
 		return this;
 	}
-	bb_sprite_Sprite f_overlay=null;
+	bb_sprite_Sprite f_main=null;
+	bb_sprite_Sprite f_small=null;
 	public void m_OnCreate(bb_director_Director t_director){
 		super.m_OnCreate(t_director);
-		f_overlay=(new bb_sprite_Sprite()).g_new("gameover.png",null);
-		f_overlay.m_OnCreate(t_director);
+		f_main=(new bb_sprite_Sprite()).g_new("gameover_main.png",null);
+		f_main.m_OnCreate(t_director);
+		f_main.m_Center(t_director);
+		f_small=(new bb_sprite_Sprite()).g_new("gameover_small.png",null);
+		f_small.m_OnCreate(t_director);
+		f_small.m_pos().f_x=t_director.m_size().f_x-f_small.m_size().f_x;
 	}
 	public void m_OnRender(){
 		m_router().m_previous().m_OnRender();
-		f_overlay.m_OnRender();
+		m_RenderBlend();
+		f_small.m_OnRender();
+		f_main.m_OnRender();
 	}
 	public void m_OnTouchDown(bb_touchevent_TouchEvent t_event){
 		m_router().m_Goto("menu");
@@ -3217,12 +3326,17 @@ class bb_pausescene_PauseScene extends bb_scene_Scene{
 		super.m_OnCreate(t_director);
 	}
 	public void m_OnEnter(){
+		f_overlay.m_Center(m_director());
+		f_overlay.m_pos().f_y-=f_overlay.m_size().f_y;
+		bb_vector2d_Vector2D t_=f_overlay.m_pos();
+		t_.f_y=t_.f_y-50.0f;
 		f_continueBtn.m_Center(m_director());
 		f_quitBtn.m_pos2(f_continueBtn.m_pos().m_Copy());
 		f_quitBtn.m_pos().f_y+=f_continueBtn.m_size().f_y+40.0f;
 	}
 	public void m_OnRender(){
 		m_router().m_previous().m_OnRender();
+		m_RenderBlend();
 		super.m_OnRender();
 	}
 	public void m_OnKeyDown(bb_keyevent_KeyEvent t_event){
@@ -3251,24 +3365,20 @@ class bb_newhighscorescene_NewHighscoreScene extends bb_scene_Scene{
 		super.g_new();
 		return this;
 	}
-	bb_sprite_Sprite f_continueBtn=null;
 	bb_textinput_TextInput f_input=null;
 	public void m_OnCreate(bb_director_Director t_director){
 		bb_sprite_Sprite t_background=(new bb_sprite_Sprite()).g_new("newhighscore.png",null);
+		t_background.m_pos().f_y=40.0f;
 		m_layer().m_Add4(t_background);
-		f_continueBtn=(new bb_sprite_Sprite()).g_new("01_06-continue.png",null);
-		m_layer().m_Add4(f_continueBtn);
-		f_input=(new bb_textinput_TextInput()).g_new("CoRa",(new bb_vector2d_Vector2D()).g_new(90.0f,430.0f));
+		f_input=(new bb_textinput_TextInput()).g_new("CoRa",(new bb_vector2d_Vector2D()).g_new(110.0f,415.0f));
+		f_input.f_color=(new bb_color_Color()).g_new(3.0f,105.0f,187.0f,1.0f);
 		m_layer().m_Add4(f_input);
 		super.m_OnCreate(t_director);
-	}
-	public void m_OnEnter(){
-		f_continueBtn.m_CenterX(m_director());
-		f_continueBtn.m_pos().f_y=f_input.m_pos().f_y+175.0f;
 	}
 	int f_score=0;
 	public void m_OnRender(){
 		m_router().m_previous().m_OnRender();
+		m_RenderBlend();
 		super.m_OnRender();
 	}
 	bb_gamehighscore_GameHighscore f_highscore=(new bb_gamehighscore_GameHighscore()).g_new();
@@ -3277,16 +3387,15 @@ class bb_newhighscorescene_NewHighscoreScene extends bb_scene_Scene{
 		bb_statestore_StateStore.g_Load(f_highscore);
 		f_highscore.m_Add5(t_level+f_input.m_text2(),f_score);
 		bb_statestore_StateStore.g_Save(f_highscore);
+		bb_directorevents_DirectorEvents t_=m_router().m_Get("highscore");
+		(t_ instanceof bb_highscorescene_HighscoreScene ? (bb_highscorescene_HighscoreScene)t_ : null).f_lastScoreKey=t_level+f_input.m_text2();
+		bb_directorevents_DirectorEvents t_2=m_router().m_Get("highscore");
+		(t_2 instanceof bb_highscorescene_HighscoreScene ? (bb_highscorescene_HighscoreScene)t_2 : null).f_lastScoreValue=f_score;
 		m_router().m_Goto("highscore");
 	}
 	public void m_OnKeyDown(bb_keyevent_KeyEvent t_event){
 		super.m_OnKeyDown(t_event);
 		if(t_event.m_code()==13){
-			m_SaveAndContinue();
-		}
-	}
-	public void m_OnTouchDown(bb_touchevent_TouchEvent t_event){
-		if(f_continueBtn.m_Collide(t_event.m_pos())){
 			m_SaveAndContinue();
 		}
 	}
@@ -3994,6 +4103,116 @@ class bb_list_Enumerator extends Object{
 		return t_data;
 	}
 }
+class bb_graphics_Image extends Object{
+	static int g_DefaultFlags;
+	public bb_graphics_Image g_new(){
+		return this;
+	}
+	gxtkSurface f_surface=null;
+	int f_width=0;
+	int f_height=0;
+	bb_graphics_Frame[] f_frames=new bb_graphics_Frame[0];
+	int f_flags=0;
+	float f_tx=.0f;
+	float f_ty=.0f;
+	public int m_SetHandle(float t_tx,float t_ty){
+		this.f_tx=t_tx;
+		this.f_ty=t_ty;
+		this.f_flags=this.f_flags&-2;
+		return 0;
+	}
+	public int m_ApplyFlags(int t_iflags){
+		f_flags=t_iflags;
+		if((f_flags&2)!=0){
+			bb_graphics_Frame[] t_=f_frames;
+			int t_2=0;
+			while(t_2<bb_std_lang.arrayLength(t_)){
+				bb_graphics_Frame t_f=t_[t_2];
+				t_2=t_2+1;
+				t_f.f_x+=1;
+			}
+			f_width-=2;
+		}
+		if((f_flags&4)!=0){
+			bb_graphics_Frame[] t_3=f_frames;
+			int t_4=0;
+			while(t_4<bb_std_lang.arrayLength(t_3)){
+				bb_graphics_Frame t_f2=t_3[t_4];
+				t_4=t_4+1;
+				t_f2.f_y+=1;
+			}
+			f_height-=2;
+		}
+		if((f_flags&1)!=0){
+			m_SetHandle((float)(f_width)/2.0f,(float)(f_height)/2.0f);
+		}
+		if(bb_std_lang.arrayLength(f_frames)==1 && f_frames[0].f_x==0 && f_frames[0].f_y==0 && f_width==f_surface.Width() && f_height==f_surface.Height()){
+			f_flags|=65536;
+		}
+		return 0;
+	}
+	public bb_graphics_Image m_Load(String t_path,int t_nframes,int t_iflags){
+		f_surface=bb_graphics.bb_graphics_context.f_device.LoadSurface(t_path);
+		if(!((f_surface)!=null)){
+			return null;
+		}
+		f_width=f_surface.Width()/t_nframes;
+		f_height=f_surface.Height();
+		f_frames=new bb_graphics_Frame[t_nframes];
+		for(int t_i=0;t_i<t_nframes;t_i=t_i+1){
+			f_frames[t_i]=(new bb_graphics_Frame()).g_new(t_i*f_width,0);
+		}
+		m_ApplyFlags(t_iflags);
+		return this;
+	}
+	bb_graphics_Image f_source=null;
+	public bb_graphics_Image m_Grab(int t_x,int t_y,int t_iwidth,int t_iheight,int t_nframes,int t_iflags,bb_graphics_Image t_source){
+		this.f_source=t_source;
+		f_surface=t_source.f_surface;
+		f_width=t_iwidth;
+		f_height=t_iheight;
+		f_frames=new bb_graphics_Frame[t_nframes];
+		int t_ix=t_x;
+		int t_iy=t_y;
+		for(int t_i=0;t_i<t_nframes;t_i=t_i+1){
+			if(t_ix+f_width>t_source.f_width){
+				t_ix=0;
+				t_iy+=f_height;
+			}
+			if(t_ix+f_width>t_source.f_width || t_iy+f_height>t_source.f_height){
+				bb_std_lang.error("Image frame outside surface");
+			}
+			f_frames[t_i]=(new bb_graphics_Frame()).g_new(t_ix+t_source.f_frames[0].f_x,t_iy+t_source.f_frames[0].f_y);
+			t_ix+=f_width;
+		}
+		m_ApplyFlags(t_iflags);
+		return this;
+	}
+	public bb_graphics_Image m_GrabImage(int t_x,int t_y,int t_width,int t_height,int t_frames,int t_flags){
+		if(bb_std_lang.arrayLength(this.f_frames)!=1){
+			return null;
+		}
+		return ((new bb_graphics_Image()).g_new()).m_Grab(t_x,t_y,t_width,t_height,t_frames,t_flags,this);
+	}
+	public int m_Width(){
+		return f_width;
+	}
+	public int m_Height(){
+		return f_height;
+	}
+}
+class bb_graphics_Frame extends Object{
+	int f_x=0;
+	int f_y=0;
+	public bb_graphics_Frame g_new(int t_x,int t_y){
+		this.f_x=t_x;
+		this.f_y=t_y;
+		return this;
+	}
+	public bb_graphics_Frame g_new2(){
+		return this;
+	}
+}
 interface bb_positionable_Positionable{
 	public bb_vector2d_Vector2D m_pos();
 	public void m_pos2(bb_vector2d_Vector2D t_newPos);
@@ -4115,116 +4334,6 @@ class bb_sprite_Sprite extends bb_baseobject_BaseObject{
 	}
 	public void m_Restart(){
 		f_currentFrame=0;
-	}
-}
-class bb_graphics_Image extends Object{
-	static int g_DefaultFlags;
-	public bb_graphics_Image g_new(){
-		return this;
-	}
-	gxtkSurface f_surface=null;
-	int f_width=0;
-	int f_height=0;
-	bb_graphics_Frame[] f_frames=new bb_graphics_Frame[0];
-	int f_flags=0;
-	float f_tx=.0f;
-	float f_ty=.0f;
-	public int m_SetHandle(float t_tx,float t_ty){
-		this.f_tx=t_tx;
-		this.f_ty=t_ty;
-		this.f_flags=this.f_flags&-2;
-		return 0;
-	}
-	public int m_ApplyFlags(int t_iflags){
-		f_flags=t_iflags;
-		if((f_flags&2)!=0){
-			bb_graphics_Frame[] t_=f_frames;
-			int t_2=0;
-			while(t_2<bb_std_lang.arrayLength(t_)){
-				bb_graphics_Frame t_f=t_[t_2];
-				t_2=t_2+1;
-				t_f.f_x+=1;
-			}
-			f_width-=2;
-		}
-		if((f_flags&4)!=0){
-			bb_graphics_Frame[] t_3=f_frames;
-			int t_4=0;
-			while(t_4<bb_std_lang.arrayLength(t_3)){
-				bb_graphics_Frame t_f2=t_3[t_4];
-				t_4=t_4+1;
-				t_f2.f_y+=1;
-			}
-			f_height-=2;
-		}
-		if((f_flags&1)!=0){
-			m_SetHandle((float)(f_width)/2.0f,(float)(f_height)/2.0f);
-		}
-		if(bb_std_lang.arrayLength(f_frames)==1 && f_frames[0].f_x==0 && f_frames[0].f_y==0 && f_width==f_surface.Width() && f_height==f_surface.Height()){
-			f_flags|=65536;
-		}
-		return 0;
-	}
-	public bb_graphics_Image m_Load(String t_path,int t_nframes,int t_iflags){
-		f_surface=bb_graphics.bb_graphics_context.f_device.LoadSurface(t_path);
-		if(!((f_surface)!=null)){
-			return null;
-		}
-		f_width=f_surface.Width()/t_nframes;
-		f_height=f_surface.Height();
-		f_frames=new bb_graphics_Frame[t_nframes];
-		for(int t_i=0;t_i<t_nframes;t_i=t_i+1){
-			f_frames[t_i]=(new bb_graphics_Frame()).g_new(t_i*f_width,0);
-		}
-		m_ApplyFlags(t_iflags);
-		return this;
-	}
-	bb_graphics_Image f_source=null;
-	public bb_graphics_Image m_Grab(int t_x,int t_y,int t_iwidth,int t_iheight,int t_nframes,int t_iflags,bb_graphics_Image t_source){
-		this.f_source=t_source;
-		f_surface=t_source.f_surface;
-		f_width=t_iwidth;
-		f_height=t_iheight;
-		f_frames=new bb_graphics_Frame[t_nframes];
-		int t_ix=t_x;
-		int t_iy=t_y;
-		for(int t_i=0;t_i<t_nframes;t_i=t_i+1){
-			if(t_ix+f_width>t_source.f_width){
-				t_ix=0;
-				t_iy+=f_height;
-			}
-			if(t_ix+f_width>t_source.f_width || t_iy+f_height>t_source.f_height){
-				bb_std_lang.error("Image frame outside surface");
-			}
-			f_frames[t_i]=(new bb_graphics_Frame()).g_new(t_ix+t_source.f_frames[0].f_x,t_iy+t_source.f_frames[0].f_y);
-			t_ix+=f_width;
-		}
-		m_ApplyFlags(t_iflags);
-		return this;
-	}
-	public bb_graphics_Image m_GrabImage(int t_x,int t_y,int t_width,int t_height,int t_frames,int t_flags){
-		if(bb_std_lang.arrayLength(this.f_frames)!=1){
-			return null;
-		}
-		return ((new bb_graphics_Image()).g_new()).m_Grab(t_x,t_y,t_width,t_height,t_frames,t_flags,this);
-	}
-	public int m_Width(){
-		return f_width;
-	}
-	public int m_Height(){
-		return f_height;
-	}
-}
-class bb_graphics_Frame extends Object{
-	int f_x=0;
-	int f_y=0;
-	public bb_graphics_Frame g_new(int t_x,int t_y){
-		this.f_x=t_x;
-		this.f_y=t_y;
-		return this;
-	}
-	public bb_graphics_Frame g_new2(){
-		return this;
 	}
 }
 class bb_angelfont2_AngelFont extends Object{
@@ -4990,7 +5099,7 @@ class bb_chute_Chute extends bb_baseobject_BaseObject{
 	bb_severity_Severity f_severity=null;
 	public void m_OnCreate(bb_director_Director t_director){
 		f_bg=bb_graphics.bb_graphics_LoadImage("chute-bg.png",1,bb_graphics_Image.g_DefaultFlags);
-		f_width=f_bg.m_Width();
+		f_width=f_bg.m_Width()+4;
 		f_bottom=bb_graphics.bb_graphics_LoadImage("chute-bottom.png",1,bb_graphics_Image.g_DefaultFlags);
 		f_severity=bb_severity.bb_severity_CurrentSeverity();
 		m_Restart();
@@ -5004,15 +5113,15 @@ class bb_chute_Chute extends bb_baseobject_BaseObject{
 	}
 	public void m_OnRender(){
 		for(float t_posY=0.0f;t_posY<=(float)(f_height);t_posY=t_posY+6.0f){
-			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(46+f_width*0),t_posY,0);
-			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(46+f_width*1),t_posY,0);
-			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(46+f_width*2),t_posY,0);
-			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(46+f_width*3),t_posY,0);
+			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(44+f_width*0),t_posY,0);
+			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(44+f_width*1),t_posY,0);
+			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(44+f_width*2),t_posY,0);
+			bb_graphics.bb_graphics_DrawImage(f_bg,(float)(44+f_width*3),t_posY,0);
 		}
-		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(44+f_width*0),(float)(f_height),0);
-		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(44+f_width*1),(float)(f_height),0);
-		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(44+f_width*2),(float)(f_height),0);
-		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(44+f_width*3),(float)(f_height),0);
+		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(42+f_width*0),(float)(f_height),0);
+		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(42+f_width*1),(float)(f_height),0);
+		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(42+f_width*2),(float)(f_height),0);
+		bb_graphics.bb_graphics_DrawImage(f_bottom,(float)(42+f_width*3),(float)(f_height),0);
 	}
 	public int m_Height(){
 		return f_height;
@@ -5036,16 +5145,16 @@ class bb_severity_Severity extends Object{
 	bb_stack_IntStack f_lastTypes=(new bb_stack_IntStack()).g_new();
 	float f_progress=1.0f;
 	public void m_ChuteMarkAsAdvanced(){
-		f_nextChuteAdvanceTime=(int)(bb_random.bb_random_Rnd2(1700.0f,3000.0f));
+		f_nextChuteAdvanceTime=(int)(bb_random.bb_random_Rnd2(2000.0f,4000.0f));
 		int t_2=f_level;
 		if(t_2==0){
-			f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+2500.0f*f_progress);
+			f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+5000.0f*f_progress);
 		}else{
 			if(t_2==1){
-				f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+2000.0f*f_progress);
+				f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+4750.0f*f_progress);
 			}else{
 				if(t_2==2){
-					f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+1500.0f*f_progress);
+					f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+4500.0f*f_progress);
 				}
 			}
 		}
@@ -5058,10 +5167,10 @@ class bb_severity_Severity extends Object{
 			f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(450.0f,1800.0f+2500.0f*f_progress));
 		}else{
 			if(t_3==1){
-				f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(350.0f,1700.0f+2100.0f*f_progress));
+				f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(375.0f,1750.0f+2300.0f*f_progress));
 			}else{
 				if(t_3==2){
-					f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(250.0f,1600.0f+1700.0f*f_progress));
+					f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(300.0f,1700.0f+2100.0f*f_progress));
 				}
 			}
 		}
@@ -5088,11 +5197,11 @@ class bb_severity_Severity extends Object{
 		}else{
 			if(t_1==1){
 				f_activatedShapes=3;
-				f_slowDownDuration=90000;
+				f_slowDownDuration=100000;
 			}else{
 				if(t_1==2){
 					f_activatedShapes=4;
-					f_slowDownDuration=60000;
+					f_slowDownDuration=80000;
 				}
 			}
 		}
@@ -5178,7 +5287,7 @@ class bb_severity_Severity extends Object{
 		do{
 			t_newLane=(int)(bb_random.bb_random_Rnd2(0.0f,4.0f));
 		}while(!(f_laneTimes[t_newLane]<t_now));
-		f_laneTimes[t_newLane]=t_now+1000;
+		f_laneTimes[t_newLane]=t_now+1400;
 		return t_newLane;
 	}
 	public String m_ToString(){
@@ -5219,8 +5328,12 @@ class bb_slider_Slider extends bb_baseobject_BaseObject{
 		f_images=new bb_graphics_Image[]{bb_graphics.bb_graphics_LoadImage("circle_outside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("plus_outside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("star_outside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("tire_outside.png",1,bb_graphics_Image.g_DefaultFlags)};
 		f_arrowLeft=(new bb_sprite_Sprite()).g_new("arrow_ingame.png",null);
 		f_arrowLeft.m_pos().f_y=t_director.m_size().f_y-f_arrowLeft.m_size().f_y;
+		bb_vector2d_Vector2D t_=f_arrowLeft.m_pos();
+		t_.f_x=t_.f_x-4.0f;
 		f_arrowRight=(new bb_sprite_Sprite()).g_new("arrow_ingame2.png",null);
 		f_arrowRight.m_pos2(t_director.m_size().m_Copy().m_Sub(f_arrowRight.m_size()));
+		bb_vector2d_Vector2D t_2=f_arrowRight.m_pos();
+		t_2.f_x=t_2.f_x+4.0f;
 		super.m_OnCreate(t_director);
 		f_posY=t_director.m_size().f_y-(float)(f_images[0].m_Height())-60.0f;
 	}
@@ -5259,17 +5372,17 @@ class bb_slider_Slider extends bb_baseobject_BaseObject{
 		return t_movementOffset;
 	}
 	public void m_OnRender(){
-		float t_posX=46.0f+m_GetMovementOffset();
+		float t_posX=44.0f+m_GetMovementOffset();
 		bb_graphics_Image t_img=null;
 		bb_graphics.bb_graphics_PushMatrix();
 		bb_graphics.bb_graphics_SetColor(255.0f,255.0f,255.0f);
 		bb_graphics.bb_graphics_DrawRect(0.0f,f_posY+(float)(f_images[f_config.m_First()].m_Height()),m_director().m_size().f_x,m_director().m_size().f_y);
 		bb_graphics.bb_graphics_PopMatrix();
-		if(t_posX>46.0f){
+		if(t_posX>44.0f){
 			t_img=f_images[f_config.m_Last()];
 			bb_graphics.bb_graphics_DrawImage(t_img,(float)(t_img.m_Width()*-1)+t_posX,f_posY,0);
 		}
-		if(t_posX<46.0f){
+		if(t_posX<44.0f){
 			t_img=f_images[f_config.m_First()];
 			bb_graphics.bb_graphics_DrawImage(t_img,(float)(t_img.m_Width()*4)+t_posX,f_posY,0);
 		}
@@ -5323,6 +5436,19 @@ class bb_font_Font extends bb_baseobject_BaseObject{
 		super.g_new();
 		return this;
 	}
+	int f__align=0;
+	public void m_align(int t_newAlign){
+		int t_1=t_newAlign;
+		if(t_1==0 || t_1==1 || t_1==2){
+			f__align=t_newAlign;
+		}else{
+			bb_std_lang.error("Invalid align value specified.");
+		}
+	}
+	public int m_align2(){
+		return f__align;
+	}
+	bb_color_Color f_color=null;
 	String f__text="";
 	bb_map_StringMap5 f_fontStore=(new bb_map_StringMap5()).g_new();
 	public bb_angelfont_AngelFont m_font(){
@@ -5342,22 +5468,10 @@ class bb_font_Font extends bb_baseobject_BaseObject{
 	public String m_text2(){
 		return f__text;
 	}
-	int f__align=0;
-	public void m_align(int t_newAlign){
-		int t_1=t_newAlign;
-		if(t_1==0 || t_1==1 || t_1==2){
-			f__align=t_newAlign;
-		}else{
-			bb_std_lang.error("Invalid align value specified.");
-		}
-	}
-	public int m_align2(){
-		return f__align;
-	}
 	public void m_OnCreate(bb_director_Director t_director){
 		super.m_OnCreate(t_director);
 		if(!f_fontStore.m_Contains(f_name)){
-			f_fontStore.m_Set6(f_name,(new bb_angelfont_AngelFont()).g_new(""));
+			f_fontStore.m_Set7(f_name,(new bb_angelfont_AngelFont()).g_new(""));
 			f_fontStore.m_Get(f_name).m_LoadFont(f_name);
 		}
 		if(f_recalculateSize){
@@ -5365,7 +5479,6 @@ class bb_font_Font extends bb_baseobject_BaseObject{
 			m_text(f__text);
 		}
 	}
-	bb_color_Color f_color=null;
 	public void m_OnRender(){
 		if((f_color)!=null){
 			f_color.m_Activate();
@@ -5505,6 +5618,43 @@ class bb_angelfont_AngelFont extends Object{
 		}
 	}
 }
+class bb_color_Color extends Object{
+	float f_red=.0f;
+	float f_green=.0f;
+	float f_blue=.0f;
+	float f_alpha=.0f;
+	public bb_color_Color g_new(float t_red,float t_green,float t_blue,float t_alpha){
+		this.f_red=t_red;
+		this.f_green=t_green;
+		this.f_blue=t_blue;
+		this.f_alpha=t_alpha;
+		return this;
+	}
+	public bb_color_Color g_new2(){
+		return this;
+	}
+	bb_color_Color f_oldColor=null;
+	public void m_Set6(bb_color_Color t_color){
+		bb_graphics.bb_graphics_SetColor(t_color.f_red,t_color.f_green,t_color.f_blue);
+		bb_graphics.bb_graphics_SetAlpha(t_color.f_alpha);
+	}
+	public void m_Activate(){
+		if(!((f_oldColor)!=null)){
+			f_oldColor=(new bb_color_Color()).g_new(0.0f,0.0f,0.0f,0.0f);
+		}
+		float[] t_colorStack=bb_graphics.bb_graphics_GetColor();
+		f_oldColor.f_red=t_colorStack[0];
+		f_oldColor.f_green=t_colorStack[1];
+		f_oldColor.f_blue=t_colorStack[2];
+		f_oldColor.f_alpha=bb_graphics.bb_graphics_GetAlpha();
+		m_Set6(this);
+	}
+	public void m_Deactivate(){
+		if((f_oldColor)!=null){
+			m_Set6(f_oldColor);
+		}
+	}
+}
 abstract class bb_map_Map5 extends Object{
 	public bb_map_Map5 g_new(){
 		return this;
@@ -5616,7 +5766,7 @@ abstract class bb_map_Map5 extends Object{
 		f_root.f_color=1;
 		return 0;
 	}
-	public boolean m_Set6(String t_key,bb_angelfont_AngelFont t_value){
+	public boolean m_Set7(String t_key,bb_angelfont_AngelFont t_value){
 		bb_map_Node5 t_node=f_root;
 		bb_map_Node5 t_parent=null;
 		int t_cmp=0;
@@ -5648,7 +5798,7 @@ abstract class bb_map_Map5 extends Object{
 		return true;
 	}
 	public boolean m_Insert3(String t_key,bb_angelfont_AngelFont t_value){
-		return m_Set6(t_key,t_value);
+		return m_Set7(t_key,t_value);
 	}
 }
 class bb_map_StringMap5 extends bb_map_Map5{
@@ -6084,7 +6234,7 @@ abstract class bb_map_Map6 extends Object{
 		f_root.f_color=1;
 		return 0;
 	}
-	public boolean m_Set7(int t_key,Object t_value){
+	public boolean m_Set8(int t_key,Object t_value){
 		bb_map_Node6 t_node=f_root;
 		bb_map_Node6 t_parent=null;
 		int t_cmp=0;
@@ -6116,7 +6266,7 @@ abstract class bb_map_Map6 extends Object{
 		return true;
 	}
 	public boolean m_Insert5(int t_key,Object t_value){
-		return m_Set7(t_key,t_value);
+		return m_Set8(t_key,t_value);
 	}
 	public int m_Count(){
 		if((f_root)!=null){
@@ -6891,43 +7041,6 @@ class bb_map_ValueEnumerator extends Object{
 		return t_t.f_value;
 	}
 }
-class bb_color_Color extends Object{
-	bb_color_Color f_oldColor=null;
-	float f_red=.0f;
-	float f_green=.0f;
-	float f_blue=.0f;
-	float f_alpha=.0f;
-	public bb_color_Color g_new(float t_red,float t_green,float t_blue,float t_alpha){
-		this.f_red=t_red;
-		this.f_green=t_green;
-		this.f_blue=t_blue;
-		this.f_alpha=t_alpha;
-		return this;
-	}
-	public bb_color_Color g_new2(){
-		return this;
-	}
-	public void m_Set8(bb_color_Color t_color){
-		bb_graphics.bb_graphics_SetColor(t_color.f_red,t_color.f_green,t_color.f_blue);
-		bb_graphics.bb_graphics_SetAlpha(t_color.f_alpha);
-	}
-	public void m_Activate(){
-		if(!((f_oldColor)!=null)){
-			f_oldColor=(new bb_color_Color()).g_new(0.0f,0.0f,0.0f,0.0f);
-		}
-		float[] t_colorStack=bb_graphics.bb_graphics_GetColor();
-		f_oldColor.f_red=t_colorStack[0];
-		f_oldColor.f_green=t_colorStack[1];
-		f_oldColor.f_blue=t_colorStack[2];
-		f_oldColor.f_alpha=bb_graphics.bb_graphics_GetAlpha();
-		m_Set8(this);
-	}
-	public void m_Deactivate(){
-		if((f_oldColor)!=null){
-			m_Set8(f_oldColor);
-		}
-	}
-}
 class bb_shape_Shape extends bb_baseobject_BaseObject{
 	static bb_graphics_Image[] g_images;
 	int f_type=0;
@@ -6943,7 +7056,7 @@ class bb_shape_Shape extends bb_baseobject_BaseObject{
 		if(bb_std_lang.arrayLength(g_images)==0){
 			g_images=new bb_graphics_Image[]{bb_graphics.bb_graphics_LoadImage("circle_inside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("plus_inside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("star_inside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("tire_inside.png",1,bb_graphics_Image.g_DefaultFlags)};
 		}
-		float t_posX=(float)(46+g_images[0].m_Width()*t_lane);
+		float t_posX=(float)(44+g_images[0].m_Width()*t_lane);
 		float t_posY=(float)(t_chute.m_Height()-g_images[t_type].m_Height());
 		m_pos2((new bb_vector2d_Vector2D()).g_new(t_posX,t_posY));
 		if(!((g_SPEED_SLOW)!=null)){
@@ -7359,6 +7472,7 @@ class bb_{
 		bb_input.bb_input_device=null;
 		bb_audio.bb_audio_device=null;
 		bb_app.bb_app_device=null;
+		bb_scene_Scene.g_blend=null;
 		bb_graphics_Image.g_DefaultFlags=256;
 		bb_angelfont2_AngelFont.g_error="";
 		bb_angelfont2_AngelFont.g_current=null;
@@ -7371,6 +7485,8 @@ class bb_{
 		bb_angelfont_AngelFont.g_error="";
 		bb_angelfont_AngelFont.g_current=null;
 		bb_angelfont_AngelFont.g__list=(new bb_map_StringMap5()).g_new();
+		bb_iap.bb_iap_iapPurchaseInProgress=false;
+		bb_iap.bb_iap_iapCount=0;
 		bb_shape_Shape.g_images=new bb_graphics_Image[0];
 		bb_shape_Shape.g_SPEED_SLOW=null;
 		bb_shape_Shape.g_SPEED_FAST=null;
@@ -7448,6 +7564,29 @@ class bb_gameoverscene{
 class bb_gamescene{
 }
 class bb_highscorescene{
+}
+class bb_iap{
+	static public int bb_iap_InitInAppPurchases(String t_bundleID,String[] t_productList){
+		return 0;
+	}
+	static public int bb_iap_isProductPurchased(String t_product){
+		return 0;
+	}
+	static boolean bb_iap_iapPurchaseInProgress;
+	static int bb_iap_iapCount;
+	static public int bb_iap_buyProduct(String t_product){
+		bb_iap.bb_iap_iapPurchaseInProgress=true;
+		bb_iap.bb_iap_iapCount=0;
+		return 0;
+	}
+	static public boolean bb_iap_isPurchaseInProgress(){
+		bb_iap.bb_iap_iapPurchaseInProgress=true;
+		bb_iap.bb_iap_iapCount=bb_iap.bb_iap_iapCount+1;
+		if(bb_iap.bb_iap_iapCount>500){
+			bb_iap.bb_iap_iapPurchaseInProgress=false;
+		}
+		return bb_iap.bb_iap_iapPurchaseInProgress;
+	}
 }
 class bb_introscene{
 }

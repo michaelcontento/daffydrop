@@ -9,12 +9,19 @@
 	<key>CFBundleExecutable</key>
 	<string>${EXECUTABLE_NAME}</string>
 	<key>CFBundleIconFile</key>
-	<string>Icon.png</string>
+	<string>icon7.png</string>
 	<key>CFBundleIconFiles</key>
 	<array>
 		<string>icon4.png</string>
 		<string>icon7.png</string>
 		<string>icon6.png</string>
+		<string>icon3.png</string>
+		<string>Default@2x.png</string>
+		<string>Default.png</string>
+		<string>Default-Portrait~ipad.png</string>
+		<string>Default-Portrait~ipad.png</string>
+		<string>Default-Portrait@2x~ipad.png</string>
+		<string>Default-Portrait@2x~ipad.png</string>
 	</array>
 	<key>CFBundleIcons</key>
 	<dict>
@@ -25,7 +32,16 @@
 				<string>icon4.png</string>
 				<string>icon7.png</string>
 				<string>icon6.png</string>
+				<string>icon3.png</string>
+				<string>Default@2x.png</string>
+				<string>Default.png</string>
+				<string>Default-Portrait~ipad.png</string>
+				<string>Default-Portrait~ipad.png</string>
+				<string>Default-Portrait@2x~ipad.png</string>
+				<string>Default-Portrait@2x~ipad.png</string>
 			</array>
+			<key>UIPrerenderedIcon</key>
+			<true/>
 		</dict>
 	</dict>
 	<key>CFBundleIdentifier</key>
@@ -48,6 +64,8 @@
 	<true/>
 	<key>NSMainNibFile</key>
 	<string>MainWindow</string>
+	<key>UIPrerenderedIcon</key>
+	<true/>
 	<key>UIStatusBarHidden</key>
 	<true/>
 	<key>UISupportedInterfaceOrientations</key>

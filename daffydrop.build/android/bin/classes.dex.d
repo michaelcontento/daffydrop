@@ -60,6 +60,7 @@
 /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/android/bin/classes/com/coragames/daffydrop/bb_highscore_IntHighscore.class \
 /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/android/bin/classes/com/coragames/daffydrop/bb_highscorescene.class \
 /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/android/bin/classes/com/coragames/daffydrop/bb_highscorescene_HighscoreScene.class \
+/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/android/bin/classes/com/coragames/daffydrop/bb_iap.class \
 /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/android/bin/classes/com/coragames/daffydrop/bb_input.class \
 /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/android/bin/classes/com/coragames/daffydrop/bb_inputcontroller.class \
 /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/android/bin/classes/com/coragames/daffydrop/bb_inputcontroller_InputController.class \
