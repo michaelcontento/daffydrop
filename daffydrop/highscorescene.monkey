@@ -50,8 +50,7 @@ Class HighscoreScene Extends Scene Implements RouterEvents
     Method OnRender:Void()
         background.OnRender()
         PushMatrix()
-            SetColor(255, 133, 0)
-            Scale(1.5, 1.5)
+            SetColor(95, 85, 83)
             DrawEntries()
         PopMatrix()
     End
@@ -67,20 +66,20 @@ Class HighscoreScene Extends Scene Implements RouterEvents
     Private
 
     Method DrawEntries:Void()
-        Local posY:Int = 190
+        Local posY:Int = 290
         Local found:Bool
 
         For Local score:Score<Int> = EachIn highscore
             If (Not found) And (score.value = lastScoreValue) And (score.key = lastScoreKey)
-                SetColor(255, 255, 255)
+                SetColor(3, 105, 187)
             End
 
-            font.DrawText(score.value, 100, posY, AngelFont.ALIGN_RIGHT)
-            font.DrawText(score.key, 110, posY)
-            posY += 35
+            font.DrawText(score.value, 150, posY, AngelFont.ALIGN_RIGHT)
+            font.DrawText(score.key, 160, posY)
+            posY += 55
 
             If (Not found) And (score.value = lastScoreValue) And (score.key = lastScoreKey)
-                SetColor(255, 133, 0)
+                SetColor(95, 85, 83)
                 found = True
             End
         End

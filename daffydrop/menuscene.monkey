@@ -105,8 +105,19 @@ Class MenuScene Extends Scene
             PushMatrix()
                 Translate(-director.center.x, -director.center.y)
                 Scale(2, 2)
+
                 waitingImage.OnRender()
-                waitingText.OnRender()
+
+                PushMatrix()
+                    Translate(-2, 1)
+                    SetColor(47, 85, 98)
+                    waitingText.OnRender()
+                PopMatrix()
+
+                PushMatrix()
+                    SetColor(255, 255, 255)
+                    waitingText.OnRender()
+                PopMatrix()
             PopMatrix()
         End
     End
@@ -116,7 +127,7 @@ Class MenuScene Extends Scene
     Method InitializeWaitingImages:Void()
         waitingText = New Font("CoRa")
         waitingText.OnCreate(director)
-        waitingText.text = "Loading ..."
+        waitingText.text = "Loading"
         waitingText.align = Font.CENTER
         waitingText.pos = director.center.Copy()
 

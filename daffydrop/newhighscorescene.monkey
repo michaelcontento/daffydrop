@@ -33,7 +33,8 @@ Class NewHighscoreScene Extends Scene
         layer.Add(continueBtn)
 #End
 
-        input = New TextInput("CoRa", New Vector2D(90, 430))
+        input = New TextInput("CoRa", New Vector2D(110, 415))
+        input.color = New Color(3, 105, 187)
         layer.Add(input)
 
         Super.OnCreate(director)

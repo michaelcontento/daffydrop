@@ -19,8 +19,8 @@ Class GameScene Extends Scene Implements RouterEvents
     Private
 
     Const COMBO_DETECT_DURATION:Int = 300
-    Const COMBO_DISPLAY_DURATION:Int = 750
-    Const NEW_HIGHSCORE_DISPLAY_DURATION:Int = 2000
+    Const COMBO_DISPLAY_DURATION:Int = 850
+    Const NEW_HIGHSCORE_DISPLAY_DURATION:Int = 2500
 
     Field severity:Severity
     Field chute:Chute
@@ -62,30 +62,33 @@ Class GameScene Extends Scene Implements RouterEvents
         pauseButton.pos.y = 0
 
         scoreFont = New Font("CoRa")
-        scoreFont.pos = New Vector2D(director.center.x, director.size.y - 50)
+        scoreFont.pos = New Vector2D(director.center.x, director.size.y - 65)
         scoreFont.align = Font.CENTER
+        scoreFont.color = New Color(3, 105, 187)
 
         comboFont = New Font("CoRa", director.center.Copy())
+        comboFont.color = New Color(3, 105, 187)
         comboFont.text = "COMBO x 2"
         comboFont.pos.y -= 150
         ' FIXME: CENTER alignment is not handled properly :/
-        comboFont.pos.x -= 70
+        comboFont.pos.x -= 130
         'comboFont.align = Font.CENTER
 
-        comboAnimation = New Animation(2, 0, COMBO_DISPLAY_DURATION)
+        comboAnimation = New Animation(1.8, 0, COMBO_DISPLAY_DURATION)
         comboAnimation.effect = New FaderScale()
         comboAnimation.transition = New TransitionInCubic()
         comboAnimation.Add(comboFont)
         comboAnimation.Pause()
 
         newHighscoreFont = New Font("CoRa", director.center.Copy())
+        newHighscoreFont.color = New Color(209, 146, 31)
         newHighscoreFont.text = "NEW HIGHSCORE"
         newHighscoreFont.pos.y /= 2
         ' FIXME: CENTER alignment is not handled properly :/
-        newHighscoreFont.pos.x -= 120
+        newHighscoreFont.pos.x -= 200
         'newHighscoreFont.align = Font.CENTER
 
-        newHighscoreAnimation = New Animation(2, 0, NEW_HIGHSCORE_DISPLAY_DURATION)
+        newHighscoreAnimation = New Animation(1.5, 0, NEW_HIGHSCORE_DISPLAY_DURATION)
         newHighscoreAnimation.effect = New FaderScale()
         newHighscoreAnimation.transition = New TransitionInCubic()
         newHighscoreAnimation.Add(newHighscoreFont)
