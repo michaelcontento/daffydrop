@@ -22,6 +22,8 @@ Class MenuScene Extends Scene
     Field isLocked:Bool = True
     Field lock:Sprite
     Field paymentProcessing:Bool
+    Field waitingText:Font
+    Field waitingImage:Sprite
 
     Public
 
@@ -97,12 +99,32 @@ Class MenuScene Extends Scene
 
     Method OnRender:Void()
         Super.OnRender()
+
         If paymentProcessing
-            DrawText("PAYMENT PROCESSING ...", 100, 100)
+            RenderBlend()
+            PushMatrix()
+                Translate(-director.center.x, -director.center.y)
+                Scale(2, 2)
+                waitingImage.OnRender()
+                waitingText.OnRender()
+            PopMatrix()
         End
     End
 
     Private
+
+    Method InitializeWaitingImages:Void()
+        waitingText = New Font("CoRa")
+        waitingText.OnCreate(director)
+        waitingText.text = "Loading ..."
+        waitingText.align = Font.CENTER
+        waitingText.pos = director.center.Copy()
+
+        waitingImage = New Sprite("star_inside.png")
+        waitingImage.OnCreate(director)
+        waitingImage.Center(director)
+        waitingImage.pos.y -= 50
+    End
 
     Method ToggleLock:Void()
         If isLocked
@@ -149,6 +171,7 @@ Class MenuScene Extends Scene
         If paymentProcessing Then Return
         If Not isLocked Then Return
 
+        InitializeWaitingImages()
         paymentProcessing = True
         buyProduct("com.coragames.daffydrop.fullversion")
     End

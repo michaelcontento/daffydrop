@@ -24,15 +24,14 @@ Class NewHighscoreScene Extends Scene
     Field score:Int
 
     Method OnCreate:Void(director:Director)
-#If TARGET="ios" Or TARGET="android"
-        Local background:Sprite = New Sprite("newhighscore_mobile.png")
-#Else
         Local background:Sprite = New Sprite("newhighscore.png")
-#End
+        background.pos.y = 40
         layer.Add(background)
 
+#If TARGET<>"ios" And TARGET<>"android"
         continueBtn = New Sprite("01_06-continue.png")
         layer.Add(continueBtn)
+#End
 
         input = New TextInput("CoRa", New Vector2D(90, 430))
         layer.Add(input)
@@ -40,13 +39,16 @@ Class NewHighscoreScene Extends Scene
         Super.OnCreate(director)
     End
 
+#If TARGET<>"ios" And TARGET<>"android"
     Method OnEnter:Void()
         continueBtn.CenterX(director)
         continueBtn.pos.y = input.pos.y + 175
     End
+#End
 
     Method OnRender:Void()
         router.previous.OnRender()
+        RenderBlend()
         Super.OnRender()
     End
 
@@ -55,9 +57,11 @@ Class NewHighscoreScene Extends Scene
         If event.code = KEY_ENTER Then SaveAndContinue()
     End
 
+#If TARGET<>"ios" And TARGET<>"android"
     Method OnTouchDown:Void(event:TouchEvent)
         If continueBtn.Collide(event.pos) Then SaveAndContinue()
     End
+#End
 
     Private
 

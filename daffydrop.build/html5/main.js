@@ -67,7 +67,7 @@ CFG_TEXT_FILES="*.txt|*.xml|*.json";
 //${CONFIG_END}
 
 //${METADATA_BEGIN}
-var META_DATA="[mojo_font.png];type=image/png;width=864;height=13;\n[01_02-advanced.png];type=image/png;width=475;height=115;\n[01_02-advanced_active.png];type=image/png;width=475;height=115;\n[01_02-easy.png];type=image/png;width=475;height=115;\n[01_02-normal.png];type=image/png;width=475;height=115;\n[01_02-normal_active.png];type=image/png;width=475;height=115;\n[01_02-play_again-active.png];type=image/png;width=475;height=115;\n[01_04button-highscore.png];type=image/png;width=475;height=115;\n[01_05-quit_active.png];type=image/png;width=475;height=115;\n[01_06-continue.png];type=image/png;width=475;height=115;\n[01_07-quit.png];type=image/png;width=475;height=115;\n[01_main.jpg];type=image/jpg;width=640;height=960;\n[CoRa.png];type=image/png;width=512;height=512;\n[arrow_ingame.png];type=image/png;width=64;height=270;\n[arrow_ingame2.png];type=image/png;width=64;height=270;\n[back.png];type=image/png;width=133;height=118;\n[bg_960x640.png];type=image/png;width=640;height=960;\n[chute-bg.png];type=image/png;width=136;height=6;\n[chute-bottom.png];type=image/png;width=148;height=24;\n[circle_inside.png];type=image/png;width=140;height=137;\n[circle_outside.png];type=image/png;width=140;height=137;\n[false.png];type=image/png;width=840;height=88;\n[gameover.png];type=image/png;width=640;height=960;\n[highscore_bg.png];type=image/png;width=640;height=960;\n[locked.png];type=image/png;width=144;height=149;\n[logo.jpg];type=image/jpg;width=565;height=317;\n[newhighscore.png];type=image/png;width=640;height=960;\n[pause-button.png];type=image/png;width=77;height=77;\n[pause.png];type=image/png;width=640;height=960;\n[plus_inside.png];type=image/png;width=140;height=137;\n[plus_outside.png];type=image/png;width=140;height=137;\n[star_inside.png];type=image/png;width=140;height=137;\n[star_outside.png];type=image/png;width=140;height=137;\n[tire_inside.png];type=image/png;width=140;height=137;\n[tire_outside.png];type=image/png;width=140;height=137;\n";
+var META_DATA="[mojo_font.png];type=image/png;width=864;height=13;\n[01_02-advanced.png];type=image/png;width=475;height=115;\n[01_02-advanced_active.png];type=image/png;width=475;height=115;\n[01_02-easy.png];type=image/png;width=475;height=115;\n[01_02-normal.png];type=image/png;width=475;height=115;\n[01_02-normal_active.png];type=image/png;width=475;height=115;\n[01_02-play_again-active.png];type=image/png;width=475;height=115;\n[01_04button-highscore.png];type=image/png;width=475;height=115;\n[01_05-quit_active.png];type=image/png;width=475;height=115;\n[01_06-continue.png];type=image/png;width=475;height=115;\n[01_07-quit.png];type=image/png;width=475;height=115;\n[01_main.jpg];type=image/jpg;width=640;height=960;\n[CoRa.png];type=image/png;width=512;height=512;\n[arrow_ingame.png];type=image/png;width=64;height=270;\n[arrow_ingame2.png];type=image/png;width=64;height=270;\n[bg_960x640.jpg];type=image/jpg;width=640;height=960;\n[chute-bg.png];type=image/png;width=136;height=6;\n[chute-bottom.png];type=image/png;width=148;height=24;\n[circle_inside.png];type=image/png;width=140;height=137;\n[circle_outside.png];type=image/png;width=140;height=137;\n[false.png];type=image/png;width=840;height=88;\n[gameover.png];type=image/png;width=640;height=960;\n[highscore_bg.jpg];type=image/jpg;width=640;height=960;\n[locked.png];type=image/png;width=144;height=149;\n[logo.jpg];type=image/jpg;width=565;height=317;\n[newhighscore.png];type=image/png;width=640;height=960;\n[newhighscore_mobile.png];type=image/png;width=640;height=521;\n[pause-button.png];type=image/png;width=77;height=77;\n[pause.png];type=image/png;width=640;height=960;\n[plus_inside.png];type=image/png;width=140;height=137;\n[plus_outside.png];type=image/png;width=140;height=137;\n[star_inside.png];type=image/png;width=140;height=137;\n[star_outside.png];type=image/png;width=140;height=137;\n[tire_inside.png];type=image/png;width=140;height=137;\n[tire_outside.png];type=image/png;width=140;height=137;\n";
 //${METADATA_END}
 
 function getMetaData( path,key ){
@@ -2031,6 +2031,9 @@ function bb_menuscene_MenuScene(){
 	this.f_highscore=null;
 	this.f_lock=null;
 	this.f_isLocked=true;
+	this.f_paymentProcessing=false;
+	this.f_waitingText=null;
+	this.f_waitingImage=null;
 	this.implments={bb_routerevents_RouterEvents:1,bb_directorevents_DirectorEvents:1};
 }
 bb_menuscene_MenuScene.prototype=extend_class(bb_scene_Scene);
@@ -2038,7 +2041,7 @@ function bb_menuscene_MenuScene_new(){
 	bb_scene_Scene_new.call(this);
 	return this;
 }
-bb_menuscene_MenuScene.prototype.m_toggleLock=function(){
+bb_menuscene_MenuScene.prototype.m_ToggleLock=function(){
 	if(this.f_isLocked){
 		this.f_isLocked=false;
 		this.m_layer().m_Remove(this.f_lock);
@@ -2074,18 +2077,44 @@ bb_menuscene_MenuScene.prototype.m_OnCreate=function(t_director){
 	this.m_layer().m_Add4(this.f_highscore);
 	this.m_layer().m_Add4(this.f_lock);
 	bb_scene_Scene.prototype.m_OnCreate.call(this,t_director);
-	this.m_toggleLock();
 	this.f_easy.m_CenterX(t_director);
 	this.f_normal.m_CenterX(t_director);
 	this.f_advanced.m_CenterX(t_director);
 	this.f_highscore.m_CenterX(t_director);
+	bb_iap_InitInAppPurchases("com.coragames.daffydrop",["com.coragames.daffydrop.fullversion"]);
+	if((bb_iap_isProductPurchased("com.coragames.daffydrop.fullversion"))!=0){
+		this.m_ToggleLock();
+	}
 }
 bb_menuscene_MenuScene.prototype.m_PlayEasy=function(){
 	bb_severity_CurrentSeverity().m_Set5(0);
 	this.m_router().m_Goto("game");
 }
+bb_menuscene_MenuScene.prototype.m_InitializeWaitingImages=function(){
+	this.f_waitingText=bb_font_Font_new.call(new bb_font_Font,"CoRa",null);
+	this.f_waitingText.m_OnCreate(this.m_director());
+	this.f_waitingText.m_text("Pending ...");
+	this.f_waitingText.m_align(1);
+	this.f_waitingText.m_Center(this.m_director());
+	this.f_waitingImage=bb_sprite_Sprite_new.call(new bb_sprite_Sprite,"star_inside.png",null);
+	this.f_waitingImage.m_OnCreate(this.m_director());
+	this.f_waitingImage.m_Center(this.m_director());
+}
+bb_menuscene_MenuScene.prototype.m_HandleLocked=function(){
+	if(this.f_paymentProcessing){
+		return;
+	}
+	if(!this.f_isLocked){
+		return;
+	}
+	print("DRIN");
+	this.m_InitializeWaitingImages();
+	this.f_paymentProcessing=true;
+	bb_iap_buyProduct("com.coragames.daffydrop.fullversion");
+}
 bb_menuscene_MenuScene.prototype.m_PlayNormal=function(){
 	if(this.f_isLocked){
+		this.m_HandleLocked();
 		return;
 	}
 	bb_severity_CurrentSeverity().m_Set5(1);
@@ -2093,12 +2122,16 @@ bb_menuscene_MenuScene.prototype.m_PlayNormal=function(){
 }
 bb_menuscene_MenuScene.prototype.m_PlayAdvanced=function(){
 	if(this.f_isLocked){
+		this.m_HandleLocked();
 		return;
 	}
 	bb_severity_CurrentSeverity().m_Set5(2);
 	this.m_router().m_Goto("game");
 }
 bb_menuscene_MenuScene.prototype.m_OnTouchDown=function(t_event){
+	if(this.f_paymentProcessing){
+		return;
+	}
 	if(this.f_easy.m_Collide(t_event.m_pos())){
 		this.m_PlayEasy();
 	}
@@ -2111,8 +2144,14 @@ bb_menuscene_MenuScene.prototype.m_OnTouchDown=function(t_event){
 	if(this.f_highscore.m_Collide(t_event.m_pos())){
 		this.m_router().m_Goto("highscore");
 	}
+	if(this.f_lock.m_Collide(t_event.m_pos())){
+		this.m_HandleLocked();
+	}
 }
 bb_menuscene_MenuScene.prototype.m_OnKeyDown=function(t_event){
+	if(this.f_paymentProcessing){
+		return;
+	}
 	var t_1=t_event.m_code();
 	if(t_1==69){
 		this.m_PlayEasy();
@@ -2123,15 +2162,45 @@ bb_menuscene_MenuScene.prototype.m_OnKeyDown=function(t_event){
 			if(t_1==65){
 				this.m_PlayAdvanced();
 			}else{
-				if(t_1==72){
-					this.m_router().m_Goto("highscore");
+				if(t_1==76){
+					this.f_paymentProcessing=!this.f_paymentProcessing;
 				}else{
-					if(t_1==76){
-						this.m_toggleLock();
+					if(t_1==72){
+						this.m_router().m_Goto("highscore");
 					}
 				}
 			}
 		}
+	}
+}
+bb_menuscene_MenuScene.prototype.m_OnUpdate=function(t_delta,t_frameTime){
+	bb_scene_Scene.prototype.m_OnUpdate.call(this,t_delta,t_frameTime);
+	if(this.f_paymentProcessing){
+		this.f_waitingImage.f_rotation=this.f_waitingImage.f_rotation+5.0;
+		if(this.f_waitingImage.f_rotation>360.0){
+			this.f_waitingImage.f_rotation=this.f_waitingImage.f_rotation-360.0;
+		}
+	}
+	if(!this.f_isLocked){
+		return;
+	}
+	if(!this.f_paymentProcessing){
+		return;
+	}
+	if(bb_iap_isPurchaseInProgress()){
+		return;
+	}
+	this.f_paymentProcessing=false;
+	if(!((bb_iap_isProductPurchased("com.coragames.daffydrop.fullversion"))!=0)){
+		return;
+	}
+	this.m_ToggleLock();
+}
+bb_menuscene_MenuScene.prototype.m_OnRender=function(){
+	bb_scene_Scene.prototype.m_OnRender.call(this);
+	if(this.f_paymentProcessing){
+		this.f_waitingImage.m_OnRender();
+		this.f_waitingText.m_OnRender();
 	}
 }
 function bb_highscorescene_HighscoreScene(){
@@ -2139,6 +2208,8 @@ function bb_highscorescene_HighscoreScene(){
 	this.f_font=null;
 	this.f_background=null;
 	this.f_highscore=bb_gamehighscore_GameHighscore_new.call(new bb_gamehighscore_GameHighscore);
+	this.f_lastScoreValue=0;
+	this.f_lastScoreKey="";
 	this.implments={bb_routerevents_RouterEvents:1,bb_directorevents_DirectorEvents:1};
 }
 bb_highscorescene_HighscoreScene.prototype=extend_class(bb_scene_Scene);
@@ -2148,7 +2219,7 @@ function bb_highscorescene_HighscoreScene_new(){
 }
 bb_highscorescene_HighscoreScene.prototype.m_OnCreate=function(t_director){
 	this.f_font=bb_angelfont2_AngelFont_new.call(new bb_angelfont2_AngelFont,"CoRa");
-	this.f_background=bb_sprite_Sprite_new.call(new bb_sprite_Sprite,"highscore_bg.png",null);
+	this.f_background=bb_sprite_Sprite_new.call(new bb_sprite_Sprite,"highscore_bg.jpg",null);
 	this.f_background.m_OnCreate(t_director);
 	bb_scene_Scene.prototype.m_OnCreate.call(this,t_director);
 }
@@ -2156,15 +2227,25 @@ bb_highscorescene_HighscoreScene.prototype.m_OnEnter=function(){
 	bb_statestore_StateStore_Load(this.f_highscore);
 }
 bb_highscorescene_HighscoreScene.prototype.m_OnLeave=function(){
+	this.f_lastScoreValue=0;
+	this.f_lastScoreKey="";
 }
 bb_highscorescene_HighscoreScene.prototype.m_DrawEntries=function(){
 	var t_posY=190;
+	var t_found=false;
 	var t_=this.f_highscore.m_ObjectEnumerator();
 	while(t_.m_HasNext()){
 		var t_score=t_.m_NextObject();
+		if(!t_found && t_score.f_value==this.f_lastScoreValue && t_score.f_key==this.f_lastScoreKey){
+			bb_graphics_SetColor(255.0,255.0,255.0);
+		}
 		this.f_font.m_DrawText2(String(t_score.f_value),100,t_posY,2);
 		this.f_font.m_DrawText(t_score.f_key,110,t_posY);
 		t_posY+=35;
+		if(!t_found && t_score.f_value==this.f_lastScoreValue && t_score.f_key==this.f_lastScoreKey){
+			bb_graphics_SetColor(255.0,133.0,0.0);
+			t_found=true;
+		}
 	}
 }
 bb_highscorescene_HighscoreScene.prototype.m_OnRender=function(){
@@ -2195,11 +2276,12 @@ function bb_gamescene_GameScene(){
 	this.f_comboAnimation=null;
 	this.f_newHighscoreFont=null;
 	this.f_newHighscoreAnimation=null;
-	this.f_minHighscore=0;
-	this.f_isNewHighscoreRecord=false;
 	this.f_checkPosY=.0;
 	this.f_pauseTime=0;
+	this.f_ignoreFirstTouchUp=false;
 	this.f_score=0;
+	this.f_minHighscore=0;
+	this.f_isNewHighscoreRecord=false;
 	this.f_collisionCheckedLastUpdate=false;
 	this.f_falseSpriteStrack=bb_stack_Stack2_new.call(new bb_stack_Stack2);
 	this.f_lastMatchTime=[0,0,0,0];
@@ -2213,12 +2295,6 @@ function bb_gamescene_GameScene_new(){
 	bb_scene_Scene_new.call(this);
 	return this;
 }
-bb_gamescene_GameScene.prototype.m_LoadHighscoreMinValue=function(){
-	var t_highscore=bb_gamehighscore_GameHighscore_new.call(new bb_gamehighscore_GameHighscore);
-	bb_statestore_StateStore_Load(t_highscore);
-	this.f_minHighscore=t_highscore.m_Last().f_value;
-	this.f_isNewHighscoreRecord=!(t_highscore.m_Count()==t_highscore.m_maxCount());
-}
 bb_gamescene_GameScene.prototype.m_OnCreate=function(t_director){
 	this.f_chute=bb_chute_Chute_new.call(new bb_chute_Chute);
 	this.f_lowerShapes=bb_fanout_FanOut_new.call(new bb_fanout_FanOut);
@@ -2231,7 +2307,6 @@ bb_gamescene_GameScene.prototype.m_OnCreate=function(t_director){
 	this.f_pauseButton.m_pos().f_y=0.0;
 	this.f_scoreFont=bb_font_Font_new.call(new bb_font_Font,"CoRa",null);
 	this.f_scoreFont.m_pos2(bb_vector2d_Vector2D_new.call(new bb_vector2d_Vector2D,t_director.m_center().f_x,t_director.m_size().f_y-50.0));
-	this.f_scoreFont.m_text("Score: 0");
 	this.f_scoreFont.m_align(1);
 	this.f_comboFont=bb_font_Font_new.call(new bb_font_Font,"CoRa",t_director.m_center().m_Copy());
 	this.f_comboFont.m_text("COMBO x 2");
@@ -2255,8 +2330,7 @@ bb_gamescene_GameScene.prototype.m_OnCreate=function(t_director){
 	this.f_newHighscoreAnimation.f_transition=(bb_transition_TransitionInCubic_new.call(new bb_transition_TransitionInCubic));
 	this.f_newHighscoreAnimation.m_Add4(this.f_newHighscoreFont);
 	this.f_newHighscoreAnimation.m_Pause();
-	this.m_LoadHighscoreMinValue();
-	this.m_layer().m_Add4(bb_sprite_Sprite_new.call(new bb_sprite_Sprite,"bg_960x640.png",null));
+	this.m_layer().m_Add4(bb_sprite_Sprite_new.call(new bb_sprite_Sprite,"bg_960x640.jpg",null));
 	this.m_layer().m_Add4(this.f_lowerShapes);
 	this.m_layer().m_Add4(this.f_slider);
 	this.m_layer().m_Add4(this.f_upperShapes);
@@ -2267,30 +2341,39 @@ bb_gamescene_GameScene.prototype.m_OnCreate=function(t_director){
 	this.m_layer().m_Add4(this.f_scoreFont);
 	this.m_layer().m_Add4(this.f_pauseButton);
 	bb_scene_Scene.prototype.m_OnCreate.call(this,t_director);
-	this.f_checkPosY=t_director.m_size().f_y-((this.f_slider.f_images[0].m_Height()/2)|0)-15.0;
+	this.f_checkPosY=t_director.m_size().f_y-((this.f_slider.f_images[0].m_Height()/2)|0)-5.0;
 }
 bb_gamescene_GameScene.prototype.m_OnEnterPaused=function(){
 	var t_diff=bb_app_Millisecs()-this.f_pauseTime;
 	this.f_pauseTime=0;
 	this.f_severity.m_WarpTime(t_diff);
 }
+bb_gamescene_GameScene.prototype.m_LoadHighscoreMinValue=function(){
+	var t_highscore=bb_gamehighscore_GameHighscore_new.call(new bb_gamehighscore_GameHighscore);
+	bb_statestore_StateStore_Load(t_highscore);
+	this.f_minHighscore=t_highscore.m_Last().f_value;
+	this.f_isNewHighscoreRecord=!(t_highscore.m_Count()==t_highscore.m_maxCount());
+}
 bb_gamescene_GameScene.prototype.m_OnEnter=function(){
 	if(this.f_pauseTime>0){
 		this.m_OnEnterPaused();
 		return;
 	}
+	this.f_ignoreFirstTouchUp=true;
 	this.f_score=0;
+	this.f_scoreFont.m_text("Score: 0");
 	this.f_lowerShapes.m_Clear();
 	this.f_upperShapes.m_Clear();
 	this.f_errorAnimations.m_Clear();
 	this.f_severity.m_Restart();
 	this.f_chute.m_Restart();
 	this.f_slider.m_Restart();
+	this.m_LoadHighscoreMinValue();
 }
 bb_gamescene_GameScene.prototype.m_OnLeave=function(){
 }
 bb_gamescene_GameScene.prototype.m_HandleGameOver=function(){
-	if((this.f_chute.m_Height())<this.f_slider.f_arrowLeft.m_pos().f_y){
+	if((this.f_chute.m_Height())<this.f_slider.f_arrowLeft.m_pos().f_y+40.0){
 		return false;
 	}
 	if(this.f_isNewHighscoreRecord){
@@ -2375,7 +2458,7 @@ bb_gamescene_GameScene.prototype.m_DetectComboTrigger=function(){
 	this.f_lastMatchTime=[0,0,0,0];
 	this.f_comboPending=false;
 	this.f_chute.f_height=bb_math_Max(75,this.f_chute.f_height-35);
-	this.m_IncrementScore(10*t_lanesNotZero);
+	this.m_IncrementScore(15*t_lanesNotZero);
 	this.f_comboFont.m_text("COMBO x "+String(t_lanesNotZero));
 	this.f_comboAnimation.m_Restart();
 	this.m_layer().m_Add4(this.f_comboAnimation);
@@ -2487,7 +2570,7 @@ bb_gamescene_GameScene.prototype.m_OnTouchDown=function(t_event){
 }
 bb_gamescene_GameScene.prototype.m_HandleSliderSwipe=function(t_event){
 	var t_swipe=t_event.m_startDelta().m_Normalize();
-	if(bb_math_Abs2(t_swipe.f_x)<=0.2){
+	if(bb_math_Abs2(t_swipe.f_x)<=0.4){
 		return;
 	}
 	if(t_swipe.f_x<0.0){
@@ -2503,6 +2586,10 @@ bb_gamescene_GameScene.prototype.m_HandleBackgroundSwipe=function(t_event){
 	}
 }
 bb_gamescene_GameScene.prototype.m_OnTouchUp=function(t_event){
+	if(this.f_ignoreFirstTouchUp){
+		this.f_ignoreFirstTouchUp=false;
+		return;
+	}
 	if(t_event.m_startPos().f_y>=this.f_slider.m_pos().f_y){
 		this.m_HandleSliderSwipe(t_event);
 	}else{
@@ -2622,6 +2709,8 @@ bb_newhighscorescene_NewHighscoreScene.prototype.m_SaveAndContinue=function(){
 	bb_statestore_StateStore_Load(this.f_highscore);
 	this.f_highscore.m_Add5(t_level+this.f_input.m_text2(),this.f_score);
 	bb_statestore_StateStore_Save(this.f_highscore);
+	object_downcast((this.m_router().m_Get("highscore")),bb_highscorescene_HighscoreScene).f_lastScoreKey=t_level+this.f_input.m_text2();
+	object_downcast((this.m_router().m_Get("highscore")),bb_highscorescene_HighscoreScene).f_lastScoreValue=this.f_score;
 	this.m_router().m_Goto("highscore");
 }
 bb_newhighscorescene_NewHighscoreScene.prototype.m_OnKeyDown=function(t_event){
@@ -2765,7 +2854,6 @@ bb_director_Director.prototype.m_OnSuspend=function(){
 }
 bb_director_Director.prototype.m_OnRender=function(){
 	bb_graphics_PushMatrix();
-	bb_graphics_Scale(this.f__scale.f_x,this.f__scale.f_y);
 	bb_graphics_SetScissor(0.0,0.0,this.f__device.f_x,this.f__device.f_y);
 	bb_graphics_Cls(0.0,0.0,0.0);
 	bb_graphics_PushMatrix();
@@ -3636,6 +3724,12 @@ function bb_graphics_LoadImage2(t_path,t_frameWidth,t_frameHeight,t_frameCount,t
 	}
 	return null;
 }
+function bb_iap_InitInAppPurchases(t_bundleID,t_productList){
+	return 0;
+}
+function bb_iap_isProductPurchased(t_product){
+	return 0;
+}
 function bb_angelfont2_AngelFont(){
 	Object.call(this);
 	this.f_iniText="";
@@ -4433,7 +4527,7 @@ bb_chute_Chute.prototype.m_Restart=function(){
 }
 bb_chute_Chute.prototype.m_OnCreate=function(t_director){
 	this.f_bg=bb_graphics_LoadImage("chute-bg.png",1,bb_graphics_Image_DefaultFlags);
-	this.f_width=this.f_bg.m_Width();
+	this.f_width=this.f_bg.m_Width()+4;
 	this.f_bottom=bb_graphics_LoadImage("chute-bottom.png",1,bb_graphics_Image_DefaultFlags);
 	this.f_severity=bb_severity_CurrentSeverity();
 	this.m_Restart();
@@ -4447,15 +4541,15 @@ bb_chute_Chute.prototype.m_OnUpdate=function(t_delta,t_frameTime){
 }
 bb_chute_Chute.prototype.m_OnRender=function(){
 	for(var t_posY=0.0;t_posY<=(this.f_height);t_posY=t_posY+6.0){
-		bb_graphics_DrawImage(this.f_bg,(46+this.f_width*0),t_posY,0);
-		bb_graphics_DrawImage(this.f_bg,(46+this.f_width*1),t_posY,0);
-		bb_graphics_DrawImage(this.f_bg,(46+this.f_width*2),t_posY,0);
-		bb_graphics_DrawImage(this.f_bg,(46+this.f_width*3),t_posY,0);
+		bb_graphics_DrawImage(this.f_bg,(44+this.f_width*0),t_posY,0);
+		bb_graphics_DrawImage(this.f_bg,(44+this.f_width*1),t_posY,0);
+		bb_graphics_DrawImage(this.f_bg,(44+this.f_width*2),t_posY,0);
+		bb_graphics_DrawImage(this.f_bg,(44+this.f_width*3),t_posY,0);
 	}
-	bb_graphics_DrawImage(this.f_bottom,(44+this.f_width*0),(this.f_height),0);
-	bb_graphics_DrawImage(this.f_bottom,(44+this.f_width*1),(this.f_height),0);
-	bb_graphics_DrawImage(this.f_bottom,(44+this.f_width*2),(this.f_height),0);
-	bb_graphics_DrawImage(this.f_bottom,(44+this.f_width*3),(this.f_height),0);
+	bb_graphics_DrawImage(this.f_bottom,(42+this.f_width*0),(this.f_height),0);
+	bb_graphics_DrawImage(this.f_bottom,(42+this.f_width*1),(this.f_height),0);
+	bb_graphics_DrawImage(this.f_bottom,(42+this.f_width*2),(this.f_height),0);
+	bb_graphics_DrawImage(this.f_bottom,(42+this.f_width*3),(this.f_height),0);
 }
 bb_chute_Chute.prototype.m_Height=function(){
 	return this.f_height;
@@ -4483,16 +4577,16 @@ bb_severity_Severity.prototype.m_WarpTime=function(t_diff){
 	this.f_lastTime+=t_diff;
 }
 bb_severity_Severity.prototype.m_ChuteMarkAsAdvanced=function(){
-	this.f_nextChuteAdvanceTime=((bb_random_Rnd2(1700.0,3000.0))|0);
+	this.f_nextChuteAdvanceTime=((bb_random_Rnd2(2000.0,4000.0))|0);
 	var t_2=this.f_level;
 	if(t_2==0){
-		this.f_nextChuteAdvanceTime=(((this.f_nextChuteAdvanceTime)+2500.0*this.f_progress)|0);
+		this.f_nextChuteAdvanceTime=(((this.f_nextChuteAdvanceTime)+5000.0*this.f_progress)|0);
 	}else{
 		if(t_2==1){
-			this.f_nextChuteAdvanceTime=(((this.f_nextChuteAdvanceTime)+2000.0*this.f_progress)|0);
+			this.f_nextChuteAdvanceTime=(((this.f_nextChuteAdvanceTime)+4000.0*this.f_progress)|0);
 		}else{
 			if(t_2==2){
-				this.f_nextChuteAdvanceTime=(((this.f_nextChuteAdvanceTime)+1500.0*this.f_progress)|0);
+				this.f_nextChuteAdvanceTime=(((this.f_nextChuteAdvanceTime)+3000.0*this.f_progress)|0);
 			}
 		}
 	}
@@ -4533,11 +4627,11 @@ bb_severity_Severity.prototype.m_Restart=function(){
 	}else{
 		if(t_1==1){
 			this.f_activatedShapes=3;
-			this.f_slowDownDuration=90000;
+			this.f_slowDownDuration=100000;
 		}else{
 			if(t_1==2){
 				this.f_activatedShapes=4;
-				this.f_slowDownDuration=60000;
+				this.f_slowDownDuration=80000;
 			}
 		}
 	}
@@ -4622,7 +4716,7 @@ bb_severity_Severity.prototype.m_RandomLane=function(){
 	do{
 		t_newLane=((bb_random_Rnd2(0.0,4.0))|0);
 	}while(!(this.f_laneTimes[t_newLane]<t_now));
-	this.f_laneTimes[t_newLane]=t_now+1000;
+	this.f_laneTimes[t_newLane]=t_now+1400;
 	return t_newLane;
 }
 bb_severity_Severity.prototype.m_ToString=function(){
@@ -4674,8 +4768,12 @@ bb_slider_Slider.prototype.m_OnCreate=function(t_director){
 	this.f_images=[bb_graphics_LoadImage("circle_outside.png",1,bb_graphics_Image_DefaultFlags),bb_graphics_LoadImage("plus_outside.png",1,bb_graphics_Image_DefaultFlags),bb_graphics_LoadImage("star_outside.png",1,bb_graphics_Image_DefaultFlags),bb_graphics_LoadImage("tire_outside.png",1,bb_graphics_Image_DefaultFlags)];
 	this.f_arrowLeft=bb_sprite_Sprite_new.call(new bb_sprite_Sprite,"arrow_ingame.png",null);
 	this.f_arrowLeft.m_pos().f_y=t_director.m_size().f_y-this.f_arrowLeft.m_size().f_y;
+	var t_=this.f_arrowLeft.m_pos();
+	t_.f_x=t_.f_x-4.0;
 	this.f_arrowRight=bb_sprite_Sprite_new.call(new bb_sprite_Sprite,"arrow_ingame2.png",null);
 	this.f_arrowRight.m_pos2(t_director.m_size().m_Copy().m_Sub(this.f_arrowRight.m_size()));
+	var t_2=this.f_arrowRight.m_pos();
+	t_2.f_x=t_2.f_x+4.0;
 	bb_partial_Partial.prototype.m_OnCreate.call(this,t_director);
 	this.f_posY=t_director.m_size().f_y-(this.f_images[0].m_Height())-60.0;
 }
@@ -4713,17 +4811,17 @@ bb_slider_Slider.prototype.m_GetMovementOffset=function(){
 	return t_movementOffset;
 }
 bb_slider_Slider.prototype.m_OnRender=function(){
-	var t_posX=46.0+this.m_GetMovementOffset();
+	var t_posX=44.0+this.m_GetMovementOffset();
 	var t_img=null;
 	bb_graphics_PushMatrix();
 	bb_graphics_SetColor(255.0,255.0,255.0);
 	bb_graphics_DrawRect(0.0,this.f_posY+(this.f_images[this.f_config.m_First()].m_Height()),this.m_director().m_size().f_x,this.m_director().m_size().f_y);
 	bb_graphics_PopMatrix();
-	if(t_posX>46.0){
+	if(t_posX>44.0){
 		t_img=this.f_images[this.f_config.m_Last()];
 		bb_graphics_DrawImage(t_img,(t_img.m_Width()*-1)+t_posX,this.f_posY,0);
 	}
-	if(t_posX<46.0){
+	if(t_posX<44.0){
 		t_img=this.f_images[this.f_config.m_First()];
 		bb_graphics_DrawImage(t_img,(t_img.m_Width()*4)+t_posX,this.f_posY,0);
 	}
@@ -4764,10 +4862,10 @@ bb_slider_Slider.prototype.m_SlideRight=function(){
 function bb_font_Font(){
 	bb_baseobject_BaseObject.call(this);
 	this.f_name="";
+	this.f__align=0;
 	this.f__text="";
 	this.f_fontStore=bb_map_StringMap5_new.call(new bb_map_StringMap5);
 	this.f_recalculateSize=false;
-	this.f__align=0;
 	this.f_color=null;
 	this.implments={bb_positionable_Positionable:1,bb_sizeable_Sizeable:1,bb_directorevents_DirectorEvents:1};
 }
@@ -4785,6 +4883,17 @@ function bb_font_Font_new2(){
 	bb_baseobject_BaseObject_new.call(this);
 	return this;
 }
+bb_font_Font.prototype.m_align=function(t_newAlign){
+	var t_1=t_newAlign;
+	if(t_1==0 || t_1==1 || t_1==2){
+		this.f__align=t_newAlign;
+	}else{
+		error("Invalid align value specified.");
+	}
+}
+bb_font_Font.prototype.m_align2=function(){
+	return this.f__align;
+}
 bb_font_Font.prototype.m_font=function(){
 	return this.f_fontStore.m_Get(this.f_name);
 }
@@ -4800,17 +4909,6 @@ bb_font_Font.prototype.m_text=function(t_newText){
 }
 bb_font_Font.prototype.m_text2=function(){
 	return this.f__text;
-}
-bb_font_Font.prototype.m_align=function(t_newAlign){
-	var t_1=t_newAlign;
-	if(t_1==0 || t_1==1 || t_1==2){
-		this.f__align=t_newAlign;
-	}else{
-		error("Invalid align value specified.");
-	}
-}
-bb_font_Font.prototype.m_align2=function(){
-	return this.f__align;
 }
 bb_font_Font.prototype.m_OnCreate=function(t_director){
 	bb_partial_Partial.prototype.m_OnCreate.call(this,t_director);
@@ -6508,6 +6606,16 @@ function bb_graphics_PushMatrix(){
 	bb_graphics_context.f_matrixSp=t_sp+6;
 	return 0;
 }
+function bb_graphics_Cls(t_r,t_g,t_b){
+	bb_graphics_renderDevice.Cls(t_r,t_g,t_b);
+	return 0;
+}
+function bb_graphics_PopMatrix(){
+	var t_sp=bb_graphics_context.f_matrixSp-6;
+	bb_graphics_SetMatrix(bb_graphics_context.f_matrixStack[t_sp+0],bb_graphics_context.f_matrixStack[t_sp+1],bb_graphics_context.f_matrixStack[t_sp+2],bb_graphics_context.f_matrixStack[t_sp+3],bb_graphics_context.f_matrixStack[t_sp+4],bb_graphics_context.f_matrixStack[t_sp+5]);
+	bb_graphics_context.f_matrixSp=t_sp;
+	return 0;
+}
 function bb_graphics_Transform(t_ix,t_iy,t_jx,t_jy,t_tx,t_ty){
 	var t_ix2=t_ix*bb_graphics_context.f_ix+t_iy*bb_graphics_context.f_jx;
 	var t_iy2=t_ix*bb_graphics_context.f_iy+t_iy*bb_graphics_context.f_jy;
@@ -6520,20 +6628,6 @@ function bb_graphics_Transform(t_ix,t_iy,t_jx,t_jy,t_tx,t_ty){
 }
 function bb_graphics_Transform2(t_m){
 	bb_graphics_Transform(t_m[0],t_m[1],t_m[2],t_m[3],t_m[4],t_m[5]);
-	return 0;
-}
-function bb_graphics_Scale(t_x,t_y){
-	bb_graphics_Transform(t_x,0.0,0.0,t_y,0.0,0.0);
-	return 0;
-}
-function bb_graphics_Cls(t_r,t_g,t_b){
-	bb_graphics_renderDevice.Cls(t_r,t_g,t_b);
-	return 0;
-}
-function bb_graphics_PopMatrix(){
-	var t_sp=bb_graphics_context.f_matrixSp-6;
-	bb_graphics_SetMatrix(bb_graphics_context.f_matrixStack[t_sp+0],bb_graphics_context.f_matrixStack[t_sp+1],bb_graphics_context.f_matrixStack[t_sp+2],bb_graphics_context.f_matrixStack[t_sp+3],bb_graphics_context.f_matrixStack[t_sp+4],bb_graphics_context.f_matrixStack[t_sp+5]);
-	bb_graphics_context.f_matrixSp=t_sp;
 	return 0;
 }
 function bb_graphics_Translate(t_x,t_y){
@@ -6571,6 +6665,10 @@ function bb_graphics_DrawImage(t_image,t_x,t_y,t_frame){
 }
 function bb_graphics_Rotate(t_angle){
 	bb_graphics_Transform(Math.cos((t_angle)*D2R),-Math.sin((t_angle)*D2R),Math.sin((t_angle)*D2R),Math.cos((t_angle)*D2R),0.0,0.0);
+	return 0;
+}
+function bb_graphics_Scale(t_x,t_y){
+	bb_graphics_Transform(t_x,0.0,0.0,t_y,0.0,0.0);
 	return 0;
 }
 function bb_graphics_DrawImage2(t_image,t_x,t_y,t_rotation,t_scaleX,t_scaleY,t_frame){
@@ -6676,6 +6774,21 @@ function bb_math_Min2(t_x,t_y){
 	}
 	return t_y;
 }
+var bb_iap_iapPurchaseInProgress;
+var bb_iap_iapCount;
+function bb_iap_buyProduct(t_product){
+	bb_iap_iapPurchaseInProgress=true;
+	bb_iap_iapCount=0;
+	return 0;
+}
+function bb_iap_isPurchaseInProgress(){
+	bb_iap_iapPurchaseInProgress=true;
+	bb_iap_iapCount=bb_iap_iapCount+1;
+	if(bb_iap_iapCount>500){
+		bb_iap_iapPurchaseInProgress=false;
+	}
+	return bb_iap_iapPurchaseInProgress;
+}
 function bb_shape_Shape(){
 	bb_baseobject_BaseObject.call(this);
 	this.f_type=0;
@@ -6696,7 +6809,7 @@ function bb_shape_Shape_new(t_type,t_lane,t_chute){
 	if(bb_shape_Shape_images.length==0){
 		bb_shape_Shape_images=[bb_graphics_LoadImage("circle_inside.png",1,bb_graphics_Image_DefaultFlags),bb_graphics_LoadImage("plus_inside.png",1,bb_graphics_Image_DefaultFlags),bb_graphics_LoadImage("star_inside.png",1,bb_graphics_Image_DefaultFlags),bb_graphics_LoadImage("tire_inside.png",1,bb_graphics_Image_DefaultFlags)];
 	}
-	var t_posX=(46+bb_shape_Shape_images[0].m_Width()*t_lane);
+	var t_posX=(44+bb_shape_Shape_images[0].m_Width()*t_lane);
 	var t_posY=(t_chute.m_Height()-bb_shape_Shape_images[t_type].m_Height());
 	this.m_pos2(bb_vector2d_Vector2D_new.call(new bb_vector2d_Vector2D,t_posX,t_posY));
 	if(!((bb_shape_Shape_SPEED_SLOW)!=null)){
@@ -6793,6 +6906,8 @@ function bbInit(){
 	bb_angelfont_AngelFont_error="";
 	bb_angelfont_AngelFont_current=null;
 	bb_angelfont_AngelFont__list=bb_map_StringMap5_new.call(new bb_map_StringMap5);
+	bb_iap_iapPurchaseInProgress=false;
+	bb_iap_iapCount=0;
 	bb_shape_Shape_images=[];
 	bb_shape_Shape_SPEED_SLOW=null;
 	bb_shape_Shape_SPEED_FAST=null;

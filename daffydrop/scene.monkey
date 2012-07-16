@@ -3,6 +3,7 @@ Strict
 Private
 
 Import bono
+Import mojo
 
 Public
 
@@ -11,8 +12,15 @@ Class Scene Extends Partial Implements RouterEvents
 
     Field _layer:FanOut = New FanOut()
     Field _router:Router
+    Global blend:Image
 
     Public
+
+    Method RenderBlend:Void()
+        For Local posY:Int = 0 Until director.size.y Step 8
+            DrawImage(blend, 0, posY)
+        End
+    End
 
     Method OnEnter:Void()
     End
@@ -24,6 +32,8 @@ Class Scene Extends Partial Implements RouterEvents
         Super.OnCreate(director)
         _layer.OnCreate(director)
         _router = Router(director.handler)
+
+        If Not blend Then blend = LoadImage("blend.png")
     End
 
     Method OnLoading:Void()

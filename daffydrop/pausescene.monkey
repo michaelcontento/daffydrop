@@ -32,13 +32,19 @@ Class PauseScene Extends Scene
     End
 
     Method OnEnter:Void()
+        overlay.Center(director)
+        overlay.pos.y -= overlay.size.y
+        overlay.pos.y -= 50
+
         continueBtn.Center(director)
+
         quitBtn.pos = continueBtn.pos.Copy()
         quitBtn.pos.y += continueBtn.size.y + 40
     End
 
     Method OnRender:Void()
         router.previous.OnRender()
+        RenderBlend()
         Super.OnRender()
     End
 

@@ -10,20 +10,28 @@ Public
 Class GameOverScene Extends Scene
     Private
 
-    Field overlay:Sprite
+    Field main:Sprite
+    Field small:Sprite
 
     Public
 
     Method OnCreate:Void(director:Director)
         Super.OnCreate(director)
 
-        overlay = New Sprite("gameover.png")
-        overlay.OnCreate(director)
+        main = New Sprite("gameover_main.png")
+        main.OnCreate(director)
+        main.Center(director)
+
+        small = New Sprite("gameover_small.png")
+        small.OnCreate(director)
+        small.pos.x = director.size.x - small.size.x
     End
 
     Method OnRender:Void()
         router.previous.OnRender()
-        overlay.OnRender()
+        RenderBlend()
+        small.OnRender()
+        main.OnRender()
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
