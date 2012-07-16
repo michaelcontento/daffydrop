@@ -18,7 +18,7 @@ Public
 Class GameScene Extends Scene Implements RouterEvents
     Private
 
-    Const COMBO_DETECT_DURATION:Int = 300
+    Const COMBO_DETECT_DURATION:Int = 325
     Const COMBO_DISPLAY_DURATION:Int = 850
     Const NEW_HIGHSCORE_DISPLAY_DURATION:Int = 2500
 

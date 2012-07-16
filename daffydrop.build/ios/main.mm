@@ -4028,6 +4028,7 @@ class bb_severity_Severity;
 class bb_slider_Slider;
 class bb_font_Font;
 class bb_angelfont_AngelFont;
+class bb_color_Color;
 class bb_map_Map5;
 class bb_map_StringMap5;
 class bb_map_Node5;
@@ -4061,7 +4062,6 @@ class bb_map_IntMap2;
 class bb_map_Node7;
 class bb_map_MapValues;
 class bb_map_ValueEnumerator;
-class bb_color_Color;
 class bb_shape_Shape;
 class bb_stack_Stack2;
 class bb_directorevents_DirectorEvents : public virtual gc_interface{
@@ -4999,10 +4999,10 @@ class bb_font_Font : public bb_baseobject_BaseObject{
 	public:
 	String f_name;
 	int f__align;
+	bb_color_Color* f_color;
 	String f__text;
 	bb_map_StringMap5* f_fontStore;
 	bool f_recalculateSize;
-	bb_color_Color* f_color;
 	bb_font_Font();
 	bb_font_Font* g_new(String,bb_vector2d_Vector2D*);
 	bb_font_Font* g_new2();
@@ -5038,6 +5038,21 @@ class bb_angelfont_AngelFont : public Object{
 	virtual void m_DrawText2(String,int,int,int);
 	void mark();
 };
+class bb_color_Color : public Object{
+	public:
+	Float f_red;
+	Float f_green;
+	Float f_blue;
+	Float f_alpha;
+	bb_color_Color* f_oldColor;
+	bb_color_Color();
+	bb_color_Color* g_new(Float,Float,Float,Float);
+	bb_color_Color* g_new2();
+	virtual void m_Set6(bb_color_Color*);
+	virtual void m_Activate();
+	virtual void m_Deactivate();
+	void mark();
+};
 class bb_map_Map5 : public Object{
 	public:
 	bb_map_Node5* f_root;
@@ -5050,7 +5065,7 @@ class bb_map_Map5 : public Object{
 	virtual int m_RotateLeft5(bb_map_Node5*);
 	virtual int m_RotateRight5(bb_map_Node5*);
 	virtual int m_InsertFixup5(bb_map_Node5*);
-	virtual bool m_Set6(String,bb_angelfont_AngelFont*);
+	virtual bool m_Set7(String,bb_angelfont_AngelFont*);
 	virtual bool m_Insert3(String,bb_angelfont_AngelFont*);
 	void mark();
 };
@@ -5232,7 +5247,7 @@ class bb_map_Map6 : public Object{
 	virtual int m_RotateLeft6(bb_map_Node6*);
 	virtual int m_RotateRight6(bb_map_Node6*);
 	virtual int m_InsertFixup6(bb_map_Node6*);
-	virtual bool m_Set7(int,Object*);
+	virtual bool m_Set8(int,Object*);
 	virtual bool m_Insert5(int,Object*);
 	virtual int m_Count();
 	virtual int m_Clear();
@@ -5460,21 +5475,6 @@ int bb_graphics_DrawImage(bb_graphics_Image*,Float,Float,int);
 int bb_graphics_Rotate(Float);
 int bb_graphics_DrawImage2(bb_graphics_Image*,Float,Float,Float,Float,Float,int);
 int bb_graphics_DrawRect(Float,Float,Float,Float);
-class bb_color_Color : public Object{
-	public:
-	bb_color_Color* f_oldColor;
-	Float f_red;
-	Float f_green;
-	Float f_blue;
-	Float f_alpha;
-	bb_color_Color();
-	bb_color_Color* g_new(Float,Float,Float,Float);
-	bb_color_Color* g_new2();
-	virtual void m_Set8(bb_color_Color*);
-	virtual void m_Activate();
-	virtual void m_Deactivate();
-	void mark();
-};
 Array<Float > bb_graphics_GetColor();
 Float bb_graphics_GetAlpha();
 int bb_graphics_DrawImageRect(bb_graphics_Image*,Float,Float,int,int,int,int,int);
@@ -6205,7 +6205,7 @@ void bb_menuscene_MenuScene::m_PlayEasy(){
 void bb_menuscene_MenuScene::m_InitializeWaitingImages(){
 	gc_assign(f_waitingText,(new bb_font_Font)->g_new(String(L"CoRa"),0));
 	f_waitingText->m_OnCreate(m_director());
-	f_waitingText->m_text(String(L"Loading ..."));
+	f_waitingText->m_text(String(L"Loading"));
 	f_waitingText->m_align(1);
 	f_waitingText->m_pos2(m_director()->m_center()->m_Copy());
 	gc_assign(f_waitingImage,(new bb_sprite_Sprite)->g_new(String(L"star_inside.png"),0));
@@ -6307,7 +6307,15 @@ void bb_menuscene_MenuScene::m_OnRender(){
 		bb_graphics_Translate(-m_director()->m_center()->f_x,-m_director()->m_center()->f_y);
 		bb_graphics_Scale(FLOAT(2.0),FLOAT(2.0));
 		f_waitingImage->m_OnRender();
+		bb_graphics_PushMatrix();
+		bb_graphics_Translate(FLOAT(-2.0),FLOAT(1.0));
+		bb_graphics_SetColor(FLOAT(47.0),FLOAT(85.0),FLOAT(98.0));
 		f_waitingText->m_OnRender();
+		bb_graphics_PopMatrix();
+		bb_graphics_PushMatrix();
+		bb_graphics_SetColor(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
+		f_waitingText->m_OnRender();
+		bb_graphics_PopMatrix();
 		bb_graphics_PopMatrix();
 	}
 }
@@ -6355,19 +6363,19 @@ void bb_highscorescene_HighscoreScene::m_OnUpdate(Float t_delta,Float t_frameTim
 	}
 }
 void bb_highscorescene_HighscoreScene::m_DrawEntries(){
-	int t_posY=190;
+	int t_posY=290;
 	bool t_found=false;
 	bb_list_Enumerator2* t_=f_highscore->m_ObjectEnumerator();
 	while(t_->m_HasNext()){
 		bb_score_Score* t_score=t_->m_NextObject();
 		if(!t_found && t_score->f_value==f_lastScoreValue && t_score->f_key==f_lastScoreKey){
-			bb_graphics_SetColor(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
+			bb_graphics_SetColor(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0));
 		}
-		f_font->m_DrawText2(String(t_score->f_value),100,t_posY,2);
-		f_font->m_DrawText(t_score->f_key,110,t_posY);
-		t_posY+=35;
+		f_font->m_DrawText2(String(t_score->f_value),150,t_posY,2);
+		f_font->m_DrawText(t_score->f_key,160,t_posY);
+		t_posY+=55;
 		if(!t_found && t_score->f_value==f_lastScoreValue && t_score->f_key==f_lastScoreKey){
-			bb_graphics_SetColor(FLOAT(255.0),FLOAT(133.0),FLOAT(0.0));
+			bb_graphics_SetColor(FLOAT(95.0),FLOAT(85.0),FLOAT(83.0));
 			t_found=true;
 		}
 	}
@@ -6375,8 +6383,7 @@ void bb_highscorescene_HighscoreScene::m_DrawEntries(){
 void bb_highscorescene_HighscoreScene::m_OnRender(){
 	f_background->m_OnRender();
 	bb_graphics_PushMatrix();
-	bb_graphics_SetColor(FLOAT(255.0),FLOAT(133.0),FLOAT(0.0));
-	bb_graphics_Scale(FLOAT(1.5),FLOAT(1.5));
+	bb_graphics_SetColor(FLOAT(95.0),FLOAT(85.0),FLOAT(83.0));
 	m_DrawEntries();
 	bb_graphics_PopMatrix();
 }
@@ -6434,26 +6441,29 @@ void bb_gamescene_GameScene::m_OnCreate(bb_director_Director* t_director){
 	f_pauseButton->m_pos2(t_director->m_size()->m_Copy()->m_Sub(f_pauseButton->m_size()));
 	f_pauseButton->m_pos()->f_y=FLOAT(0.0);
 	gc_assign(f_scoreFont,(new bb_font_Font)->g_new(String(L"CoRa"),0));
-	f_scoreFont->m_pos2((new bb_vector2d_Vector2D)->g_new(t_director->m_center()->f_x,t_director->m_size()->f_y-FLOAT(50.0)));
+	f_scoreFont->m_pos2((new bb_vector2d_Vector2D)->g_new(t_director->m_center()->f_x,t_director->m_size()->f_y-FLOAT(65.0)));
 	f_scoreFont->m_align(1);
+	gc_assign(f_scoreFont->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
 	gc_assign(f_comboFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
+	gc_assign(f_comboFont->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
 	f_comboFont->m_text(String(L"COMBO x 2"));
 	bb_vector2d_Vector2D* t_=f_comboFont->m_pos();
 	t_->f_y=t_->f_y-FLOAT(150.0);
 	bb_vector2d_Vector2D* t_2=f_comboFont->m_pos();
-	t_2->f_x=t_2->f_x-FLOAT(70.0);
-	gc_assign(f_comboAnimation,(new bb_animation_Animation)->g_new(FLOAT(2.0),FLOAT(0.0),FLOAT(750.0)));
+	t_2->f_x=t_2->f_x-FLOAT(130.0);
+	gc_assign(f_comboAnimation,(new bb_animation_Animation)->g_new(FLOAT(1.8),FLOAT(0.0),FLOAT(850.0)));
 	gc_assign(f_comboAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
 	gc_assign(f_comboAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
 	f_comboAnimation->m_Add4(f_comboFont);
 	f_comboAnimation->m_Pause();
 	gc_assign(f_newHighscoreFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
+	gc_assign(f_newHighscoreFont->f_color,(new bb_color_Color)->g_new(FLOAT(209.0),FLOAT(146.0),FLOAT(31.0),FLOAT(1.0)));
 	f_newHighscoreFont->m_text(String(L"NEW HIGHSCORE"));
 	bb_vector2d_Vector2D* t_3=f_newHighscoreFont->m_pos();
 	t_3->f_y=t_3->f_y/FLOAT(2.0);
 	bb_vector2d_Vector2D* t_4=f_newHighscoreFont->m_pos();
-	t_4->f_x=t_4->f_x-FLOAT(120.0);
-	gc_assign(f_newHighscoreAnimation,(new bb_animation_Animation)->g_new(FLOAT(2.0),FLOAT(0.0),FLOAT(2000.0)));
+	t_4->f_x=t_4->f_x-FLOAT(200.0);
+	gc_assign(f_newHighscoreAnimation,(new bb_animation_Animation)->g_new(FLOAT(1.5),FLOAT(0.0),FLOAT(2500.0)));
 	gc_assign(f_newHighscoreAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
 	gc_assign(f_newHighscoreAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
 	f_newHighscoreAnimation->m_Add4(f_newHighscoreFont);
@@ -6567,7 +6577,7 @@ void bb_gamescene_GameScene::m_DetectComboTrigger(){
 			continue;
 		}
 		t_lanesNotZero+=1;
-		if(f_lastMatchTime[t_lane]+300>=t_now){
+		if(f_lastMatchTime[t_lane]+325>=t_now){
 			t_hotLanes+=1;
 			if(t_hotLanes>=2 && !f_comboPending){
 				f_comboPending=true;
@@ -6582,7 +6592,7 @@ void bb_gamescene_GameScene::m_DetectComboTrigger(){
 	if(!f_comboPending){
 		return;
 	}
-	if(f_comboPendingSince+300>t_now){
+	if(f_comboPendingSince+325>t_now){
 		return;
 	}
 	int t_[]={0,0,0,0};
@@ -6852,7 +6862,8 @@ void bb_newhighscorescene_NewHighscoreScene::m_OnCreate(bb_director_Director* t_
 	bb_sprite_Sprite* t_background=(new bb_sprite_Sprite)->g_new(String(L"newhighscore.png"),0);
 	t_background->m_pos()->f_y=FLOAT(40.0);
 	m_layer()->m_Add4(t_background);
-	gc_assign(f_input,(new bb_textinput_TextInput)->g_new(String(L"CoRa"),(new bb_vector2d_Vector2D)->g_new(FLOAT(90.0),FLOAT(430.0))));
+	gc_assign(f_input,(new bb_textinput_TextInput)->g_new(String(L"CoRa"),(new bb_vector2d_Vector2D)->g_new(FLOAT(110.0),FLOAT(415.0))));
+	gc_assign(f_input->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
 	m_layer()->m_Add4(f_input);
 	bb_scene_Scene::m_OnCreate(t_director);
 }
@@ -8847,10 +8858,10 @@ void bb_severity_Severity::m_ChuteMarkAsAdvanced(){
 		f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(5000.0)*f_progress);
 	}else{
 		if(t_2==1){
-			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4000.0)*f_progress);
+			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4750.0)*f_progress);
 		}else{
 			if(t_2==2){
-				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(3000.0)*f_progress);
+				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4500.0)*f_progress);
 			}
 		}
 	}
@@ -8863,10 +8874,10 @@ void bb_severity_Severity::m_ShapeDropped(){
 		f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(450.0),FLOAT(1800.0)+FLOAT(2500.0)*f_progress));
 	}else{
 		if(t_3==1){
-			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(350.0),FLOAT(1700.0)+FLOAT(2100.0)*f_progress));
+			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(375.0),FLOAT(1750.0)+FLOAT(2300.0)*f_progress));
 		}else{
 			if(t_3==2){
-				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(250.0),FLOAT(1600.0)+FLOAT(1700.0)*f_progress));
+				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(300.0),FLOAT(1700.0)+FLOAT(2100.0)*f_progress));
 			}
 		}
 	}
@@ -9138,10 +9149,10 @@ void bb_slider_Slider::mark(){
 bb_font_Font::bb_font_Font(){
 	f_name=String();
 	f__align=0;
+	f_color=0;
 	f__text=String();
 	f_fontStore=(new bb_map_StringMap5)->g_new();
 	f_recalculateSize=false;
-	f_color=0;
 }
 bb_font_Font* bb_font_Font::g_new(String t_fontName,bb_vector2d_Vector2D* t_pos){
 	bb_baseobject_BaseObject::g_new();
@@ -9186,7 +9197,7 @@ String bb_font_Font::m_text2(){
 void bb_font_Font::m_OnCreate(bb_director_Director* t_director){
 	bb_partial_Partial::m_OnCreate(t_director);
 	if(!f_fontStore->m_Contains(f_name)){
-		f_fontStore->m_Set6(f_name,(new bb_angelfont_AngelFont)->g_new(String()));
+		f_fontStore->m_Set7(f_name,(new bb_angelfont_AngelFont)->g_new(String()));
 		f_fontStore->m_Get(f_name)->m_LoadFont(f_name);
 	}
 	if(f_recalculateSize){
@@ -9205,8 +9216,8 @@ void bb_font_Font::m_OnRender(){
 }
 void bb_font_Font::mark(){
 	bb_baseobject_BaseObject::mark();
-	gc_mark_q(f_fontStore);
 	gc_mark_q(f_color);
+	gc_mark_q(f_fontStore);
 }
 bb_angelfont_AngelFont::bb_angelfont_AngelFont(){
 	f_chars=Array<bb_char_Char* >(256);
@@ -9343,6 +9354,47 @@ void bb_angelfont_AngelFont::mark(){
 	gc_mark_q(f_kernPairs);
 	gc_mark_q(f_image);
 }
+bb_color_Color::bb_color_Color(){
+	f_red=FLOAT(.0);
+	f_green=FLOAT(.0);
+	f_blue=FLOAT(.0);
+	f_alpha=FLOAT(.0);
+	f_oldColor=0;
+}
+bb_color_Color* bb_color_Color::g_new(Float t_red,Float t_green,Float t_blue,Float t_alpha){
+	this->f_red=t_red;
+	this->f_green=t_green;
+	this->f_blue=t_blue;
+	this->f_alpha=t_alpha;
+	return this;
+}
+bb_color_Color* bb_color_Color::g_new2(){
+	return this;
+}
+void bb_color_Color::m_Set6(bb_color_Color* t_color){
+	bb_graphics_SetColor(t_color->f_red,t_color->f_green,t_color->f_blue);
+	bb_graphics_SetAlpha(t_color->f_alpha);
+}
+void bb_color_Color::m_Activate(){
+	if(!((f_oldColor)!=0)){
+		gc_assign(f_oldColor,(new bb_color_Color)->g_new(FLOAT(0.0),FLOAT(0.0),FLOAT(0.0),FLOAT(0.0)));
+	}
+	Array<Float > t_colorStack=bb_graphics_GetColor();
+	f_oldColor->f_red=t_colorStack[0];
+	f_oldColor->f_green=t_colorStack[1];
+	f_oldColor->f_blue=t_colorStack[2];
+	f_oldColor->f_alpha=bb_graphics_GetAlpha();
+	m_Set6(this);
+}
+void bb_color_Color::m_Deactivate(){
+	if((f_oldColor)!=0){
+		m_Set6(f_oldColor);
+	}
+}
+void bb_color_Color::mark(){
+	Object::mark();
+	gc_mark_q(f_oldColor);
+}
 bb_map_Map5::bb_map_Map5(){
 	f_root=0;
 }
@@ -9454,7 +9506,7 @@ int bb_map_Map5::m_InsertFixup5(bb_map_Node5* t_node){
 	f_root->f_color=1;
 	return 0;
 }
-bool bb_map_Map5::m_Set6(String t_key,bb_angelfont_AngelFont* t_value){
+bool bb_map_Map5::m_Set7(String t_key,bb_angelfont_AngelFont* t_value){
 	bb_map_Node5* t_node=f_root;
 	bb_map_Node5* t_parent=0;
 	int t_cmp=0;
@@ -9486,7 +9538,7 @@ bool bb_map_Map5::m_Set6(String t_key,bb_angelfont_AngelFont* t_value){
 	return true;
 }
 bool bb_map_Map5::m_Insert3(String t_key,bb_angelfont_AngelFont* t_value){
-	return m_Set6(t_key,t_value);
+	return m_Set7(t_key,t_value);
 }
 void bb_map_Map5::mark(){
 	Object::mark();
@@ -9983,7 +10035,7 @@ int bb_map_Map6::m_InsertFixup6(bb_map_Node6* t_node){
 	f_root->f_color=1;
 	return 0;
 }
-bool bb_map_Map6::m_Set7(int t_key,Object* t_value){
+bool bb_map_Map6::m_Set8(int t_key,Object* t_value){
 	bb_map_Node6* t_node=f_root;
 	bb_map_Node6* t_parent=0;
 	int t_cmp=0;
@@ -10015,7 +10067,7 @@ bool bb_map_Map6::m_Set7(int t_key,Object* t_value){
 	return true;
 }
 bool bb_map_Map6::m_Insert5(int t_key,Object* t_value){
-	return m_Set7(t_key,t_value);
+	return m_Set8(t_key,t_value);
 }
 int bb_map_Map6::m_Count(){
 	if((f_root)!=0){
@@ -11048,47 +11100,6 @@ int bb_graphics_DrawRect(Float t_x,Float t_y,Float t_w,Float t_h){
 	bb_graphics_ValidateMatrix();
 	bb_graphics_renderDevice->DrawRect(t_x,t_y,t_w,t_h);
 	return 0;
-}
-bb_color_Color::bb_color_Color(){
-	f_oldColor=0;
-	f_red=FLOAT(.0);
-	f_green=FLOAT(.0);
-	f_blue=FLOAT(.0);
-	f_alpha=FLOAT(.0);
-}
-bb_color_Color* bb_color_Color::g_new(Float t_red,Float t_green,Float t_blue,Float t_alpha){
-	this->f_red=t_red;
-	this->f_green=t_green;
-	this->f_blue=t_blue;
-	this->f_alpha=t_alpha;
-	return this;
-}
-bb_color_Color* bb_color_Color::g_new2(){
-	return this;
-}
-void bb_color_Color::m_Set8(bb_color_Color* t_color){
-	bb_graphics_SetColor(t_color->f_red,t_color->f_green,t_color->f_blue);
-	bb_graphics_SetAlpha(t_color->f_alpha);
-}
-void bb_color_Color::m_Activate(){
-	if(!((f_oldColor)!=0)){
-		gc_assign(f_oldColor,(new bb_color_Color)->g_new(FLOAT(0.0),FLOAT(0.0),FLOAT(0.0),FLOAT(0.0)));
-	}
-	Array<Float > t_colorStack=bb_graphics_GetColor();
-	f_oldColor->f_red=t_colorStack[0];
-	f_oldColor->f_green=t_colorStack[1];
-	f_oldColor->f_blue=t_colorStack[2];
-	f_oldColor->f_alpha=bb_graphics_GetAlpha();
-	m_Set8(this);
-}
-void bb_color_Color::m_Deactivate(){
-	if((f_oldColor)!=0){
-		m_Set8(f_oldColor);
-	}
-}
-void bb_color_Color::mark(){
-	Object::mark();
-	gc_mark_q(f_oldColor);
 }
 Array<Float > bb_graphics_GetColor(){
 	Float t_[]={bb_graphics_context->f_color_r,bb_graphics_context->f_color_g,bb_graphics_context->f_color_b};

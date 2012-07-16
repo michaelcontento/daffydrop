@@ -104,9 +104,9 @@ Class Severity
         Case EASY
             nextChuteAdvanceTime += 5000 * progress
         Case NORMAL
-            nextChuteAdvanceTime += 4000 * progress
+            nextChuteAdvanceTime += 4750 * progress
         Case ADVANCED
-            nextChuteAdvanceTime += 3000 * progress
+            nextChuteAdvanceTime += 4500 * progress
         End
 
         nextChuteAdvanceTime *= 2
@@ -122,9 +122,9 @@ Class Severity
         Case EASY
             nextShapeDropTime = lastTime + Rnd(450, 1800 + (2500 * progress))
         Case NORMAL
-            nextShapeDropTime = lastTime + Rnd(350, 1700 + (2100 * progress))
+            nextShapeDropTime = lastTime + Rnd(375, 1750 + (2300 * progress))
         Case ADVANCED
-            nextShapeDropTime = lastTime + Rnd(250, 1600 + (1700 * progress))
+            nextShapeDropTime = lastTime + Rnd(300, 1700 + (2100 * progress))
         End
     End
 
