@@ -6,6 +6,7 @@ Import mojo
 Import bono
 Import severity
 Import scene
+Import iap
 
 Public
 
@@ -20,6 +21,7 @@ Class MenuScene Extends Scene
     Field highscore:Sprite
     Field isLocked:Bool = True
     Field lock:Sprite
+    Field paymentProcessing:Bool
 
     Public
 
@@ -46,22 +48,29 @@ Class MenuScene Extends Scene
         layer.Add(lock)
 
         Super.OnCreate(director)
-        toggleLock()
 
         easy.CenterX(director)
         normal.CenterX(director)
         advanced.CenterX(director)
         highscore.CenterX(director)
+
+        InitInAppPurchases("com.coragames.daffydrop", ["com.coragames.daffydrop.fullversion"])
+        If isProductPurchased("com.coragames.daffydrop.fullversion")
+            ToggleLock()
+        End
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
+        If paymentProcessing Then Return
         If easy.Collide(event.pos) Then PlayEasy()
         If normal.Collide(event.pos) Then PlayNormal()
         If advanced.Collide(event.pos) Then PlayAdvanced()
         If highscore.Collide(event.pos) Then router.Goto("highscore")
+        If lock.Collide(event.pos) Then HandleLocked()
     End
 
     Method OnKeyDown:Void(event:KeyEvent)
+        If paymentProcessing Then Return
         Select event.code
         Case KEY_E
             PlayEasy()
@@ -71,14 +80,31 @@ Class MenuScene Extends Scene
             PlayAdvanced()
         Case KEY_H
             router.Goto("highscore")
-        Case KEY_L
-            toggleLock()
+        End
+    End
+
+    Method OnUpdate:Void(delta:Float, frameTime:Float)
+        Super.OnUpdate(delta, frameTime)
+
+        If Not isLocked Then Return
+        If Not paymentProcessing Then Return
+        If isPurchaseInProgress() Then Return
+        paymentProcessing = False
+
+        If Not isProductPurchased("com.coragames.daffydrop.fullversion") Then Return
+        ToggleLock()
+    End
+
+    Method OnRender:Void()
+        Super.OnRender()
+        If paymentProcessing
+            DrawText("PAYMENT PROCESSING ...", 100, 100)
         End
     End
 
     Private
 
-    Method toggleLock:Void()
+    Method ToggleLock:Void()
         If isLocked
             isLocked = False
             layer.Remove(lock)
@@ -102,14 +128,28 @@ Class MenuScene Extends Scene
     End
 
     Method PlayNormal:Void()
-        If isLocked Then Return
+        If isLocked Then
+            HandleLocked()
+            Return
+        End
         CurrentSeverity().Set(NORMAL)
         router.Goto("game")
     End
 
     Method PlayAdvanced:Void()
-        If isLocked Then Return
+        If isLocked Then
+            HandleLocked()
+            Return
+        End
         CurrentSeverity().Set(ADVANCED)
         router.Goto("game")
+    End
+
+    Method HandleLocked:Void()
+        If paymentProcessing Then Return
+        If Not isLocked Then Return
+
+        paymentProcessing = True
+        buyProduct("com.coragames.daffydrop.fullversion")
     End
 End
