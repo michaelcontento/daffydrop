@@ -328,7 +328,7 @@ Class GameScene Extends Scene Implements RouterEvents
         lastMatchTime = [0, 0, 0, 0]
         comboPending = False
 
-        chute.height = Max(75, chute.height - 35)
+        chute.height = Max(75, chute.height - (18 * lanesNotZero))
         IncrementScore(15 * lanesNotZero)
         comboFont.text = "COMBO x " + lanesNotZero
 
