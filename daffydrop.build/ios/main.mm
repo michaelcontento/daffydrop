@@ -3135,6 +3135,17 @@ public:
         return static_cast<int>(unixTime);
     }
 };
+
+#import "appirater/Appirater.h"
+
+class AppiraterMonk
+{
+public:
+    static void Launched()
+    {
+        [Appirater appLaunched:YES];
+    }
+};
 /*
 This file is based on MKStoreKit by Mugunth Kumar. MKStoreKit files were merged for Monkey needs.
 Some of them were modified for our needs. 
@@ -4167,6 +4178,7 @@ class bb_introscene_IntroScene : public bb_scene_Scene{
 	bb_introscene_IntroScene();
 	bb_introscene_IntroScene* g_new();
 	virtual void m_OnCreate(bb_director_Director*);
+	virtual void m_OnEnter();
 	virtual void m_OnUpdate(Float,Float);
 	virtual void m_OnRender();
 	void mark();
@@ -5487,6 +5499,8 @@ class bb_shape_Shape : public bb_baseobject_BaseObject{
 	int f_lane;
 	bb_chute_Chute* f_chute;
 	bool f_isFast;
+	bool f_isReadyForFast;
+	Float f_readyTime;
 	bb_shape_Shape();
 	static Array<bb_graphics_Image* > g_images;
 	static bb_vector2d_Vector2D* g_SPEED_SLOW;
@@ -5761,6 +5775,9 @@ bb_introscene_IntroScene* bb_introscene_IntroScene::g_new(){
 }
 void bb_introscene_IntroScene::m_OnCreate(bb_director_Director* t_director){
 	bb_scene_Scene::m_OnCreate(t_director);
+}
+void bb_introscene_IntroScene::m_OnEnter(){
+	AppiraterMonk::Launched();
 }
 void bb_introscene_IntroScene::m_OnUpdate(Float t_delta,Float t_frameTime){
 	m_router()->m_Goto(String(L"menu"));
@@ -6511,7 +6528,7 @@ void bb_gamescene_GameScene::m_OnEnter(){
 void bb_gamescene_GameScene::m_OnLeave(){
 }
 bool bb_gamescene_GameScene::m_HandleGameOver(){
-	if(Float(f_chute->m_Height())<f_slider->f_arrowLeft->m_pos()->f_y+FLOAT(40.0)){
+	if(Float(f_chute->m_Height())<f_slider->f_arrowLeft->m_pos()->f_y+FLOAT(50.0)){
 		return false;
 	}
 	if(f_isNewHighscoreRecord){
@@ -6535,6 +6552,8 @@ void bb_gamescene_GameScene::m_OnMissmatch(bb_shape_Shape* t_shape){
 	f_chute->f_height+=15;
 	int t_[]={0,0,0,0};
 	gc_assign(f_lastMatchTime,Array<int >(t_,4));
+	f_comboPending=false;
+	f_comboPendingSince=0;
 	f_errorAnimations->m_Add4(t_sprite);
 }
 void bb_gamescene_GameScene::m_IncrementScore(int t_value){
@@ -11151,6 +11170,8 @@ bb_shape_Shape::bb_shape_Shape(){
 	f_lane=0;
 	f_chute=0;
 	f_isFast=false;
+	f_isReadyForFast=false;
+	f_readyTime=FLOAT(.0);
 }
 Array<bb_graphics_Image* > bb_shape_Shape::g_images;
 bb_vector2d_Vector2D* bb_shape_Shape::g_SPEED_SLOW;
@@ -11165,7 +11186,7 @@ bb_shape_Shape* bb_shape_Shape::g_new(int t_type,int t_lane,bb_chute_Chute* t_ch
 		gc_assign(g_images,Array<bb_graphics_Image* >(t_,4));
 	}
 	Float t_posX=Float(44+g_images[0]->m_Width()*t_lane);
-	Float t_posY=Float(t_chute->m_Height()-g_images[t_type]->m_Height());
+	Float t_posY=Float(t_chute->m_Height()-g_images[t_type]->m_Height()+37);
 	m_pos2((new bb_vector2d_Vector2D)->g_new(t_posX,t_posY));
 	if(!((g_SPEED_SLOW)!=0)){
 		gc_assign(g_SPEED_SLOW,(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(3.0)));
@@ -11180,7 +11201,14 @@ bb_shape_Shape* bb_shape_Shape::g_new2(){
 	return this;
 }
 void bb_shape_Shape::m_OnUpdate(Float t_delta,Float t_frameTime){
-	if(f_isFast){
+	if(!f_isReadyForFast){
+		f_readyTime+=t_frameTime;
+		f_isFast=false;
+		if(f_readyTime>=FLOAT(250.0)){
+			f_isReadyForFast=true;
+		}
+	}
+	if(f_isFast && f_isReadyForFast){
 		m_pos()->m_Add2(g_SPEED_FAST->m_Copy()->m_Mul2(t_delta));
 	}else{
 		m_pos()->m_Add2(g_SPEED_SLOW->m_Copy()->m_Mul2(t_delta));

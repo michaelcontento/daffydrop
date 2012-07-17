@@ -234,7 +234,7 @@ Class GameScene Extends Scene Implements RouterEvents
     End
 
     Method HandleGameOver:Bool()
-        If (chute.Height() < slider.arrowLeft.pos.y + 40) Then Return False
+        If (chute.Height() < slider.arrowLeft.pos.y + 50) Then Return False
 
         If isNewHighscoreRecord
 #If TARGET<>"glfw" And TARGET<>"html5"

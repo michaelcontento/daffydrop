@@ -5,6 +5,7 @@ Private
 Import mojo.graphics
 Import bono
 Import scene
+Import appirater
 
 Public
 
@@ -28,6 +29,10 @@ Class IntroScene Extends Scene
 #If TARGET<>"ios"
         background.Center(director)
 #End
+    End
+
+    Method OnEnter:Void()
+        Appirater.Launched()
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
