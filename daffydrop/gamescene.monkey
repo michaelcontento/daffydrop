@@ -372,6 +372,8 @@ Class GameScene Extends Scene Implements RouterEvents
         chute.height += 15
 
         lastMatchTime = [0, 0, 0, 0]
+        comboPending = False
+        comboPendingSince = 0
         errorAnimations.Add(sprite)
     End
 

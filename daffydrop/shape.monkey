@@ -12,6 +12,8 @@ Class Shape Extends BaseObject
     Private
 
     Field chute:Chute
+    Field isReadyForFast:Bool
+    Field readyTime:Float
     Global SPEED_SLOW:Vector2D
     Global SPEED_FAST:Vector2D
 
@@ -32,7 +34,7 @@ Class Shape Extends BaseObject
         End
 
         Local posX:Float = 44 + (images[0].Width() * lane)
-        Local posY:Float = chute.Height() - images[type].Height()
+        Local posY:Float = chute.Height() - images[type].Height() + 37
         pos = New Vector2D(posX, posY)
 
         If Not SPEED_SLOW Then SPEED_SLOW = New Vector2D(0, 3)
@@ -40,7 +42,13 @@ Class Shape Extends BaseObject
     End
 
     Method OnUpdate:Void(delta:Float, frameTime:Float)
-        If isFast
+        If Not isReadyForFast
+            readyTime += frameTime
+            isFast = False
+            If readyTime >= 250 Then isReadyForFast = True
+        End
+
+        If isFast And isReadyForFast
             pos.Add(SPEED_FAST.Copy().Mul(delta))
         Else
             pos.Add(SPEED_SLOW.Copy().Mul(delta))
