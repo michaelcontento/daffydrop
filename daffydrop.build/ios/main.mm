@@ -3966,6 +3966,17 @@ int getPurchaseResult() {
 void resetPurchaseResult() {
 	[[MKStoreManager sharedManager] setPurchaseResult: 0];
 }
+
+#import "appirater/Appirater.h"
+
+class AppiraterMonk
+{
+public:
+    static void Launched()
+    {
+        [Appirater appLaunched:YES];
+    }
+};
 class bb_directorevents_DirectorEvents;
 class bb_router_Router;
 class bb_partial_Partial;
@@ -4257,6 +4268,7 @@ class bb_menuscene_MenuScene : public bb_scene_Scene{
 	bb_menuscene_MenuScene* g_new();
 	virtual void m_ToggleLock();
 	virtual void m_OnCreate(bb_director_Director*);
+	virtual void m_OnResume(int);
 	virtual void m_PlayEasy();
 	virtual void m_InitializeWaitingImages();
 	virtual void m_HandleLocked();
@@ -6200,6 +6212,10 @@ void bb_menuscene_MenuScene::m_OnCreate(bb_director_Director* t_director){
 	if((isProductPurchased(String(L"com.coragames.daffydrop.fullversion")))!=0){
 		m_ToggleLock();
 	}
+	AppiraterMonk::Launched();
+}
+void bb_menuscene_MenuScene::m_OnResume(int t_delta){
+	AppiraterMonk::Launched();
 }
 void bb_menuscene_MenuScene::m_PlayEasy(){
 	bb_severity_CurrentSeverity()->m_Set5(0);

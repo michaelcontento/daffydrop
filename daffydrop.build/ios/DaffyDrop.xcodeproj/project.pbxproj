@@ -22,6 +22,10 @@
 		C83CA36215AF80FB009929BA /* icon7.png in Resources */ = {isa = PBXBuildFile; fileRef = C83CA36115AF80FB009929BA /* icon7.png */; };
 		C83CA36615AF8213009929BA /* Default-Portrait~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = C83CA36515AF8213009929BA /* Default-Portrait~ipad.png */; };
 		C83CA36815AF825A009929BA /* icon6.png in Resources */ = {isa = PBXBuildFile; fileRef = C83CA36715AF825A009929BA /* icon6.png */; };
+		C85711EC15B75B6300AF0E08 /* appirater in Resources */ = {isa = PBXBuildFile; fileRef = C85711EB15B75B6300AF0E08 /* appirater */; };
+		C85711EE15B75B7D00AF0E08 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C85711ED15B75B7D00AF0E08 /* CFNetwork.framework */; };
+		C85711F015B75B8400AF0E08 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C85711EF15B75B8400AF0E08 /* SystemConfiguration.framework */; };
+		C85711F215B75BB600AF0E08 /* Appirater.m in Sources */ = {isa = PBXBuildFile; fileRef = C85711F115B75BB600AF0E08 /* Appirater.m */; };
 		C88FB85C15B74511003E28E0 /* icon72.png in Resources */ = {isa = PBXBuildFile; fileRef = C88FB85B15B74511003E28E0 /* icon72.png */; };
 		C88FB85E15B7518A003E28E0 /* icon144.png in Resources */ = {isa = PBXBuildFile; fileRef = C88FB85D15B7518A003E28E0 /* icon144.png */; };
 		C88FB86015B75194003E28E0 /* icon114.png in Resources */ = {isa = PBXBuildFile; fileRef = C88FB85F15B75194003E28E0 /* icon114.png */; };
@@ -55,7 +59,10 @@
 		C83CA36515AF8213009929BA /* Default-Portrait~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-Portrait~ipad.png"; sourceTree = "<group>"; };
 		C83CA36715AF825A009929BA /* icon6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon6.png; sourceTree = "<group>"; };
 		C83CA36915AF8294009929BA /* Default.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Default.png; sourceTree = "<group>"; };
-		C88FB85715B5EE8D003E28E0 /* Appirater.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = Appirater.m; path = appirater/Appirater.m; sourceTree = "<group>"; };
+		C85711EB15B75B6300AF0E08 /* appirater */ = {isa = PBXFileReference; lastKnownFileType = folder; path = appirater; sourceTree = "<group>"; };
+		C85711ED15B75B7D00AF0E08 /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = System/Library/Frameworks/CFNetwork.framework; sourceTree = SDKROOT; };
+		C85711EF15B75B8400AF0E08 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		C85711F115B75BB600AF0E08 /* Appirater.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = Appirater.m; path = appirater/Appirater.m; sourceTree = "<group>"; };
 		C88FB85B15B74511003E28E0 /* icon72.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon72.png; sourceTree = "<group>"; };
 		C88FB85D15B7518A003E28E0 /* icon144.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon144.png; sourceTree = "<group>"; };
 		C88FB85F15B75194003E28E0 /* icon114.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon114.png; sourceTree = "<group>"; };
@@ -70,6 +77,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C85711F015B75B8400AF0E08 /* SystemConfiguration.framework in Frameworks */,
+				C85711EE15B75B7D00AF0E08 /* CFNetwork.framework in Frameworks */,
 				C8DE2D8915B07B2E00937E84 /* StoreKit.framework in Frameworks */,
 				1D60589F0D05DD5A006BFB54 /* Foundation.framework in Frameworks */,
 				1DF5F4E00D08C38300B7A737 /* UIKit.framework in Frameworks */,
@@ -96,11 +105,14 @@
 		29B97314FDCFA39411CA2CEA /* CustomTemplate */ = {
 			isa = PBXGroup;
 			children = (
+				C85711F115B75BB600AF0E08 /* Appirater.m */,
+				C85711EF15B75B8400AF0E08 /* SystemConfiguration.framework */,
+				C85711ED15B75B7D00AF0E08 /* CFNetwork.framework */,
+				C85711EB15B75B6300AF0E08 /* appirater */,
 				C88FB86115B75224003E28E0 /* icon57.png */,
 				C88FB85F15B75194003E28E0 /* icon114.png */,
 				C88FB85D15B7518A003E28E0 /* icon144.png */,
 				C88FB85B15B74511003E28E0 /* icon72.png */,
-				C88FB85715B5EE8D003E28E0 /* Appirater.m */,
 				C8DB87CD15B4D2C20097E4A0 /* Default-Portrait@2x~ipad.png */,
 				C8DB87CB15B4D0FB0097E4A0 /* icon3.png */,
 				C8DE2D8815B07B2E00937E84 /* StoreKit.framework */,
@@ -219,6 +231,7 @@
 				C88FB85E15B7518A003E28E0 /* icon144.png in Resources */,
 				C88FB86015B75194003E28E0 /* icon114.png in Resources */,
 				C88FB86215B75224003E28E0 /* icon57.png in Resources */,
+				C85711EC15B75B6300AF0E08 /* appirater in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,6 +243,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7C8210871294A2EB002C4212 /* main.mm in Sources */,
+				C85711F215B75BB600AF0E08 /* Appirater.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

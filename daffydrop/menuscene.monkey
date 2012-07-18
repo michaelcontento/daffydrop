@@ -7,6 +7,7 @@ Import bono
 Import severity
 Import scene
 Import iap
+Import appirater
 
 Public
 
@@ -60,6 +61,12 @@ Class MenuScene Extends Scene
         If isProductPurchased("com.coragames.daffydrop.fullversion")
             ToggleLock()
         End
+
+        Appirater.Launched()
+    End
+
+    Method OnResume:Void(delta:Int)
+        Appirater.Launched()
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
