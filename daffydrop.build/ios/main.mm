@@ -7,8 +7,8 @@
 #define CFG_ANDROID_NATIVE_GL_ENABLED true
 #define CFG_CONFIG release
 #define CFG_CPP_INCREMENTAL_GC 1
-#define CFG_GLFW_WINDOW_HEIGHT 720
-#define CFG_GLFW_WINDOW_WIDTH 480
+#define CFG_GLFW_WINDOW_HEIGHT 960
+#define CFG_GLFW_WINDOW_WIDTH 640
 #define CFG_HOST macos
 #define CFG_IMAGE_FILES *.png|*.jpg
 #define CFG_IOS_ACCELEROMETER_ENABLED false
@@ -3135,17 +3135,6 @@ public:
         return static_cast<int>(unixTime);
     }
 };
-
-#import "appirater/Appirater.h"
-
-class AppiraterMonk
-{
-public:
-    static void Launched()
-    {
-        [Appirater appLaunched:YES];
-    }
-};
 /*
 This file is based on MKStoreKit by Mugunth Kumar. MKStoreKit files were merged for Monkey needs.
 Some of them were modified for our needs. 
@@ -4178,7 +4167,6 @@ class bb_introscene_IntroScene : public bb_scene_Scene{
 	bb_introscene_IntroScene();
 	bb_introscene_IntroScene* g_new();
 	virtual void m_OnCreate(bb_director_Director*);
-	virtual void m_OnEnter();
 	virtual void m_OnUpdate(Float,Float);
 	virtual void m_OnRender();
 	void mark();
@@ -4346,6 +4334,7 @@ class bb_gamescene_GameScene : public bb_scene_Scene,public virtual bb_routereve
 	virtual void m_StartPause();
 	virtual void m_FastDropMatchingShapes();
 	virtual void m_OnKeyDown(bb_keyevent_KeyEvent*);
+	virtual void m_OnSuspend();
 	virtual void m_OnTouchDown(bb_touchevent_TouchEvent*);
 	virtual void m_HandleSliderSwipe(bb_touchevent_TouchEvent*);
 	virtual void m_HandleBackgroundSwipe(bb_touchevent_TouchEvent*);
@@ -5776,9 +5765,6 @@ bb_introscene_IntroScene* bb_introscene_IntroScene::g_new(){
 void bb_introscene_IntroScene::m_OnCreate(bb_director_Director* t_director){
 	bb_scene_Scene::m_OnCreate(t_director);
 }
-void bb_introscene_IntroScene::m_OnEnter(){
-	AppiraterMonk::Launched();
-}
 void bb_introscene_IntroScene::m_OnUpdate(Float t_delta,Float t_frameTime){
 	m_router()->m_Goto(String(L"menu"));
 }
@@ -6716,6 +6702,9 @@ void bb_gamescene_GameScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
 			}
 		}
 	}
+}
+void bb_gamescene_GameScene::m_OnSuspend(){
+	m_StartPause();
 }
 void bb_gamescene_GameScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
 	if(f_pauseButton->m_Collide(t_event->m_pos())){
@@ -8593,7 +8582,7 @@ bb_gamehighscore_GameHighscore::bb_gamehighscore_GameHighscore(){
 Array<String > bb_gamehighscore_GameHighscore::g_names;
 Array<int > bb_gamehighscore_GameHighscore::g_scores;
 void bb_gamehighscore_GameHighscore::m_LoadNamesAndScores(){
-	String t_[]={String(L"Michael"),String(L"Sena"),String(L"Joe"),String(L"Mouser"),String(L"Tinnet"),String(L"Horas-Ra"),String(L"Monkey"),String(L"Mike"),String(L"Bono"),String(L"Angel")};
+	String t_[]={String(L"Michael"),String(L"Sena"),String(L"Joe"),String(L"Mouser"),String(L"Tinnet"),String(L"Horas-Ra"),String(L"Chris"),String(L"Jana"),String(L"Bono"),String(L"Oli")};
 	gc_assign(g_names,Array<String >(t_,10));
 	int t_2[]={1000,900,800,700,600,500,400,300,200,100};
 	gc_assign(g_scores,Array<int >(t_2,10));
@@ -8877,10 +8866,10 @@ void bb_severity_Severity::m_ChuteMarkAsAdvanced(){
 		f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(5000.0)*f_progress);
 	}else{
 		if(t_2==1){
-			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4750.0)*f_progress);
+			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(5000.0)*f_progress);
 		}else{
 			if(t_2==2){
-				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4500.0)*f_progress);
+				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(5000.0)*f_progress);
 			}
 		}
 	}
@@ -8893,10 +8882,10 @@ void bb_severity_Severity::m_ShapeDropped(){
 		f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(450.0),FLOAT(1800.0)+FLOAT(2500.0)*f_progress));
 	}else{
 		if(t_3==1){
-			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(375.0),FLOAT(1750.0)+FLOAT(2300.0)*f_progress));
+			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(375.0),FLOAT(1800.0)+FLOAT(2500.0)*f_progress));
 		}else{
 			if(t_3==2){
-				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(300.0),FLOAT(1700.0)+FLOAT(2100.0)*f_progress));
+				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(300.0),FLOAT(1800.0)+FLOAT(2500.0)*f_progress));
 			}
 		}
 	}
@@ -8917,15 +8906,15 @@ void bb_severity_Severity::m_Restart(){
 	int t_1=f_level;
 	if(t_1==0){
 		f_activatedShapes=2;
-		f_slowDownDuration=120000;
+		f_slowDownDuration=160000;
 	}else{
 		if(t_1==1){
 			f_activatedShapes=3;
-			f_slowDownDuration=100000;
+			f_slowDownDuration=140000;
 		}else{
 			if(t_1==2){
 				f_activatedShapes=4;
-				f_slowDownDuration=80000;
+				f_slowDownDuration=120000;
 			}
 		}
 	}

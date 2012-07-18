@@ -179,6 +179,10 @@ Class GameScene Extends Scene Implements RouterEvents
         End
     End
 
+    Method OnSuspend:Void()
+        StartPause()
+    End
+
     Method OnTouchDown:Void(event:TouchEvent)
         If pauseButton.Collide(event.pos) Then StartPause()
         If slider.arrowRight.Collide(event.pos) Then slider.SlideRight()

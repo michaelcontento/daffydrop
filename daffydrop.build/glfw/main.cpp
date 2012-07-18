@@ -8,10 +8,10 @@
 #define CFG_CONFIG debug
 #define CFG_CPP_INCREMENTAL_GC 1
 #define CFG_GLFW_WINDOW_FULLSCREEN false
-#define CFG_GLFW_WINDOW_HEIGHT 720
+#define CFG_GLFW_WINDOW_HEIGHT 960
 #define CFG_GLFW_WINDOW_RESIZABLE false
 #define CFG_GLFW_WINDOW_TITLE "Monkey Game"
-#define CFG_GLFW_WINDOW_WIDTH 480
+#define CFG_GLFW_WINDOW_WIDTH 640
 #define CFG_HOST macos
 #define CFG_IMAGE_FILES *.png|*.jpg
 #define CFG_IOS_ACCELEROMETER_ENABLED false
@@ -2830,6 +2830,7 @@ class bb_graphics_Frame;
 class bb_positionable_Positionable;
 class bb_baseobject_BaseObject;
 class bb_sprite_Sprite;
+class bb_appirater_Appirater;
 class bb_angelfont2_AngelFont;
 class bb_kernpair_KernPair;
 class bb_map_Map3;
@@ -2854,6 +2855,7 @@ class bb_severity_Severity;
 class bb_slider_Slider;
 class bb_font_Font;
 class bb_angelfont_AngelFont;
+class bb_color_Color;
 class bb_map_Map5;
 class bb_map_StringMap5;
 class bb_map_Node5;
@@ -2887,7 +2889,6 @@ class bb_map_IntMap2;
 class bb_map_Node7;
 class bb_map_MapValues;
 class bb_map_ValueEnumerator;
-class bb_color_Color;
 class bb_shape_Shape;
 class bb_stack_Stack2;
 class bb_directorevents_DirectorEvents : public virtual gc_interface{
@@ -2995,6 +2996,7 @@ class bb_introscene_IntroScene : public bb_scene_Scene{
 	bb_introscene_IntroScene();
 	bb_introscene_IntroScene* g_new();
 	virtual void m_OnCreate(bb_director_Director*);
+	virtual void m_OnEnter();
 	virtual void m_OnUpdate(Float,Float);
 	virtual void m_OnRender();
 	void mark();
@@ -3524,6 +3526,12 @@ class bb_sprite_Sprite : public bb_baseobject_BaseObject{
 	virtual void m_Restart();
 	void mark();
 };
+class bb_appirater_Appirater : public Object{
+	public:
+	bb_appirater_Appirater();
+	static void g_Launched();
+	void mark();
+};
 int bb_iap_InitInAppPurchases(String,Array<String >);
 int bb_iap_isProductPurchased(String);
 class bb_angelfont2_AngelFont : public Object{
@@ -3831,10 +3839,10 @@ class bb_font_Font : public bb_baseobject_BaseObject{
 	public:
 	String f_name;
 	int f__align;
+	bb_color_Color* f_color;
 	String f__text;
 	bb_map_StringMap5* f_fontStore;
 	bool f_recalculateSize;
-	bb_color_Color* f_color;
 	bb_font_Font();
 	bb_font_Font* g_new(String,bb_vector2d_Vector2D*);
 	bb_font_Font* g_new2();
@@ -3870,6 +3878,21 @@ class bb_angelfont_AngelFont : public Object{
 	virtual void m_DrawText2(String,int,int,int);
 	void mark();
 };
+class bb_color_Color : public Object{
+	public:
+	Float f_red;
+	Float f_green;
+	Float f_blue;
+	Float f_alpha;
+	bb_color_Color* f_oldColor;
+	bb_color_Color();
+	bb_color_Color* g_new(Float,Float,Float,Float);
+	bb_color_Color* g_new2();
+	virtual void m_Set6(bb_color_Color*);
+	virtual void m_Activate();
+	virtual void m_Deactivate();
+	void mark();
+};
 class bb_map_Map5 : public Object{
 	public:
 	bb_map_Node5* f_root;
@@ -3882,7 +3905,7 @@ class bb_map_Map5 : public Object{
 	virtual int m_RotateLeft5(bb_map_Node5*);
 	virtual int m_RotateRight5(bb_map_Node5*);
 	virtual int m_InsertFixup5(bb_map_Node5*);
-	virtual bool m_Set6(String,bb_angelfont_AngelFont*);
+	virtual bool m_Set7(String,bb_angelfont_AngelFont*);
 	virtual bool m_Insert3(String,bb_angelfont_AngelFont*);
 	void mark();
 };
@@ -4065,7 +4088,7 @@ class bb_map_Map6 : public Object{
 	virtual int m_RotateLeft6(bb_map_Node6*);
 	virtual int m_RotateRight6(bb_map_Node6*);
 	virtual int m_InsertFixup6(bb_map_Node6*);
-	virtual bool m_Set7(int,Object*);
+	virtual bool m_Set8(int,Object*);
 	virtual bool m_Insert5(int,Object*);
 	virtual int m_Count();
 	virtual int m_Clear();
@@ -4295,21 +4318,6 @@ int bb_graphics_DrawImage(bb_graphics_Image*,Float,Float,int);
 int bb_graphics_Rotate(Float);
 int bb_graphics_DrawImage2(bb_graphics_Image*,Float,Float,Float,Float,Float,int);
 int bb_graphics_DrawRect(Float,Float,Float,Float);
-class bb_color_Color : public Object{
-	public:
-	bb_color_Color* f_oldColor;
-	Float f_red;
-	Float f_green;
-	Float f_blue;
-	Float f_alpha;
-	bb_color_Color();
-	bb_color_Color* g_new(Float,Float,Float,Float);
-	bb_color_Color* g_new2();
-	virtual void m_Set8(bb_color_Color*);
-	virtual void m_Activate();
-	virtual void m_Deactivate();
-	void mark();
-};
 Array<Float > bb_graphics_GetColor();
 Float bb_graphics_GetAlpha();
 int bb_graphics_DrawImageRect(bb_graphics_Image*,Float,Float,int,int,int,int,int);
@@ -4326,6 +4334,8 @@ class bb_shape_Shape : public bb_baseobject_BaseObject{
 	int f_lane;
 	bb_chute_Chute* f_chute;
 	bool f_isFast;
+	bool f_isReadyForFast;
+	Float f_readyTime;
 	bb_shape_Shape();
 	static Array<bb_graphics_Image* > g_images;
 	static bb_vector2d_Vector2D* g_SPEED_SLOW;
@@ -4781,40 +4791,46 @@ bb_introscene_IntroScene::bb_introscene_IntroScene(){
 }
 bb_introscene_IntroScene* bb_introscene_IntroScene::g_new(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<11>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<12>";
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<11>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<12>";
 	popErr();
 	return this;
 }
 void bb_introscene_IntroScene::m_OnCreate(bb_director_Director* t_director){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<22>";
-	gc_assign(f_background,(new bb_sprite_Sprite)->g_new(String(L"logo.jpg"),0));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<23>";
+	gc_assign(f_background,(new bb_sprite_Sprite)->g_new(String(L"logo.jpg"),0));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<24>";
 	m_layer()->m_Add4(f_background);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<26>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<27>";
 	bb_scene_Scene::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<29>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<30>";
 	f_background->m_Center(t_director);
+	popErr();
+}
+void bb_introscene_IntroScene::m_OnEnter(){
+	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<35>";
+	bb_appirater_Appirater::g_Launched();
 	popErr();
 }
 void bb_introscene_IntroScene::m_OnUpdate(Float t_delta,Float t_frameTime){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<37>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<42>";
 	if(f_timer>=1500){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<37>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<42>";
 		m_router()->m_Goto(String(L"menu"));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<38>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<43>";
 	f_timer=int(Float(f_timer)+t_frameTime);
 	popErr();
 }
 void bb_introscene_IntroScene::m_OnRender(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<43>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<48>";
 	bb_graphics_Cls(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<44>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<49>";
 	bb_scene_Scene::m_OnRender();
 	popErr();
 }
@@ -5448,32 +5464,32 @@ bb_menuscene_MenuScene* bb_menuscene_MenuScene::g_new(){
 }
 void bb_menuscene_MenuScene::m_ToggleLock(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<130>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<141>";
 	if(f_isLocked){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<131>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<142>";
 		f_isLocked=false;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<132>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<143>";
 		m_layer()->m_Remove(f_lock);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<133>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<144>";
 		m_layer()->m_Remove(f_normal);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<134>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<145>";
 		m_layer()->m_Remove(f_advanced);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<135>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<146>";
 		m_layer()->m_Add4(f_normalActive);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<136>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<147>";
 		m_layer()->m_Add4(f_advancedActive);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<138>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<149>";
 		f_isLocked=true;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<139>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<150>";
 		m_layer()->m_Remove(f_normalActive);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<140>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<151>";
 		m_layer()->m_Remove(f_advancedActive);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<141>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<152>";
 		m_layer()->m_Add4(f_normal);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<142>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<153>";
 		m_layer()->m_Add4(f_advanced);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<143>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<154>";
 		m_layer()->m_Add4(f_lock);
 	}
 	popErr();
@@ -5536,82 +5552,82 @@ void bb_menuscene_MenuScene::m_OnCreate(bb_director_Director* t_director){
 }
 void bb_menuscene_MenuScene::m_PlayEasy(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<148>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<159>";
 	bb_severity_CurrentSeverity()->m_Set5(0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<149>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<160>";
 	m_router()->m_Goto(String(L"game"));
 	popErr();
 }
 void bb_menuscene_MenuScene::m_InitializeWaitingImages(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<117>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<128>";
 	gc_assign(f_waitingText,(new bb_font_Font)->g_new(String(L"CoRa"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<118>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<129>";
 	f_waitingText->m_OnCreate(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<119>";
-	f_waitingText->m_text(String(L"Loading ..."));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<120>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<130>";
+	f_waitingText->m_text(String(L"Loading"));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<131>";
 	f_waitingText->m_align(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<121>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<132>";
 	f_waitingText->m_pos2(m_director()->m_center()->m_Copy());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<123>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<134>";
 	gc_assign(f_waitingImage,(new bb_sprite_Sprite)->g_new(String(L"star_inside.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<124>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<135>";
 	f_waitingImage->m_OnCreate(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<125>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<136>";
 	f_waitingImage->m_Center(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<126>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<137>";
 	bb_vector2d_Vector2D* t_=f_waitingImage->m_pos();
 	t_->f_y=t_->f_y-FLOAT(50.0);
 	popErr();
 }
 void bb_menuscene_MenuScene::m_HandleLocked(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<171>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<182>";
 	if(f_paymentProcessing){
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<172>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<183>";
 	if(!f_isLocked){
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<174>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<185>";
 	m_InitializeWaitingImages();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<175>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<186>";
 	f_paymentProcessing=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<176>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<187>";
 	bb_iap_buyProduct(String(L"com.coragames.daffydrop.fullversion"));
 	popErr();
 }
 void bb_menuscene_MenuScene::m_PlayNormal(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<153>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<164>";
 	if(f_isLocked){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<154>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<165>";
 		m_HandleLocked();
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<157>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<168>";
 	bb_severity_CurrentSeverity()->m_Set5(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<158>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<169>";
 	m_router()->m_Goto(String(L"game"));
 	popErr();
 }
 void bb_menuscene_MenuScene::m_PlayAdvanced(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<162>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<173>";
 	if(f_isLocked){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<163>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<174>";
 		m_HandleLocked();
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<166>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<177>";
 	bb_severity_CurrentSeverity()->m_Set5(2);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<167>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<178>";
 	m_router()->m_Goto(String(L"game"));
 	popErr();
 }
@@ -5727,11 +5743,27 @@ void bb_menuscene_MenuScene::m_OnRender(){
 		bb_graphics_Translate(-m_director()->m_center()->f_x,-m_director()->m_center()->f_y);
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<107>";
 		bb_graphics_Scale(FLOAT(2.0),FLOAT(2.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<108>";
-		f_waitingImage->m_OnRender();
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<109>";
+		f_waitingImage->m_OnRender();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<111>";
+		bb_graphics_PushMatrix();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<112>";
+		bb_graphics_Translate(FLOAT(-2.0),FLOAT(1.0));
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<113>";
+		bb_graphics_SetColor(FLOAT(47.0),FLOAT(85.0),FLOAT(98.0));
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<114>";
 		f_waitingText->m_OnRender();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<110>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<115>";
+		bb_graphics_PopMatrix();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<117>";
+		bb_graphics_PushMatrix();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<118>";
+		bb_graphics_SetColor(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<119>";
+		f_waitingText->m_OnRender();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<120>";
+		bb_graphics_PopMatrix();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<121>";
 		bb_graphics_PopMatrix();
 	}
 	popErr();
@@ -5791,33 +5823,33 @@ void bb_highscorescene_HighscoreScene::m_OnLeave(){
 }
 void bb_highscorescene_HighscoreScene::m_DrawEntries(){
 	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<69>";
+	int t_posY=290;
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<70>";
-	int t_posY=190;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<71>";
 	bool t_found=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<73>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<73>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
 	bb_list_Enumerator2* t_=f_highscore->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<73>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<73>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
 		bb_score_Score* t_score=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<74>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<73>";
 		if(!t_found && t_score->f_value==f_lastScoreValue && t_score->f_key==f_lastScoreKey){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<75>";
-			bb_graphics_SetColor(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<74>";
+			bb_graphics_SetColor(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0));
 		}
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<77>";
+		f_font->m_DrawText2(String(t_score->f_value),150,t_posY,2);
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<78>";
-		f_font->m_DrawText2(String(t_score->f_value),100,t_posY,2);
+		f_font->m_DrawText(t_score->f_key,160,t_posY);
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<79>";
-		f_font->m_DrawText(t_score->f_key,110,t_posY);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<80>";
-		t_posY+=35;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<82>";
+		t_posY+=55;
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<81>";
 		if(!t_found && t_score->f_value==f_lastScoreValue && t_score->f_key==f_lastScoreKey){
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<82>";
+			bb_graphics_SetColor(FLOAT(95.0),FLOAT(85.0),FLOAT(83.0));
 			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<83>";
-			bb_graphics_SetColor(FLOAT(255.0),FLOAT(133.0),FLOAT(0.0));
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<84>";
 			t_found=true;
 		}
 	}
@@ -5830,24 +5862,22 @@ void bb_highscorescene_HighscoreScene::m_OnRender(){
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<52>";
 	bb_graphics_PushMatrix();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<53>";
-	bb_graphics_SetColor(FLOAT(255.0),FLOAT(133.0),FLOAT(0.0));
+	bb_graphics_SetColor(FLOAT(95.0),FLOAT(85.0),FLOAT(83.0));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<54>";
-	bb_graphics_Scale(FLOAT(1.5),FLOAT(1.5));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<55>";
 	m_DrawEntries();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<56>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<55>";
 	bb_graphics_PopMatrix();
 	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<60>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<59>";
 	m_router()->m_Goto(String(L"menu"));
 	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<64>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<63>";
 	m_router()->m_Goto(String(L"menu"));
 	popErr();
 }
@@ -5915,125 +5945,131 @@ void bb_gamescene_GameScene::m_OnCreate(bb_director_Director* t_director){
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<64>";
 	gc_assign(f_scoreFont,(new bb_font_Font)->g_new(String(L"CoRa"),0));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<65>";
-	f_scoreFont->m_pos2((new bb_vector2d_Vector2D)->g_new(t_director->m_center()->f_x,t_director->m_size()->f_y-FLOAT(50.0)));
+	f_scoreFont->m_pos2((new bb_vector2d_Vector2D)->g_new(t_director->m_center()->f_x,t_director->m_size()->f_y-FLOAT(65.0)));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<66>";
 	f_scoreFont->m_align(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<68>";
-	gc_assign(f_comboFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<67>";
+	gc_assign(f_scoreFont->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<69>";
-	f_comboFont->m_text(String(L"COMBO x 2"));
+	gc_assign(f_comboFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<70>";
+	gc_assign(f_comboFont->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<71>";
+	f_comboFont->m_text(String(L"COMBO x 2"));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<72>";
 	bb_vector2d_Vector2D* t_=f_comboFont->m_pos();
 	t_->f_y=t_->f_y-FLOAT(150.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<72>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<74>";
 	bb_vector2d_Vector2D* t_2=f_comboFont->m_pos();
-	t_2->f_x=t_2->f_x-FLOAT(70.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<75>";
-	gc_assign(f_comboAnimation,(new bb_animation_Animation)->g_new(FLOAT(2.0),FLOAT(0.0),FLOAT(750.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<76>";
-	gc_assign(f_comboAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
+	t_2->f_x=t_2->f_x-FLOAT(130.0);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<77>";
-	gc_assign(f_comboAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
+	gc_assign(f_comboAnimation,(new bb_animation_Animation)->g_new(FLOAT(1.8),FLOAT(0.0),FLOAT(850.0)));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<78>";
-	f_comboAnimation->m_Add4(f_comboFont);
+	gc_assign(f_comboAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<79>";
-	f_comboAnimation->m_Pause();
+	gc_assign(f_comboAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<80>";
+	f_comboAnimation->m_Add4(f_comboFont);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<81>";
-	gc_assign(f_newHighscoreFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<82>";
-	f_newHighscoreFont->m_text(String(L"NEW HIGHSCORE"));
+	f_comboAnimation->m_Pause();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<83>";
+	gc_assign(f_newHighscoreFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<84>";
+	gc_assign(f_newHighscoreFont->f_color,(new bb_color_Color)->g_new(FLOAT(209.0),FLOAT(146.0),FLOAT(31.0),FLOAT(1.0)));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<85>";
+	f_newHighscoreFont->m_text(String(L"NEW HIGHSCORE"));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<86>";
 	bb_vector2d_Vector2D* t_3=f_newHighscoreFont->m_pos();
 	t_3->f_y=t_3->f_y/FLOAT(2.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<85>";
-	bb_vector2d_Vector2D* t_4=f_newHighscoreFont->m_pos();
-	t_4->f_x=t_4->f_x-FLOAT(120.0);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<88>";
-	gc_assign(f_newHighscoreAnimation,(new bb_animation_Animation)->g_new(FLOAT(2.0),FLOAT(0.0),FLOAT(2000.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<89>";
-	gc_assign(f_newHighscoreAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<90>";
-	gc_assign(f_newHighscoreAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
+	bb_vector2d_Vector2D* t_4=f_newHighscoreFont->m_pos();
+	t_4->f_x=t_4->f_x-FLOAT(200.0);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<91>";
-	f_newHighscoreAnimation->m_Add4(f_newHighscoreFont);
+	gc_assign(f_newHighscoreAnimation,(new bb_animation_Animation)->g_new(FLOAT(1.5),FLOAT(0.0),FLOAT(2500.0)));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<92>";
-	f_newHighscoreAnimation->m_Pause();
+	gc_assign(f_newHighscoreAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<93>";
+	gc_assign(f_newHighscoreAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<94>";
-	m_layer()->m_Add4((new bb_sprite_Sprite)->g_new(String(L"bg_960x640.jpg"),0));
+	f_newHighscoreAnimation->m_Add4(f_newHighscoreFont);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<95>";
-	m_layer()->m_Add4(f_lowerShapes);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<96>";
-	m_layer()->m_Add4(f_slider);
+	f_newHighscoreAnimation->m_Pause();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<97>";
-	m_layer()->m_Add4(f_upperShapes);
+	m_layer()->m_Add4((new bb_sprite_Sprite)->g_new(String(L"bg_960x640.jpg"),0));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<98>";
-	m_layer()->m_Add4(f_errorAnimations);
+	m_layer()->m_Add4(f_lowerShapes);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<99>";
-	m_layer()->m_Add4(f_newHighscoreAnimation);
+	m_layer()->m_Add4(f_slider);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<100>";
-	m_layer()->m_Add4(f_comboAnimation);
+	m_layer()->m_Add4(f_upperShapes);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<101>";
-	m_layer()->m_Add4(f_chute);
+	m_layer()->m_Add4(f_errorAnimations);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<102>";
-	m_layer()->m_Add4(f_scoreFont);
+	m_layer()->m_Add4(f_newHighscoreAnimation);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<103>";
-	m_layer()->m_Add4(f_pauseButton);
+	m_layer()->m_Add4(f_comboAnimation);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<104>";
+	m_layer()->m_Add4(f_chute);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<105>";
+	m_layer()->m_Add4(f_scoreFont);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<106>";
+	m_layer()->m_Add4(f_pauseButton);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<108>";
 	bb_scene_Scene::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<107>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<110>";
 	f_checkPosY=t_director->m_size()->f_y-Float(f_slider->f_images.At(0)->m_Height()/2)-FLOAT(5.0);
 	popErr();
 }
 void bb_gamescene_GameScene::m_OnEnterPaused(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<211>";
-	int t_diff=bb_app_Millisecs()-f_pauseTime;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<212>";
-	f_pauseTime=0;
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<214>";
+	int t_diff=bb_app_Millisecs()-f_pauseTime;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<215>";
+	f_pauseTime=0;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<217>";
 	f_severity->m_WarpTime(t_diff);
 	popErr();
 }
 void bb_gamescene_GameScene::m_LoadHighscoreMinValue(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<376>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<381>";
 	bb_gamehighscore_GameHighscore* t_highscore=(new bb_gamehighscore_GameHighscore)->g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<377>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<382>";
 	bb_statestore_StateStore::g_Load(t_highscore);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<378>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<383>";
 	f_minHighscore=t_highscore->m_Last()->f_value;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<379>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<384>";
 	f_isNewHighscoreRecord=!(t_highscore->m_Count()==t_highscore->m_maxCount());
 	popErr();
 }
 void bb_gamescene_GameScene::m_OnEnter(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<111>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<114>";
 	if(f_pauseTime>0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<112>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<115>";
 		m_OnEnterPaused();
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<116>";
-	f_ignoreFirstTouchUp=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<117>";
-	f_score=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<118>";
-	f_scoreFont->m_text(String(L"Score: 0"));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<119>";
-	f_lowerShapes->m_Clear();
+	f_ignoreFirstTouchUp=true;
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<120>";
-	f_upperShapes->m_Clear();
+	f_score=0;
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<121>";
-	f_errorAnimations->m_Clear();
+	f_scoreFont->m_text(String(L"Score: 0"));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<122>";
-	f_severity->m_Restart();
+	f_lowerShapes->m_Clear();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<123>";
-	f_chute->m_Restart();
+	f_upperShapes->m_Clear();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<124>";
-	f_slider->m_Restart();
+	f_errorAnimations->m_Clear();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<125>";
+	f_severity->m_Restart();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<126>";
+	f_chute->m_Restart();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<127>";
+	f_slider->m_Restart();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<128>";
 	m_LoadHighscoreMinValue();
 	popErr();
 }
@@ -6043,104 +6079,108 @@ void bb_gamescene_GameScene::m_OnLeave(){
 }
 bool bb_gamescene_GameScene::m_HandleGameOver(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<234>";
-	if(Float(f_chute->m_Height())<f_slider->f_arrowLeft->m_pos()->f_y+FLOAT(40.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<234>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<237>";
+	if(Float(f_chute->m_Height())<f_slider->f_arrowLeft->m_pos()->f_y+FLOAT(50.0)){
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<237>";
 		popErr();
 		return false;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<236>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<239>";
 	if(f_isNewHighscoreRecord){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<240>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<243>";
 		dynamic_cast<bb_newhighscorescene_NewHighscoreScene*>(m_router()->m_Get(String(L"newhighscore")))->f_score=f_score;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<241>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<244>";
 		m_router()->m_Goto(String(L"newhighscore"));
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<243>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<246>";
 		m_router()->m_Goto(String(L"gameover"));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<246>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<249>";
 	popErr();
 	return true;
 }
 void bb_gamescene_GameScene::m_OnMissmatch(bb_shape_Shape* t_shape){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<361>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<364>";
 	bb_sprite_Sprite* t_sprite=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<362>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<365>";
 	if(f_falseSpriteStrack->m_Length()>0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<363>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<366>";
 		t_sprite=f_falseSpriteStrack->m_Pop();
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<365>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<368>";
 		t_sprite=(new bb_sprite_Sprite)->g_new2(String(L"false.png"),140,88,6,100,0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<367>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<370>";
 	t_sprite->m_pos2(t_shape->m_pos());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<368>";
-	t_sprite->m_Restart();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<369>";
-	f_chute->f_height+=15;
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<371>";
+	t_sprite->m_Restart();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<372>";
+	f_chute->f_height+=15;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<374>";
 	int t_[]={0,0,0,0};
 	gc_assign(f_lastMatchTime,Array<int >(t_,4));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<372>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<375>";
+	f_comboPending=false;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<376>";
+	f_comboPendingSince=0;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<377>";
 	f_errorAnimations->m_Add4(t_sprite);
 	popErr();
 }
 void bb_gamescene_GameScene::m_IncrementScore(int t_value){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<350>";
-	f_score+=t_value;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<351>";
-	f_scoreFont->m_text(String(L"Score: ")+String(f_score));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<353>";
+	f_score+=t_value;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<354>";
+	f_scoreFont->m_text(String(L"Score: ")+String(f_score));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<356>";
 	if(!f_isNewHighscoreRecord && f_score>=f_minHighscore){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<354>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<357>";
 		f_isNewHighscoreRecord=true;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<355>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<358>";
 		f_newHighscoreAnimation->m_Restart();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<356>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<359>";
 		m_layer()->m_Add4(f_newHighscoreAnimation);
 	}
 	popErr();
 }
 void bb_gamescene_GameScene::m_OnMatch(bb_shape_Shape* t_shape){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<345>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<348>";
 	f_lastMatchTime.At(t_shape->f_lane)=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<346>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<349>";
 	m_IncrementScore(10);
 	popErr();
 }
 void bb_gamescene_GameScene::m_CheckShapeCollisions(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<287>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<290>";
 	bb_shape_Shape* t_shape=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<289>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<289>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
 	bb_list_Enumerator* t_=f_upperShapes->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<289>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<289>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<290>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<293>";
 		t_shape=dynamic_cast<bb_shape_Shape*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<291>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<294>";
 		if(t_shape->m_pos()->f_y+Float(bb_shape_Shape::g_images.At(0)->m_Height())<f_checkPosY){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<291>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<294>";
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<293>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<296>";
 		f_upperShapes->m_Remove(t_shape);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<294>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<297>";
 		if(!f_slider->m_Match(t_shape)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<295>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<298>";
 			m_OnMissmatch(t_shape);
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<297>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<300>";
 			f_lowerShapes->m_Add4(t_shape);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<298>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<301>";
 			m_OnMatch(t_shape);
 		}
 	}
@@ -6148,98 +6188,98 @@ void bb_gamescene_GameScene::m_CheckShapeCollisions(){
 }
 void bb_gamescene_GameScene::m_DetectComboTrigger(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<304>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<307>";
 	int t_lanesNotZero=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<305>";
-	int t_hotLanes=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<306>";
-	int t_now=bb_app_Millisecs();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<308>";
+	int t_hotLanes=0;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<309>";
+	int t_now=bb_app_Millisecs();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<311>";
 	for(int t_lane=0;t_lane<f_lastMatchTime.Length();t_lane=t_lane+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<309>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<312>";
 		if(f_lastMatchTime.At(t_lane)==0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<309>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<312>";
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<311>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<314>";
 		t_lanesNotZero+=1;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<312>";
-		if(f_lastMatchTime.At(t_lane)+300>=t_now){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<313>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<315>";
+		if(f_lastMatchTime.At(t_lane)+325>=t_now){
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<316>";
 			t_hotLanes+=1;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<315>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<318>";
 			if(t_hotLanes>=2 && !f_comboPending){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<316>";
+				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<319>";
 				f_comboPending=true;
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<317>";
+				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<320>";
 				f_comboPendingSince=t_now;
 			}
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<321>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<324>";
 			if(!f_comboPending){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<321>";
+				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<324>";
 				f_lastMatchTime.At(t_lane)=0;
 			}
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<325>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<328>";
 	if(!f_comboPending){
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<326>";
-	if(f_comboPendingSince+300>t_now){
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<329>";
+	if(f_comboPendingSince+325>t_now){
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<328>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<331>";
 	int t_[]={0,0,0,0};
 	gc_assign(f_lastMatchTime,Array<int >(t_,4));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<329>";
-	f_comboPending=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<331>";
-	f_chute->f_height=bb_math_Max(75,f_chute->f_height-18*t_lanesNotZero);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<332>";
-	m_IncrementScore(15*t_lanesNotZero);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<333>";
-	f_comboFont->m_text(String(L"COMBO x ")+String(t_lanesNotZero));
+	f_comboPending=false;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<334>";
+	f_chute->f_height=bb_math_Max(75,f_chute->f_height-18*t_lanesNotZero);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<335>";
-	f_comboAnimation->m_Restart();
+	m_IncrementScore(15*t_lanesNotZero);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<336>";
+	f_comboFont->m_text(String(L"COMBO x ")+String(t_lanesNotZero));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<338>";
+	f_comboAnimation->m_Restart();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<339>";
 	m_layer()->m_Add4(f_comboAnimation);
 	popErr();
 }
 void bb_gamescene_GameScene::m_DropNewShapeIfRequested(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<271>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<274>";
 	if(!f_severity->m_ShapeShouldBeDropped()){
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<272>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<275>";
 	f_upperShapes->m_Add4((new bb_shape_Shape)->g_new(f_severity->m_RandomType(),f_severity->m_RandomLane(),f_chute));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<273>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<276>";
 	f_severity->m_ShapeDropped();
 	popErr();
 }
 void bb_gamescene_GameScene::m_RemoveLostShapes(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<250>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<253>";
 	Float t_directoySizeY=m_director()->m_size()->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<251>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<254>";
 	bb_shape_Shape* t_shape=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<253>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<253>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
 	bb_list_Enumerator* t_=f_lowerShapes->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<253>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<253>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<254>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<257>";
 		t_shape=dynamic_cast<bb_shape_Shape*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<255>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<258>";
 		if(t_shape->m_pos()->f_y>t_directoySizeY){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<255>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<258>";
 			f_lowerShapes->m_Remove(t_shape);
 		}
 	}
@@ -6247,22 +6287,22 @@ void bb_gamescene_GameScene::m_RemoveLostShapes(){
 }
 void bb_gamescene_GameScene::m_RemoveFinishedErroAnimations(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<260>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<263>";
 	bb_sprite_Sprite* t_sprite=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<261>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<261>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
 	bb_list_Enumerator* t_=f_errorAnimations->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<261>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<261>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<262>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<265>";
 		t_sprite=dynamic_cast<bb_sprite_Sprite*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<263>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<266>";
 		if(t_sprite->m_animationIsDone()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<267>";
 			f_errorAnimations->m_Remove(t_sprite);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<265>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<268>";
 			f_falseSpriteStrack->m_Push2(t_sprite);
 		}
 	}
@@ -6270,47 +6310,47 @@ void bb_gamescene_GameScene::m_RemoveFinishedErroAnimations(){
 }
 void bb_gamescene_GameScene::m_OnUpdate(Float t_delta,Float t_frameTime){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<136>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<139>";
 	bb_scene_Scene::m_OnUpdate(t_delta,t_frameTime);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<138>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<141>";
 	if(m_HandleGameOver()){
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<140>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<143>";
 	if(f_collisionCheckedLastUpdate){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<141>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<144>";
 		f_collisionCheckedLastUpdate=false;
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<143>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<146>";
 		f_collisionCheckedLastUpdate=true;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<144>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<147>";
 		m_CheckShapeCollisions();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<147>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<150>";
 	m_DetectComboTrigger();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<148>";
-	f_severity->m_OnUpdate(t_delta,t_frameTime);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<149>";
-	m_DropNewShapeIfRequested();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<151>";
-	f_lastSlowUpdate+=t_frameTime;
+	f_severity->m_OnUpdate(t_delta,t_frameTime);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<152>";
+	m_DropNewShapeIfRequested();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<154>";
+	f_lastSlowUpdate+=t_frameTime;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<155>";
 	if(f_lastSlowUpdate>=FLOAT(1000.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<153>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<156>";
 		f_lastSlowUpdate=FLOAT(0.0);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<154>";
-		m_RemoveLostShapes();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<155>";
-		m_RemoveFinishedErroAnimations();
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<157>";
+		m_RemoveLostShapes();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<158>";
+		m_RemoveFinishedErroAnimations();
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<160>";
 		if(!f_comboAnimation->m_IsPlaying()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<158>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<161>";
 			m_layer()->m_Remove(f_comboAnimation);
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<160>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<163>";
 		if(!f_newHighscoreAnimation->m_IsPlaying()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<161>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<164>";
 			m_layer()->m_Remove(f_newHighscoreAnimation);
 		}
 	}
@@ -6318,33 +6358,33 @@ void bb_gamescene_GameScene::m_OnUpdate(Float t_delta,Float t_frameTime){
 }
 void bb_gamescene_GameScene::m_StartPause(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<206>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<209>";
 	f_pauseTime=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<207>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<210>";
 	m_router()->m_Goto(String(L"pause"));
 	popErr();
 }
 void bb_gamescene_GameScene::m_FastDropMatchingShapes(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<277>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<280>";
 	bb_shape_Shape* t_shape=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<279>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<279>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
 	bb_list_Enumerator* t_=f_upperShapes->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<279>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<279>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<280>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<283>";
 		t_shape=dynamic_cast<bb_shape_Shape*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<281>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<284>";
 		if(t_shape->f_isFast){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<281>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<284>";
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<285>";
 		if(f_slider->m_Match(t_shape)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<285>";
 			t_shape->f_isFast=true;
 		}
 	}
@@ -6352,26 +6392,26 @@ void bb_gamescene_GameScene::m_FastDropMatchingShapes(){
 }
 void bb_gamescene_GameScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<167>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<170>";
 	int t_1=t_event->m_code();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<168>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<171>";
 	if(t_1==80){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<169>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<172>";
 		m_StartPause();
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<170>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<173>";
 		if(t_1==40 || t_1==65576){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<171>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<174>";
 			m_FastDropMatchingShapes();
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<172>";
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<175>";
 			if(t_1==37 || t_1==65573){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<173>";
+				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<176>";
 				f_slider->m_SlideLeft();
 			}else{
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<174>";
+				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<177>";
 				if(t_1==39 || t_1==65575){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<175>";
+					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<178>";
 					f_slider->m_SlideRight();
 				}
 			}
@@ -6381,68 +6421,68 @@ void bb_gamescene_GameScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
 }
 void bb_gamescene_GameScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<180>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<183>";
 	if(f_pauseButton->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<180>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<183>";
 		m_StartPause();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<181>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<184>";
 	if(f_slider->f_arrowRight->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<181>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<184>";
 		f_slider->m_SlideRight();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<182>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<185>";
 	if(f_slider->f_arrowLeft->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<182>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<185>";
 		f_slider->m_SlideLeft();
 	}
 	popErr();
 }
 void bb_gamescene_GameScene::m_HandleSliderSwipe(bb_touchevent_TouchEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<223>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<226>";
 	bb_vector2d_Vector2D* t_swipe=t_event->m_startDelta()->m_Normalize();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<224>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<227>";
 	if(bb_math_Abs2(t_swipe->f_x)<=FLOAT(0.4)){
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<226>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<229>";
 	if(t_swipe->f_x<FLOAT(0.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<227>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<230>";
 		f_slider->m_SlideLeft();
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<229>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<232>";
 		f_slider->m_SlideRight();
 	}
 	popErr();
 }
 void bb_gamescene_GameScene::m_HandleBackgroundSwipe(bb_touchevent_TouchEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<218>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<221>";
 	bb_vector2d_Vector2D* t_swipe=t_event->m_startDelta()->m_Normalize();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<219>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<222>";
 	if(t_swipe->f_y>FLOAT(0.2)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<219>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<222>";
 		m_FastDropMatchingShapes();
 	}
 	popErr();
 }
 void bb_gamescene_GameScene::m_OnTouchUp(bb_touchevent_TouchEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<186>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<189>";
 	if(f_ignoreFirstTouchUp){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<187>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<190>";
 		f_ignoreFirstTouchUp=false;
 		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<191>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<194>";
 	if(t_event->m_startPos()->f_y>=f_slider->m_pos()->f_y){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<192>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<195>";
 		m_HandleSliderSwipe(t_event);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<194>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<197>";
 		m_HandleBackgroundSwipe(t_event);
 	}
 	popErr();
@@ -6453,7 +6493,7 @@ void bb_gamescene_GameScene::m_OnTouchMove(bb_touchevent_TouchEvent* t_event){
 }
 void bb_gamescene_GameScene::m_OnPauseLeaveGame(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<129>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<132>";
 	f_pauseTime=0;
 	popErr();
 }
@@ -6656,65 +6696,67 @@ void bb_newhighscorescene_NewHighscoreScene::m_OnCreate(bb_director_Director* t_
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<33>";
 	m_layer()->m_Add4(f_continueBtn);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<36>";
-	gc_assign(f_input,(new bb_textinput_TextInput)->g_new(String(L"CoRa"),(new bb_vector2d_Vector2D)->g_new(FLOAT(90.0),FLOAT(430.0))));
+	gc_assign(f_input,(new bb_textinput_TextInput)->g_new(String(L"CoRa"),(new bb_vector2d_Vector2D)->g_new(FLOAT(110.0),FLOAT(415.0))));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<37>";
+	gc_assign(f_input->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<38>";
 	m_layer()->m_Add4(f_input);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<39>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<40>";
 	bb_scene_Scene::m_OnCreate(t_director);
 	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnEnter(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<44>";
-	f_continueBtn->m_CenterX(m_director());
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<45>";
+	f_continueBtn->m_CenterX(m_director());
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<46>";
 	f_continueBtn->m_pos()->f_y=f_input->m_pos()->f_y+FLOAT(175.0);
 	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnRender(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<50>";
-	m_router()->m_previous()->m_OnRender();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<51>";
-	m_RenderBlend();
+	m_router()->m_previous()->m_OnRender();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<52>";
+	m_RenderBlend();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<53>";
 	bb_scene_Scene::m_OnRender();
 	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_SaveAndContinue(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<69>";
-	String t_level=bb_severity_CurrentSeverity()->m_ToString()+String(L" ");
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<70>";
-	bb_statestore_StateStore::g_Load(f_highscore);
+	String t_level=bb_severity_CurrentSeverity()->m_ToString()+String(L" ");
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<71>";
-	f_highscore->m_Add5(t_level+f_input->m_text2(),f_score);
+	bb_statestore_StateStore::g_Load(f_highscore);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<72>";
+	f_highscore->m_Add5(t_level+f_input->m_text2(),f_score);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<73>";
 	bb_statestore_StateStore::g_Save(f_highscore);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<74>";
-	dynamic_cast<bb_highscorescene_HighscoreScene*>(m_router()->m_Get(String(L"highscore")))->f_lastScoreKey=t_level+f_input->m_text2();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<75>";
-	dynamic_cast<bb_highscorescene_HighscoreScene*>(m_router()->m_Get(String(L"highscore")))->f_lastScoreValue=f_score;
+	dynamic_cast<bb_highscorescene_HighscoreScene*>(m_router()->m_Get(String(L"highscore")))->f_lastScoreKey=t_level+f_input->m_text2();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<76>";
+	dynamic_cast<bb_highscorescene_HighscoreScene*>(m_router()->m_Get(String(L"highscore")))->f_lastScoreValue=f_score;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<77>";
 	m_router()->m_Goto(String(L"highscore"));
 	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<56>";
-	bb_scene_Scene::m_OnKeyDown(t_event);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<57>";
+	bb_scene_Scene::m_OnKeyDown(t_event);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<58>";
 	if(t_event->m_code()==13){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<57>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<58>";
 		m_SaveAndContinue();
 	}
 	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<62>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<63>";
 	if(f_continueBtn->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<62>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<63>";
 		m_SaveAndContinue();
 	}
 	popErr();
@@ -8559,6 +8601,17 @@ void bb_sprite_Sprite::mark(){
 	gc_mark_q(f_image);
 	gc_mark_q(f_scale);
 }
+bb_appirater_Appirater::bb_appirater_Appirater(){
+}
+void bb_appirater_Appirater::g_Launched(){
+	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/appirater.monkey<14>";
+	Print(String(L"Appirater: App launched"));
+	popErr();
+}
+void bb_appirater_Appirater::mark(){
+	Object::mark();
+}
 int bb_iap_InitInAppPurchases(String t_bundleID,Array<String > t_productList){
 	pushErr();
 	popErr();
@@ -9606,7 +9659,7 @@ Array<int > bb_gamehighscore_GameHighscore::g_scores;
 void bb_gamehighscore_GameHighscore::m_LoadNamesAndScores(){
 	pushErr();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<31>";
-	String t_[]={String(L"Michael"),String(L"Sena"),String(L"Joe"),String(L"Mouser"),String(L"Tinnet"),String(L"Horas-Ra"),String(L"Monkey"),String(L"Mike"),String(L"Bono"),String(L"Angel")};
+	String t_[]={String(L"Michael"),String(L"Sena"),String(L"Joe"),String(L"Mouser"),String(L"Tinnet"),String(L"Horas-Ra"),String(L"Chris"),String(L"Mike"),String(L"Bono"),String(L"Oli")};
 	gc_assign(g_names,Array<String >(t_,10));
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<32>";
 	int t_2[]={1000,900,800,700,600,500,400,300,200,100};
@@ -10124,12 +10177,12 @@ void bb_severity_Severity::m_ChuteMarkAsAdvanced(){
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<106>";
 		if(t_2==1){
 			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<107>";
-			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4000.0)*f_progress);
+			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4750.0)*f_progress);
 		}else{
 			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<108>";
 			if(t_2==2){
 				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<109>";
-				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(3000.0)*f_progress);
+				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4500.0)*f_progress);
 			}
 		}
 	}
@@ -10151,12 +10204,12 @@ void bb_severity_Severity::m_ShapeDropped(){
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<124>";
 		if(t_3==1){
 			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<125>";
-			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(350.0),FLOAT(1700.0)+FLOAT(2100.0)*f_progress));
+			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(375.0),FLOAT(1750.0)+FLOAT(2300.0)*f_progress));
 		}else{
 			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<126>";
 			if(t_3==2){
 				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<127>";
-				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(250.0),FLOAT(1600.0)+FLOAT(1700.0)*f_progress));
+				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(300.0),FLOAT(1700.0)+FLOAT(1000.0)*f_progress));
 			}
 		}
 	}
@@ -10636,10 +10689,10 @@ void bb_slider_Slider::mark(){
 bb_font_Font::bb_font_Font(){
 	f_name=String();
 	f__align=0;
+	f_color=0;
 	f__text=String();
 	f_fontStore=(new bb_map_StringMap5)->g_new();
 	f_recalculateSize=false;
-	f_color=0;
 }
 bb_font_Font* bb_font_Font::g_new(String t_fontName,bb_vector2d_Vector2D* t_pos){
 	pushErr();
@@ -10724,7 +10777,7 @@ void bb_font_Font::m_OnCreate(bb_director_Director* t_director){
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<40>";
 	if(!f_fontStore->m_Contains(f_name)){
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<41>";
-		f_fontStore->m_Set6(f_name,(new bb_angelfont_AngelFont)->g_new(String()));
+		f_fontStore->m_Set7(f_name,(new bb_angelfont_AngelFont)->g_new(String()));
 		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<42>";
 		f_fontStore->m_Get(f_name)->m_LoadFont(f_name);
 	}
@@ -10755,8 +10808,8 @@ void bb_font_Font::m_OnRender(){
 }
 void bb_font_Font::mark(){
 	bb_baseobject_BaseObject::mark();
-	gc_mark_q(f_fontStore);
 	gc_mark_q(f_color);
+	gc_mark_q(f_fontStore);
 }
 bb_angelfont_AngelFont::bb_angelfont_AngelFont(){
 	f_chars=Array<bb_char_Char* >(256);
@@ -10982,6 +11035,74 @@ void bb_angelfont_AngelFont::mark(){
 	gc_mark_q(f_kernPairs);
 	gc_mark_q(f_image);
 }
+bb_color_Color::bb_color_Color(){
+	f_red=FLOAT(.0);
+	f_green=FLOAT(.0);
+	f_blue=FLOAT(.0);
+	f_alpha=FLOAT(.0);
+	f_oldColor=0;
+}
+bb_color_Color* bb_color_Color::g_new(Float t_red,Float t_green,Float t_blue,Float t_alpha){
+	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<22>";
+	this->f_red=t_red;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<23>";
+	this->f_green=t_green;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<24>";
+	this->f_blue=t_blue;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<25>";
+	this->f_alpha=t_alpha;
+	popErr();
+	return this;
+}
+bb_color_Color* bb_color_Color::g_new2(){
+	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<9>";
+	popErr();
+	return this;
+}
+void bb_color_Color::m_Set6(bb_color_Color* t_color){
+	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<47>";
+	bb_graphics_SetColor(t_color->f_red,t_color->f_green,t_color->f_blue);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<48>";
+	bb_graphics_SetAlpha(t_color->f_alpha);
+	popErr();
+}
+void bb_color_Color::m_Activate(){
+	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<29>";
+	if(!((f_oldColor)!=0)){
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<29>";
+		gc_assign(f_oldColor,(new bb_color_Color)->g_new(FLOAT(0.0),FLOAT(0.0),FLOAT(0.0),FLOAT(0.0)));
+	}
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<31>";
+	Array<Float > t_colorStack=bb_graphics_GetColor();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<32>";
+	f_oldColor->f_red=t_colorStack.At(0);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<33>";
+	f_oldColor->f_green=t_colorStack.At(1);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<34>";
+	f_oldColor->f_blue=t_colorStack.At(2);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<35>";
+	f_oldColor->f_alpha=bb_graphics_GetAlpha();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<37>";
+	m_Set6(this);
+	popErr();
+}
+void bb_color_Color::m_Deactivate(){
+	pushErr();
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<41>";
+	if((f_oldColor)!=0){
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<41>";
+		m_Set6(f_oldColor);
+	}
+	popErr();
+}
+void bb_color_Color::mark(){
+	Object::mark();
+	gc_mark_q(f_oldColor);
+}
 bb_map_Map5::bb_map_Map5(){
 	f_root=0;
 }
@@ -11175,7 +11296,7 @@ int bb_map_Map5::m_InsertFixup5(bb_map_Node5* t_node){
 	popErr();
 	return 0;
 }
-bool bb_map_Map5::m_Set6(String t_key,bb_angelfont_AngelFont* t_value){
+bool bb_map_Map5::m_Set7(String t_key,bb_angelfont_AngelFont* t_value){
 	pushErr();
 	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
 	bb_map_Node5* t_node=f_root;
@@ -11232,7 +11353,7 @@ bool bb_map_Map5::m_Set6(String t_key,bb_angelfont_AngelFont* t_value){
 bool bb_map_Map5::m_Insert3(String t_key,bb_angelfont_AngelFont* t_value){
 	pushErr();
 	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<126>";
-	bool t_=m_Set6(t_key,t_value);
+	bool t_=m_Set7(t_key,t_value);
 	popErr();
 	return t_;
 }
@@ -12118,7 +12239,7 @@ int bb_map_Map6::m_InsertFixup6(bb_map_Node6* t_node){
 	popErr();
 	return 0;
 }
-bool bb_map_Map6::m_Set7(int t_key,Object* t_value){
+bool bb_map_Map6::m_Set8(int t_key,Object* t_value){
 	pushErr();
 	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
 	bb_map_Node6* t_node=f_root;
@@ -12175,7 +12296,7 @@ bool bb_map_Map6::m_Set7(int t_key,Object* t_value){
 bool bb_map_Map6::m_Insert5(int t_key,Object* t_value){
 	pushErr();
 	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<126>";
-	bool t_=m_Set7(t_key,t_value);
+	bool t_=m_Set8(t_key,t_value);
 	popErr();
 	return t_;
 }
@@ -14046,74 +14167,6 @@ int bb_graphics_DrawRect(Float t_x,Float t_y,Float t_w,Float t_h){
 	popErr();
 	return 0;
 }
-bb_color_Color::bb_color_Color(){
-	f_oldColor=0;
-	f_red=FLOAT(.0);
-	f_green=FLOAT(.0);
-	f_blue=FLOAT(.0);
-	f_alpha=FLOAT(.0);
-}
-bb_color_Color* bb_color_Color::g_new(Float t_red,Float t_green,Float t_blue,Float t_alpha){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<22>";
-	this->f_red=t_red;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<23>";
-	this->f_green=t_green;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<24>";
-	this->f_blue=t_blue;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<25>";
-	this->f_alpha=t_alpha;
-	popErr();
-	return this;
-}
-bb_color_Color* bb_color_Color::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<9>";
-	popErr();
-	return this;
-}
-void bb_color_Color::m_Set8(bb_color_Color* t_color){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<47>";
-	bb_graphics_SetColor(t_color->f_red,t_color->f_green,t_color->f_blue);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<48>";
-	bb_graphics_SetAlpha(t_color->f_alpha);
-	popErr();
-}
-void bb_color_Color::m_Activate(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<29>";
-	if(!((f_oldColor)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<29>";
-		gc_assign(f_oldColor,(new bb_color_Color)->g_new(FLOAT(0.0),FLOAT(0.0),FLOAT(0.0),FLOAT(0.0)));
-	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<31>";
-	Array<Float > t_colorStack=bb_graphics_GetColor();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<32>";
-	f_oldColor->f_red=t_colorStack.At(0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<33>";
-	f_oldColor->f_green=t_colorStack.At(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<34>";
-	f_oldColor->f_blue=t_colorStack.At(2);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<35>";
-	f_oldColor->f_alpha=bb_graphics_GetAlpha();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<37>";
-	m_Set8(this);
-	popErr();
-}
-void bb_color_Color::m_Deactivate(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<41>";
-	if((f_oldColor)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<41>";
-		m_Set8(f_oldColor);
-	}
-	popErr();
-}
-void bb_color_Color::mark(){
-	Object::mark();
-	gc_mark_q(f_oldColor);
-}
 Array<Float > bb_graphics_GetColor(){
 	pushErr();
 	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<293>";
@@ -14235,40 +14288,42 @@ bb_shape_Shape::bb_shape_Shape(){
 	f_lane=0;
 	f_chute=0;
 	f_isFast=false;
+	f_isReadyForFast=false;
+	f_readyTime=FLOAT(.0);
 }
 Array<bb_graphics_Image* > bb_shape_Shape::g_images;
 bb_vector2d_Vector2D* bb_shape_Shape::g_SPEED_SLOW;
 bb_vector2d_Vector2D* bb_shape_Shape::g_SPEED_FAST;
 bb_shape_Shape* bb_shape_Shape::g_new(int t_type,int t_lane,bb_chute_Chute* t_chute){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<25>";
-	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<26>";
-	this->f_type=t_type;
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<27>";
-	this->f_lane=t_lane;
+	bb_baseobject_BaseObject::g_new();
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<28>";
-	gc_assign(this->f_chute,t_chute);
+	this->f_type=t_type;
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<29>";
+	this->f_lane=t_lane;
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<30>";
+	gc_assign(this->f_chute,t_chute);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<32>";
 	if(g_images.Length()==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<31>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<33>";
 		bb_graphics_Image* t_[]={bb_graphics_LoadImage(String(L"circle_inside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"plus_inside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"star_inside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"tire_inside.png"),1,bb_graphics_Image::g_DefaultFlags)};
 		gc_assign(g_images,Array<bb_graphics_Image* >(t_,4));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<34>";
-	Float t_posX=Float(44+g_images.At(0)->m_Width()*t_lane);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<35>";
-	Float t_posY=Float(t_chute->m_Height()-g_images.At(t_type)->m_Height());
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<36>";
-	m_pos2((new bb_vector2d_Vector2D)->g_new(t_posX,t_posY));
+	Float t_posX=Float(44+g_images.At(0)->m_Width()*t_lane);
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<37>";
+	Float t_posY=Float(t_chute->m_Height()-g_images.At(t_type)->m_Height()+37);
 	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<38>";
+	m_pos2((new bb_vector2d_Vector2D)->g_new(t_posX,t_posY));
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<40>";
 	if(!((g_SPEED_SLOW)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<38>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<40>";
 		gc_assign(g_SPEED_SLOW,(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(3.0)));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<39>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<41>";
 	if(!((g_SPEED_FAST)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<39>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<41>";
 		gc_assign(g_SPEED_FAST,(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(10.0)));
 	}
 	popErr();
@@ -14284,19 +14339,31 @@ bb_shape_Shape* bb_shape_Shape::g_new2(){
 }
 void bb_shape_Shape::m_OnUpdate(Float t_delta,Float t_frameTime){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<43>";
-	if(f_isFast){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<44>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<45>";
+	if(!f_isReadyForFast){
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<46>";
+		f_readyTime+=t_frameTime;
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<47>";
+		f_isFast=false;
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<48>";
+		if(f_readyTime>=FLOAT(250.0)){
+			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<48>";
+			f_isReadyForFast=true;
+		}
+	}
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<51>";
+	if(f_isFast && f_isReadyForFast){
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<52>";
 		m_pos()->m_Add2(g_SPEED_FAST->m_Copy()->m_Mul2(t_delta));
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<46>";
+		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<54>";
 		m_pos()->m_Add2(g_SPEED_SLOW->m_Copy()->m_Mul2(t_delta));
 	}
 	popErr();
 }
 void bb_shape_Shape::m_OnRender(){
 	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<51>";
+	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<59>";
 	bb_graphics_DrawImage(g_images.At(f_type),m_pos()->f_x,m_pos()->f_y,0);
 	popErr();
 }

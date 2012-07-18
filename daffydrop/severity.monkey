@@ -58,13 +58,13 @@ Class Severity
         Select level
         Case EASY
             activatedShapes = 2
-            slowDownDuration = 120000
+            slowDownDuration = 160000
         Case NORMAL
             activatedShapes = 3
-            slowDownDuration = 100000
+            slowDownDuration = 140000
         Case ADVANCED
             activatedShapes = 4
-            slowDownDuration = 80000
+            slowDownDuration = 120000
         End
 
         lastTypes.Clear()
@@ -104,9 +104,9 @@ Class Severity
         Case EASY
             nextChuteAdvanceTime += 5000 * progress
         Case NORMAL
-            nextChuteAdvanceTime += 4750 * progress
+            nextChuteAdvanceTime += 5000 * progress
         Case ADVANCED
-            nextChuteAdvanceTime += 4500 * progress
+            nextChuteAdvanceTime += 5000 * progress
         End
 
         nextChuteAdvanceTime *= 2
@@ -122,9 +122,9 @@ Class Severity
         Case EASY
             nextShapeDropTime = lastTime + Rnd(450, 1800 + (2500 * progress))
         Case NORMAL
-            nextShapeDropTime = lastTime + Rnd(375, 1750 + (2300 * progress))
+            nextShapeDropTime = lastTime + Rnd(375, 1800 + (2500 * progress))
         Case ADVANCED
-            nextShapeDropTime = lastTime + Rnd(300, 1700 + (2100 * progress))
+            nextShapeDropTime = lastTime + Rnd(300, 1800 + (2500 * progress))
         End
     End
 
