@@ -28,7 +28,7 @@ Class GameHighscore Extends IntHighscore
     Private
 
     Method LoadNamesAndScores:Void()
-        names = ["Michael", "Sena", "Joe", "Mouser", "Tinnet", "Horas-Ra", "Monkey", "Mike", "Bono", "Angel"]
+        names = ["Michael", "Sena", "Joe", "Mouser", "Tinnet", "Horas-Ra", "Chris", "Jana", "Bono", "Oli"]
         scores = [1000, 900, 800, 700, 600, 500, 400, 300, 200, 100]
     End
 
