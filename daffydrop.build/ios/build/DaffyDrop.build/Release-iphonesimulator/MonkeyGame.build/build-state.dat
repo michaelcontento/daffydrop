@@ -4,8 +4,8 @@ r1
 cCheck dependencies
 cProcessInfoPlistFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Info.plist MonkeyGame-Info.plist
 cCompileXIB /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
-cCpResource icon4.png build/Release-iphonesimulator/DaffyDrop.app/icon4.png
 cCpResource icon7.png build/Release-iphonesimulator/DaffyDrop.app/icon7.png
+cCpResource icon4.png build/Release-iphonesimulator/DaffyDrop.app/icon4.png
 cCpResource data build/Release-iphonesimulator/DaffyDrop.app/data
 cCpResource Default-Portrait~ipad.png build/Release-iphonesimulator/DaffyDrop.app/Default-Portrait~ipad.png
 cCpResource icon6.png build/Release-iphonesimulator/DaffyDrop.app/icon6.png
@@ -16,9 +16,11 @@ cCpResource Default.png build/Release-iphonesimulator/DaffyDrop.app/Default.png
 cCpResource icon72.png build/Release-iphonesimulator/DaffyDrop.app/icon72.png
 cCpResource icon144.png build/Release-iphonesimulator/DaffyDrop.app/icon144.png
 cCpResource icon114.png build/Release-iphonesimulator/DaffyDrop.app/icon114.png
+cCpResource appirater build/Release-iphonesimulator/DaffyDrop.app/appirater
 cCpResource icon57.png build/Release-iphonesimulator/DaffyDrop.app/icon57.png
+cProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
 cProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
-cCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
 
 N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk
 c000000004F593CBA0000000000000110
@@ -106,41 +108,41 @@ t1342478415
 s254185
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/Default-Portrait@2x~ipad.png
-c0000000050049B61000000000003D7CD
-t1342479201
+c00000000500726E7000000000003D7CD
+t1342645991
 s251853
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/Default-Portrait~ipad.png
-c0000000050049B35000000000001982B
-t1342479157
+c00000000500726E7000000000001982B
+t1342645991
 s104491
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/Default.png
-c0000000050049AA600000000000080D2
-t1342479014
+c00000000500726E700000000000080D2
+t1342645991
 s32978
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/Default@2x.png
-c0000000050049A86000000000001925C
-t1342478982
+c00000000500726E7000000000001925C
+t1342645991
 s103004
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
-c000000004FFF537700000000000034B6
-t1342133111
+c00000000500726E700000000000034B6
+t1342645991
 s13494
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch
-c000000004FFF46D100000000000000BD
-t1342129873
+c00000000500726E700000000000000BD
+t1342645991
 s189
 i<Foundation/Foundation.h>
 i<UIKit/UIKit.h>
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater
-c000000005005BB1C0000000000000264
-t1342552860
-s612
+c00000000500726E70000000000000044
+t1342645991
+s68
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.h
 c00000000000000000000000000000000
@@ -153,44 +155,44 @@ t2
 s0
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o
-t1342552885
-s75144
+t2
+s0
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/DaffyDrop.LinkFileList
-c0000000050071FA700000000000000AF
-t1342644135
-s175
+c000000005007955D0000000000000163
+t1342674269
+s355
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o
-t1342644138
-s1372652
+t2
+s0
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app
-t1342644138
+t1342645992
 s714
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM
-t1342644138
+t1342645992
 s102
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop
-t1342644138
+t1342645992
 s584484
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Default-Portrait@2x~ipad.png
-t1342545169
+t1342645992
 s251853
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Default-Portrait~ipad.png
-t1342549690
+t1342645992
 s89313
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Default.png
-t1342549690
+t1342645992
 s33943
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Default@2x.png
-t1342549690
+t1342645992
 s88572
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Icon.png
@@ -198,100 +200,100 @@ t1342549690
 s7611
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Info.plist
-t1342643345
+t1342645992
 s1220
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/MainWindow.nib
-t1342133279
+t1342645992
 s1977
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/PkgInfo
-t1342643345
+t1342645992
 s8
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/appirater
-t1342552884
+t1342645992
 s612
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/data
-t1342644135
+t1342645992
 s1258
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon114.png
-t1342643345
+t1342645992
 s15465
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon144.png
-t1342643345
+t1342645992
 s19930
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon3.png
-t1342545169
+t1342645992
 s22928
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon4.png
-t1342549690
+t1342645992
 s15847
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon57.png
-t1342643345
+t1342645992
 s8133
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon6.png
-t1342549690
+t1342645992
 s9835
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon7.png
-t1342549690
+t1342645992
 s7611
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon72.png
-t1342643345
+t1342645992
 s9784
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data
-c00000000500723A300000000000004EA
-t1342645155
+c000000005007955D00000000000004EA
+t1342674269
 s1258
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon114.png
-c00000000500719D00000000000003C69
-t1342642640
+c00000000500726E80000000000003C69
+t1342645992
 s15465
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon144.png
-c00000000500719940000000000004DDA
-t1342642580
+c00000000500726E80000000000004DDA
+t1342645992
 s19930
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon3.png
-c00000000500499710000000000005990
-t1342478705
+c00000000500726E80000000000005990
+t1342645992
 s22928
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon4.png
-c00000000500498690000000000004216
-t1342478441
+c00000000500726E80000000000004216
+t1342645992
 s16918
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon57.png
-c0000000050071A920000000000001FC5
-t1342642834
+c00000000500726E80000000000001FC5
+t1342645992
 s8133
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon6.png
-c000000005004991D000000000000270A
-t1342478621
+c00000000500726E8000000000000270A
+t1342645992
 s9994
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon7.png
-c00000000500499320000000000001F0C
-t1342478642
+c00000000500726E80000000000001F0C
+t1342645992
 s7948
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon72.png
-c000000005007191B0000000000002638
-t1342642459
+c00000000500726E80000000000002638
+t1342645992
 s9784
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.h
@@ -300,8 +302,8 @@ t1342129873
 s1784
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm
-c00000000500723A3000000000004A62E
-t1342645155
+c000000005007955D000000000004A62E
+t1342674269
 s304686
 
 N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth
@@ -317,17 +319,17 @@ t1342129875
 s4712168
 
 NMonkeyGame-Info.plist
-c0000000050071AA400000000000009B7
-t1342642852
+c00000000500726E700000000000009B7
+t1342645991
 s2487
 
 CCheck dependencies
 r0
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection18"Check dependencies8e01fd235bb7b541^ebac0a245bb7b541^---0#1#0#--18"Check dependencies36"7C71BDE5-24F5-4AD6-8C79-D02E1D3D8A82-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection18"Check dependencies6e4ed1ddccb7b541^4299e6ddccb7b541^---0#1#0#--18"Check dependencies36"A55DF415-2B16-444C-8C82-3A5F3788473A-
 
 CCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
-s364336515.263538
-e364336515.282141
+s364367070.254766
+e364367070.277852
 r0
 xCompileC
 xbuild/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o
@@ -338,7 +340,7 @@ xobjective-c
 xcom.apple.compilers.llvm.clang.1_0.compiler
 oclang: error: no such file or directory: '/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m'
 oclang: error: no input files
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection114"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m6b9a438355b7b541^213d498355b7b541^-281"clang: error: no such file or directory: '/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m'clang: error: no input filesCommand /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang failed with exit code 11(21%IDEActivityLogMessage2@101"Command /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang failed with exit code 1-364336515#18446744073709551615#0#-2#--29"Apple LLVM compiler 3.0 Error--0#0#0#-19%DVTDocumentLocation3@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m00f45053dcffdf42^3152"CompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=c99 -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o36"66E720AC-8AB4-4B68-9FC2-81A97EBB0284-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection114"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.mef5741deccb7b541^9b1b47deccb7b541^-281"clang: error: no such file or directory: '/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m'clang: error: no input filesCommand /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang failed with exit code 11(21%IDEActivityLogMessage2@101"Command /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang failed with exit code 1-364367070#18446744073709551615#0#-2#--29"Apple LLVM compiler 3.0 Error--0#0#0#-19%DVTDocumentLocation3@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m00f45053dcffdf42^3152"CompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=c99 -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o36"102DB657-A74F-4670-A03C-84C2C439FC75-
 
 CCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
 s364337956.093215
@@ -459,13 +461,13 @@ xbuild/Release-iphonesimulator/DaffyDrop.app/appirater
 lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection58"Copy build/Release-iphonesimulator/DaffyDrop.app/appiraterb64cbeb4f2b5b541^b0c6c1b4f2b5b541^---0#0#0#-19%DVTDocumentLocation2@155"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/appirater/0000000000000000^1099"CpResource appirater build/Release-iphonesimulator/DaffyDrop.app/appirater    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"C7FBFDCA-203D-4D90-A373-7B6490066F9D-
 
 CCpResource data build/Release-iphonesimulator/DaffyDrop.app/data
-s364337956.057065
-e364337956.078637
+s364367069.920058
+e364367070.036545
 r1
 xCpResource
 xdata
 xbuild/Release-iphonesimulator/DaffyDrop.app/data
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection53"Copy build/Release-iphonesimulator/DaffyDrop.app/data25b30e245bb7b541^6c2114245bb7b541^---0#0#0#-19%DVTDocumentLocation2@150"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/data/0000000000000000^1084"CpResource data build/Release-iphonesimulator/DaffyDrop.app/data    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"FDE1A1E7-F835-47E2-9D49-B75C7BE55A09-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection53"Copy build/Release-iphonesimulator/DaffyDrop.app/datacbbaebddccb7b541^425c09deccb7b541^---0#0#0#-19%DVTDocumentLocation2@150"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/data/0000000000000000^1084"CpResource data build/Release-iphonesimulator/DaffyDrop.app/data    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"4A472355-7B12-44F6-A52D-7EBC17B4742A-
 
 CCpResource icon114.png build/Release-iphonesimulator/DaffyDrop.app/icon114.png
 s364336145.143998
@@ -562,8 +564,8 @@ xMonkeyGame-Info.plist
 lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection29"Process MonkeyGame-Info.plistf3cb201154b7b541^7ba0211154b7b541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame-Info.plist0000000000000000^1170"ProcessInfoPlistFile build/Release-iphonesimulator/DaffyDrop.app/Info.plist MonkeyGame-Info.plist    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-infoPlistUtility MonkeyGame-Info.plist -genpkginfo /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Info.plist36"8E2814B7-246C-4C05-8F25-4487D8F61621-
 
 CProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
-s364245684.818551
-e364245685.061245
+s364367070.045355
+e364367070.247970
 r1
 xProcessPCH
 x/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth
@@ -572,11 +574,11 @@ xnormal
 xi386
 xobjective-c
 xcom.apple.compilers.llvm.clang.1_0.compiler
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pch73b9d1b4f2b5b541^9fad0fb5f2b5b541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch0000000000000000^3033"ProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c-header -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=c99 -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.d36"4BEFDF62-96F7-47B2-9195-EC3D79D18F98-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pch19e70bdeccb7b541^187b3fdeccb7b541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch0000000000000000^3033"ProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c-header -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=c99 -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.d36"FD5AD8B2-8DA1-4177-86D8-DDC400CDAB5D-
 
 CProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
-s364245684.818576
-e364245685.093090
+s364367070.045365
+e364367070.378631
 r1
 xProcessPCH++
 x/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth
@@ -585,7 +587,7 @@ xnormal
 xi386
 xobjective-c++
 xcom.apple.compilers.llvm.clang.1_0.compiler
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pch5ebad1b4f2b5b541^e1d417b5f2b5b541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch0000000000000000^3090"ProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c++-header -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wno-arc-abi -Wc++0x-extensions -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.d36"AB09E9B7-0877-4CC9-B233-1B6DDF5185CE-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection32"Precompile MonkeyGame_Prefix.pchb8e90bdeccb7b541^f2ee60deccb7b541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch0000000000000000^3090"ProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c++-header -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wno-arc-abi -Wc++0x-extensions -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MonkeyGame_Prefix.pch -o /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth -MMD -MT dependencies -MF /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.d36"088083C1-750A-430D-AA11-0E0D4BDAC0B5-
 
 CProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
 r0

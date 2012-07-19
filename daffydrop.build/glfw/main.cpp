@@ -54,6 +54,8 @@ typedef float Float;
 #define FLOAT(X) X##f
 #endif
 
+void dbg_error( const char *p );
+
 //***** GC Config *****
 
 #if CFG_CPP_DEBUG_GC
@@ -105,7 +107,7 @@ struct gc_object{
 	
 	virtual void mark(){
 	}
-
+	
 	void *operator new( size_t size ){
 		return gc_malloc( size );
 	}
@@ -397,12 +399,12 @@ public:
 	}
 	
 	T &At( int index ){
-		if( index<0 || index>=rep->length ) throw "Array index out of range";
+		if( index<0 || index>=rep->length ) dbg_error( "Array index out of range" );
 		return rep->data[index]; 
 	}
 	
 	const T &At( int index )const{
-		if( index<0 || index>=rep->length ) throw "Array index out of range";
+		if( index<0 || index>=rep->length ) dbg_error( "Array index out of range" );
 		return rep->data[index]; 
 	}
 	
@@ -534,7 +536,7 @@ public:
 		rep=Rep::alloc( t_strlen(buf) );
 		for( int i=0;i<rep->length;++i ) rep->data[i]=buf[i];
 	}
-
+	
 	String( Float n ){
 		char buf[256];
 		
@@ -845,7 +847,7 @@ public:
 	bool Save( FILE *fp ){
 		std::vector<unsigned char> buf;
 		Save( buf );
-		return fwrite( &buf[0],1,buf.size(),fp )==buf.size();
+		return buf.size() ? fwrite( &buf[0],1,buf.size(),fp )==buf.size() : true;
 	}
 	
 	void Save( std::vector<unsigned char> &buf ){
@@ -894,7 +896,7 @@ public:
 			if( n>0 ) buf.insert( buf.end(),tmp,tmp+n );
 			if( n!=4096 ) break;
 		}
-		return String::Load( &buf[0],buf.size() );
+		return buf.size() ? String::Load( &buf[0],buf.size() ) : "";
 	}
 	
 	static String Load( unsigned char *p,int n ){
@@ -1004,62 +1006,336 @@ public:
 	virtual int Compare( Object *obj ){
 		return (char*)this-(char*)obj;
 	}
+	
+	virtual String debug(){
+		return "+Object\n";
+	}
+};
+
+class ThrowableObject : public Object{
 };
 
 struct gc_interface{
 	virtual ~gc_interface(){}
 };
 
+
+//***** Debugger *****
+
+int Print( String t );
+
+#define dbg_stream stderr
+
+#if _MSC_VER
+#define dbg_typeof decltype
+#else
+#define dbg_typeof __typeof__
+#endif 
+
+struct dbg_func;
+struct dbg_var_type;
+
+static int dbg_suspend;
+static int dbg_stepmode;
+
+const char *dbg_info;
+String dbg_exstack;
+
+static void *dbg_var_buf[65536*3];
+static void **dbg_var_ptr=dbg_var_buf;
+
+static dbg_func *dbg_func_buf[1024];
+static dbg_func **dbg_func_ptr=dbg_func_buf;
+
+String dbg_type( bool *p ){
+	return "Bool";
+}
+
+String dbg_type( int *p ){
+	return "Int";
+}
+
+String dbg_type( Float *p ){
+	return "Float";
+}
+
+String dbg_type( String *p ){
+	return "String";
+}
+
+template<class T> String dbg_type( T *p ){
+	return "Object";
+}
+
+template<class T> String dbg_type( Array<T> *p ){
+	return dbg_type( &(*p)[0] )+"[]";
+}
+
+String dbg_value( bool *p ){
+	return *p ? "True" : "False";
+}
+
+String dbg_value( int *p ){
+	return String( *p );
+}
+
+String dbg_value( Float *p ){
+	return String( *p );
+}
+
+String dbg_value( String *p ){
+	return String( "\"" )+(*p).Replace( "\"","~q" )+String( "\"" );
+}
+
+template<class T> String dbg_value( T *t ){
+	Object *p=dynamic_cast<Object*>( *t );
+	char buf[64];
+	sprintf( buf,"%p",p );
+	return String("@") + (buf[0]=='0' && buf[1]=='x' ? buf+2 : buf );
+}
+
+template<class T> String dbg_value( Array<T> *p ){
+	String t="[";
+	int n=(*p).Length();
+	for( int i=0;i<n;++i ){
+		if( i ) t+=",";
+		t+=dbg_value( &(*p)[i] );
+	}
+	return t+"]";
+}
+
+template<class T> String dbg_decl( const char *id,T *ptr ){
+	return String( id )+":"+dbg_type(ptr)+"="+dbg_value(ptr)+"\n";
+}
+
+struct dbg_var_type{
+	virtual String type( void *p )=0;
+	virtual String value( void *p )=0;
+};
+
+template<class T> struct dbg_var_type_t : public dbg_var_type{
+
+	String type( void *p ){
+		return dbg_type( (T*)p );
+	}
+	
+	String value( void *p ){
+		return dbg_value( (T*)p );
+	}
+	
+	static dbg_var_type_t<T> info;
+};
+template<class T> dbg_var_type_t<T> dbg_var_type_t<T>::info;
+
+struct dbg_blk{
+	void **var_ptr;
+	
+	dbg_blk():var_ptr(dbg_var_ptr){
+		if( dbg_stepmode=='l' ) --dbg_suspend;
+	}
+	
+	~dbg_blk(){
+		if( dbg_stepmode=='l' ) ++dbg_suspend;
+		dbg_var_ptr=var_ptr;
+	}
+};
+
+struct dbg_func : public dbg_blk{
+	const char *id;
+	const char *info;
+
+	dbg_func( const char *p ):id(p),info(dbg_info){
+		*dbg_func_ptr++=this;
+		if( dbg_stepmode=='s' ) --dbg_suspend;
+	}
+	
+	~dbg_func(){
+		if( dbg_stepmode=='s' ) ++dbg_suspend;
+		--dbg_func_ptr;
+		dbg_info=info;
+	}
+};
+
+int dbg_print( String t ){
+	static char *buf;
+	static int len;
+	int n=t.Length();
+	if( n+100>len ){
+		len=n+100;
+		free( buf );
+		buf=(char*)malloc( len );
+	}
+	buf[n]='\n';
+	for( int i=0;i<n;++i ) buf[i]=t[i];
+	fwrite( buf,n+1,1,dbg_stream );
+	fflush( dbg_stream );
+	return 0;
+}
+
+void dbg_callstack(){
+
+	void **var_ptr=dbg_var_buf;
+	dbg_func **func_ptr=dbg_func_buf;
+	
+	while( var_ptr!=dbg_var_ptr ){
+		while( func_ptr!=dbg_func_ptr && var_ptr==(*func_ptr)->var_ptr ){
+			const char *id=(*func_ptr++)->id;
+			const char *info=func_ptr!=dbg_func_ptr ? (*func_ptr)->info : dbg_info;
+			fprintf( dbg_stream,"+%s;%s\n",id,info );
+		}
+		void *vp=*var_ptr++;
+		const char *nm=(const char*)*var_ptr++;
+		dbg_var_type *ty=(dbg_var_type*)*var_ptr++;
+		dbg_print( String(nm)+":"+ty->type(vp)+"="+ty->value(vp) );
+	}
+	while( func_ptr!=dbg_func_ptr ){
+		const char *id=(*func_ptr++)->id;
+		const char *info=func_ptr!=dbg_func_ptr ? (*func_ptr)->info : dbg_info;
+		fprintf( dbg_stream,"+%s;%s\n",id,info );
+	}
+}
+
+String dbg_stacktrace(){
+	if( !dbg_info || !dbg_info[0] ) return "";
+	String str=String( dbg_info )+"\n";
+	dbg_func **func_ptr=dbg_func_ptr;
+	if( func_ptr==dbg_func_buf ) return str;
+	while( --func_ptr!=dbg_func_buf ){
+		str+=String( (*func_ptr)->info )+"\n";
+	}
+	return str;
+}
+
+void dbg_throw( const char *err ){
+	dbg_exstack=dbg_stacktrace();
+	throw err;
+}
+
+void dbg_stop(){
+
+#ifdef TARGET_OS_IPHONE
+	dbg_throw( "STOP" );
+#endif
+
+	fprintf( dbg_stream,"{{~~%s~~}}\n",dbg_info );
+	dbg_callstack();
+	dbg_print( "" );
+	
+	for(;;){
+
+		char buf[256];
+		char *e=fgets( buf,256,stdin );
+		if( !e ) exit( -1 );
+		
+		e=strchr( buf,'\n' );
+		if( !e ) exit( -1 );
+		
+		*e=0;
+		
+		Object *p;
+		
+		switch( buf[0] ){
+		case '?':
+			break;
+		case 'r':	//run
+			dbg_suspend=0;		
+			dbg_stepmode=0;
+			return;
+		case 's':	//step
+			dbg_suspend=1;
+			dbg_stepmode='s';
+			return;
+		case 'e':	//enter func
+			dbg_suspend=1;
+			dbg_stepmode='e';
+			return;
+		case 'l':	//leave block
+			dbg_suspend=0;
+			dbg_stepmode='l';
+			return;
+		case '@':	//dump object
+			p=0;
+			sscanf( buf+1,"%p",&p );
+			if( p ){
+				dbg_print( p->debug() );
+			}else{
+				dbg_print( "" );
+			}
+			break;
+		case 'q':	//quit!
+			exit( 0 );
+			break;			
+		default:
+			printf( "????? %s ?????",buf );fflush( stdout );
+			exit( -1 );
+		}
+	}
+}
+
+void dbg_error( const char *err ){
+
+#ifdef TARGET_OS_IPHONE
+	dbg_throw( err );
+#endif
+
+	for(;;){
+		Print( String("Monkey Runtime Error : ")+err );
+		Print( dbg_stacktrace() );
+		dbg_stop();
+	}
+}
+
+#define DBG_INFO(X) dbg_info=(X);if( dbg_suspend>0 ) dbg_stop();
+
+#define DBG_ENTER(P) dbg_func _dbg_func(P);
+
+#define DBG_BLOCK(T) dbg_blk _dbg_blk;
+
+#define DBG_GLOBAL( ID,NAME )	//TODO!
+
+#define DBG_LOCAL( ID,NAME )\
+*dbg_var_ptr++=&ID;\
+*dbg_var_ptr++=(void*)NAME;\
+*dbg_var_ptr++=&dbg_var_type_t<dbg_typeof(ID)>::info;
+
 //**** main ****
 
 int argc;
 const char **argv;
-const char *errInfo="";
-std::vector<const char*> errStack;
 
 Float D2R=0.017453292519943295f;
 Float R2D=57.29577951308232f;
 
-void pushErr(){
-	errStack.push_back( errInfo );
-}
-
-void popErr(){
-	errInfo=errStack.back();
-	errStack.pop_back();
-}
-
-String StackTrace(){
-	String str;
-	pushErr();
-	for( int i=errStack.size()-1;i>=0;--i ){
-		str+=String( errStack[i] )+"\n";
-	}
-	popErr();
-	return str;
-}
-
 int Print( String t ){
-	puts( t.ToCString<char>() );
+	static char *buf;
+	static int len;
+	int n=t.Length();
+	if( n+100>len ){
+		len=n+100;
+		free( buf );
+		buf=(char*)malloc( len );
+	}
+	for( int i=0;i<n;++i ) buf[i]=t[i];
+	buf[n]=0;
+	puts( buf );
 	fflush( stdout );
 	return 0;
 }
 
 int Error( String err ){
-	throw err.ToCString<char>();
+	if( !err.Length() ) exit( 0 );
+	dbg_error( err.ToCString<char>() );
 	return 0;
 }
 
-int Compare( int x,int y ){
-	return x-y;
+int DebugLog( String t ){
+	Print( t );
+	return 0;
 }
 
-int Compare( Float x,Float y ){
-	return x<y ? -1 : x>y;
-}
-
-int Compare( String x,String y ){
-	return x.Compare( y );
+int DebugStop(){
+	dbg_stop();
+	return 0;
 }
 
 int bbInit();
@@ -1067,43 +1343,29 @@ int bbMain();
 
 #if _MSC_VER
 
-//Ok, this is butt ugly stuff, but MSVC's SEH seems to be the only
-//way you can catch int divide by zero...let's use it for null objects too...
-//
-const char *FilterException( int type ){
-	switch( type ){
-	case STATUS_ACCESS_VIOLATION:return "Memory access violation";
-	case STATUS_INTEGER_DIVIDE_BY_ZERO:return "Integer divide by zero";
-	}
-	return 0;
-}
+static void _cdecl seTranslator( unsigned int ex,EXCEPTION_POINTERS *p ){
 
-int seh_call( int(*f)() ){
-	const char *p;
-	__try{
-		return f();
-	}__except( (p=FilterException(GetExceptionCode()))!=0 ){
-		puts( p );
-		throw p;
+	switch( ex ){
+	case EXCEPTION_ACCESS_VIOLATION:dbg_error( "Memory access violation" );
+	case EXCEPTION_ILLEGAL_INSTRUCTION:dbg_error( "Illegal instruction" );
+	case EXCEPTION_INT_DIVIDE_BY_ZERO:dbg_error( "Integer divide by zero" );
+	case EXCEPTION_STACK_OVERFLOW:dbg_error( "Stack overflow" );
 	}
+	dbg_error( "Unknown exception" );
 }
 
 #else
 
-int seh_call( int(*f)() ){
-	return f();
-}
-
 void sighandler( int sig  ){
 	switch( sig ){
-	case SIGILL:throw "Illegal instruction";
-	case SIGFPE:throw "Floating point exception";
+	case SIGSEGV:dbg_error( "Memory access violation" );
+	case SIGILL:dbg_error( "Illegal instruction" );
+	case SIGFPE:dbg_error( "Floating point exception" );
 #if !_WIN32
-	case SIGBUS:throw "Bus error";
-#endif
-	case SIGSEGV:throw "Segmentation violation";
+	case SIGBUS:dbg_error( "Bus error" );
+#endif	
 	}
-	throw "Unknown exception";
+	dbg_error( "Unknown signal" );
 }
 
 #endif
@@ -1111,27 +1373,33 @@ void sighandler( int sig  ){
 //entry point call by target main()...
 //
 int bb_std_main( int argc,const char **argv ){
-	
+
 	::argc=argc;
 	::argv=argv;
 	
-#if !_MSC_VER
+#if _MSC_VER
+
+	_set_se_translator( seTranslator );
+
+#else
+	
+	signal( SIGSEGV,sighandler );
 	signal( SIGILL,sighandler );
 	signal( SIGFPE,sighandler );
 #if !_WIN32
 	signal( SIGBUS,sighandler );
 #endif
-	signal( SIGSEGV,sighandler );
+
 #endif
 
-	seh_call( bbInit );
+	bbInit();
 	
 #if CFG_CPP_INCREMENTAL_GC
 	gc_mark_roots();
 #endif
 	
-	seh_call( bbMain );
-	
+	bbMain();
+
 	return 0;
 }
 
@@ -1153,10 +1421,15 @@ class gxtkSample;
 #define KEY_TOUCH0 0x180
 
 //Forward refs to data functions.
-unsigned char *loadImage( String path,int *width,int *height,int *depth );
-void unloadImage( unsigned char *image );
 FILE *fopenFile( String path,const char *mode );
 
+unsigned char *loadImage( String path,int *width,int *height,int *format );
+void unloadImage( unsigned char *data );
+
+unsigned char *loadSound( String path,int *length,int *channels,int *format,int *hertz );
+void unloadSound( unsigned char *data );
+
+/*
 //for reading WAV file...
 const char *ReadTag( FILE *f ){
 	static char buf[8];
@@ -1182,6 +1455,7 @@ void SkipBytes( int n,FILE *f ){
 	fread( p,n,1,f );
 	free(p);
 }
+*/
 
 enum{
 	VKEY_BACKSPACE=8,VKEY_TAB,
@@ -2595,57 +2869,32 @@ gxtkSample *gxtkAudio::LoadSample( String path ){
 
 	FlushDiscarded( this );
 	
-	if( FILE *f=fopenFile( path,"rb" ) ){
-		if( !strcmp( ReadTag( f ),"RIFF" ) ){
-			int len=ReadInt( f )-8;len=len;
-			if( !strcmp( ReadTag( f ),"WAVE" ) ){
-				if( !strcmp( ReadTag( f ),"fmt " ) ){
-					int len2=ReadInt( f );
-					int comp=ReadShort( f );
-					if( comp==1 ){
-						int chans=ReadShort( f );
-						int hertz=ReadInt( f );
-						int bytespersec=ReadInt( f );bytespersec=bytespersec;
-						int pad=ReadShort( f );pad=pad;
-						int bits=ReadShort( f );
-						int format=0;
-						if( bits==8 && chans==1 ){
-							format=AL_FORMAT_MONO8;
-						}else if( bits==8 && chans==2 ){
-							format=AL_FORMAT_STEREO8;
-						}else if( bits==16 && chans==1 ){
-							format=AL_FORMAT_MONO16;
-						}else if( bits==16 && chans==2 ){
-							format=AL_FORMAT_STEREO16;
-						}
-						if( format ){
-							if( len2>16 ) SkipBytes( len2-16,f );
-							for(;;){
-								const char *p=ReadTag( f );
-								if( feof( f ) ) break;
-								int size=ReadInt( f );
-								if( strcmp( p,"data" ) ){
-									SkipBytes( size,f );
-									continue;
-								}
-								char *data=(char*)malloc( size );
-								if( fread( data,size,1,f )==1 ){
-									ALuint al_buffer;
-									alGenBuffers( 1,&al_buffer );
-									alBufferData( al_buffer,format,data,size,hertz );
-									free( data );
-									return new gxtkSample( al_buffer );
-								}
-								free( data );
-							}
-						}
-					}
-				}
-			}
-		}
-		fclose( f );
+	int length=0;
+	int channels=0;
+	int format=0;
+	int hertz=0;
+	unsigned char *data=loadSound( path,&length,&channels,&format,&hertz );
+	if( !data ) return 0;
+	
+	int al_format=0;
+	if( format==1 && channels==1 ){
+		al_format=AL_FORMAT_MONO8;
+	}else if( format==1 && channels==2 ){
+		al_format=AL_FORMAT_STEREO8;
+	}else if( format==2 && channels==1 ){
+		al_format=AL_FORMAT_MONO16;
+	}else if( format==2 && channels==2 ){
+		al_format=AL_FORMAT_STEREO16;
 	}
-	return 0;
+	
+	int size=length*channels*format;
+	
+	ALuint al_buffer;
+	alGenBuffers( 1,&al_buffer );
+	alBufferData( al_buffer,al_format,data,size,hertz );
+	unloadSound( data );
+
+	return new gxtkSample( al_buffer );
 }
 
 int gxtkAudio::PlaySample( gxtkSample *sample,int channel,int flags ){
@@ -2659,10 +2908,10 @@ int gxtkAudio::PlaySample( gxtkSample *sample,int channel,int flags ){
 	alSourcePlay( chan->source );
 	
 	gc_assign( chan->sample,sample );
-	
+
 	chan->flags=flags;
 	chan->state=1;
-	
+
 	return 0;
 }
 
@@ -2937,7 +3186,9 @@ class bb_router_Router : public Object,public virtual bb_directorevents_Director
 	virtual bb_directorevents_DirectorEvents* m_previous();
 	virtual String m_previousName();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_router_Router**p){return "Router";}
 class bb_partial_Partial : public Object,public virtual bb_directorevents_DirectorEvents{
 	public:
 	bb_director_Director* f__director;
@@ -2957,7 +3208,9 @@ class bb_partial_Partial : public Object,public virtual bb_directorevents_Direct
 	virtual void m_OnTouchMove(bb_touchevent_TouchEvent*);
 	virtual void m_OnTouchUp(bb_touchevent_TouchEvent*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_partial_Partial**p){return "Partial";}
 class bb_routerevents_RouterEvents : public virtual gc_interface{
 	public:
 	virtual void m_OnLeave()=0;
@@ -2988,7 +3241,9 @@ class bb_scene_Scene : public bb_partial_Partial,public virtual bb_routerevents_
 	virtual bb_router_Router* m_router();
 	virtual void m_RenderBlend();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_scene_Scene**p){return "Scene";}
 class bb_introscene_IntroScene : public bb_scene_Scene{
 	public:
 	bb_sprite_Sprite* f_background;
@@ -2996,11 +3251,12 @@ class bb_introscene_IntroScene : public bb_scene_Scene{
 	bb_introscene_IntroScene();
 	bb_introscene_IntroScene* g_new();
 	virtual void m_OnCreate(bb_director_Director*);
-	virtual void m_OnEnter();
 	virtual void m_OnUpdate(Float,Float);
 	virtual void m_OnRender();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_introscene_IntroScene**p){return "IntroScene";}
 class bb_map_Map : public Object{
 	public:
 	bb_map_Node* f_root;
@@ -3015,14 +3271,18 @@ class bb_map_Map : public Object{
 	virtual bool m_Set(String,bb_directorevents_DirectorEvents*);
 	virtual bb_directorevents_DirectorEvents* m_Get(String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Map**p){return "Map";}
 class bb_map_StringMap : public bb_map_Map{
 	public:
 	bb_map_StringMap();
 	bb_map_StringMap* g_new();
 	virtual int m_Compare(String,String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_StringMap**p){return "StringMap";}
 class bb_map_Node : public Object{
 	public:
 	String f_key;
@@ -3035,7 +3295,9 @@ class bb_map_Node : public Object{
 	bb_map_Node* g_new(String,bb_directorevents_DirectorEvents*,int,bb_map_Node*);
 	bb_map_Node* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Node**p){return "Node";}
 class bb_map_Map2 : public Object{
 	public:
 	bb_map_Node2* f_root;
@@ -3049,14 +3311,18 @@ class bb_map_Map2 : public Object{
 	virtual bb_map_Node2* m_FindNode(String);
 	virtual bb_routerevents_RouterEvents* m_Get(String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Map2**p){return "Map";}
 class bb_map_StringMap2 : public bb_map_Map2{
 	public:
 	bb_map_StringMap2();
 	bb_map_StringMap2* g_new();
 	virtual int m_Compare(String,String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_StringMap2**p){return "StringMap";}
 class bb_map_Node2 : public Object{
 	public:
 	String f_key;
@@ -3069,7 +3335,9 @@ class bb_map_Node2 : public Object{
 	bb_map_Node2* g_new(String,bb_routerevents_RouterEvents*,int,bb_map_Node2*);
 	bb_map_Node2* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Node2**p){return "Node";}
 class bb_menuscene_MenuScene : public bb_scene_Scene{
 	public:
 	bb_sprite_Sprite* f_easy;
@@ -3087,6 +3355,7 @@ class bb_menuscene_MenuScene : public bb_scene_Scene{
 	bb_menuscene_MenuScene* g_new();
 	virtual void m_ToggleLock();
 	virtual void m_OnCreate(bb_director_Director*);
+	virtual void m_OnResume(int);
 	virtual void m_PlayEasy();
 	virtual void m_InitializeWaitingImages();
 	virtual void m_HandleLocked();
@@ -3097,7 +3366,9 @@ class bb_menuscene_MenuScene : public bb_scene_Scene{
 	virtual void m_OnUpdate(Float,Float);
 	virtual void m_OnRender();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_menuscene_MenuScene**p){return "MenuScene";}
 class bb_highscorescene_HighscoreScene : public bb_scene_Scene,public virtual bb_routerevents_RouterEvents{
 	public:
 	bb_angelfont2_AngelFont* f_font;
@@ -3115,7 +3386,9 @@ class bb_highscorescene_HighscoreScene : public bb_scene_Scene,public virtual bb
 	virtual void m_OnKeyDown(bb_keyevent_KeyEvent*);
 	virtual void m_OnTouchDown(bb_touchevent_TouchEvent*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_highscorescene_HighscoreScene**p){return "HighscoreScene";}
 class bb_gamescene_GameScene : public bb_scene_Scene,public virtual bb_routerevents_RouterEvents{
 	public:
 	bb_chute_Chute* f_chute;
@@ -3162,6 +3435,7 @@ class bb_gamescene_GameScene : public bb_scene_Scene,public virtual bb_routereve
 	virtual void m_StartPause();
 	virtual void m_FastDropMatchingShapes();
 	virtual void m_OnKeyDown(bb_keyevent_KeyEvent*);
+	virtual void m_OnSuspend();
 	virtual void m_OnTouchDown(bb_touchevent_TouchEvent*);
 	virtual void m_HandleSliderSwipe(bb_touchevent_TouchEvent*);
 	virtual void m_HandleBackgroundSwipe(bb_touchevent_TouchEvent*);
@@ -3169,7 +3443,9 @@ class bb_gamescene_GameScene : public bb_scene_Scene,public virtual bb_routereve
 	virtual void m_OnTouchMove(bb_touchevent_TouchEvent*);
 	virtual void m_OnPauseLeaveGame();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_gamescene_GameScene**p){return "GameScene";}
 class bb_gameoverscene_GameOverScene : public bb_scene_Scene{
 	public:
 	bb_sprite_Sprite* f_main;
@@ -3181,7 +3457,9 @@ class bb_gameoverscene_GameOverScene : public bb_scene_Scene{
 	virtual void m_OnTouchDown(bb_touchevent_TouchEvent*);
 	virtual void m_OnKeyDown(bb_keyevent_KeyEvent*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_gameoverscene_GameOverScene**p){return "GameOverScene";}
 class bb_pausescene_PauseScene : public bb_scene_Scene{
 	public:
 	bb_sprite_Sprite* f_overlay;
@@ -3195,7 +3473,9 @@ class bb_pausescene_PauseScene : public bb_scene_Scene{
 	virtual void m_OnKeyDown(bb_keyevent_KeyEvent*);
 	virtual void m_OnTouchDown(bb_touchevent_TouchEvent*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_pausescene_PauseScene**p){return "PauseScene";}
 class bb_newhighscorescene_NewHighscoreScene : public bb_scene_Scene{
 	public:
 	bb_sprite_Sprite* f_continueBtn;
@@ -3211,7 +3491,9 @@ class bb_newhighscorescene_NewHighscoreScene : public bb_scene_Scene{
 	virtual void m_OnKeyDown(bb_keyevent_KeyEvent*);
 	virtual void m_OnTouchDown(bb_touchevent_TouchEvent*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_newhighscorescene_NewHighscoreScene**p){return "NewHighscoreScene";}
 class bb_app_App : public Object{
 	public:
 	bb_app_App();
@@ -3223,7 +3505,9 @@ class bb_app_App : public Object{
 	virtual int m_OnRender();
 	virtual int m_OnLoading();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_app_App**p){return "App";}
 class bb_sizeable_Sizeable : public virtual gc_interface{
 	public:
 	virtual bb_vector2d_Vector2D* m_center()=0;
@@ -3258,7 +3542,9 @@ class bb_director_Director : public bb_app_App,public virtual bb_sizeable_Sizeab
 	virtual int m_OnSuspend();
 	virtual int m_OnRender();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_director_Director**p){return "Director";}
 class bb_list_List : public Object{
 	public:
 	bb_list_Node* f__head;
@@ -3269,7 +3555,9 @@ class bb_list_List : public Object{
 	virtual bool m_Equals(String,String);
 	virtual bool m_Contains(String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_List**p){return "List";}
 class bb_list_Node : public Object{
 	public:
 	bb_list_Node* f__succ;
@@ -3279,13 +3567,17 @@ class bb_list_Node : public Object{
 	bb_list_Node* g_new(bb_list_Node*,bb_list_Node*,String);
 	bb_list_Node* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Node**p){return "Node";}
 class bb_list_HeadNode : public bb_list_Node{
 	public:
 	bb_list_HeadNode();
 	bb_list_HeadNode* g_new();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_HeadNode**p){return "HeadNode";}
 class bb_app_AppDevice : public gxtkApp{
 	public:
 	bb_app_App* f_app;
@@ -3301,7 +3593,9 @@ class bb_app_AppDevice : public gxtkApp{
 	virtual int OnLoading();
 	virtual int SetUpdateRate(int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_app_AppDevice**p){return "AppDevice";}
 class bb_graphics_GraphicsContext : public Object{
 	public:
 	gxtkGraphics* f_device;
@@ -3331,7 +3625,9 @@ class bb_graphics_GraphicsContext : public Object{
 	bb_graphics_GraphicsContext* g_new(gxtkGraphics*);
 	bb_graphics_GraphicsContext* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_graphics_GraphicsContext**p){return "GraphicsContext";}
 extern bb_graphics_GraphicsContext* bb_graphics_context;
 int bb_graphics_SetGraphicsContext(bb_graphics_GraphicsContext*);
 extern gxtkInput* bb_input_device;
@@ -3357,7 +3653,9 @@ class bb_vector2d_Vector2D : public Object{
 	virtual bb_vector2d_Vector2D* m_Mul(bb_vector2d_Vector2D*);
 	virtual bb_vector2d_Vector2D* m_Mul2(Float);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_vector2d_Vector2D**p){return "Vector2D";}
 class bb_inputcontroller_InputController : public Object{
 	public:
 	bool f_trackKeys;
@@ -3382,7 +3680,9 @@ class bb_inputcontroller_InputController : public Object{
 	virtual void m_ProcessKeys(bb_directorevents_DirectorEvents*);
 	virtual void m_OnUpdate3(bb_directorevents_DirectorEvents*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_inputcontroller_InputController**p){return "InputController";}
 int bbMain();
 class bb_fanout_FanOut : public Object,public virtual bb_directorevents_DirectorEvents{
 	public:
@@ -3407,7 +3707,9 @@ class bb_fanout_FanOut : public Object,public virtual bb_directorevents_Director
 	virtual int m_Count();
 	virtual bb_list_Enumerator* m_ObjectEnumerator();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_fanout_FanOut**p){return "FanOut";}
 class bb_list_List2 : public Object{
 	public:
 	bb_list_Node2* f__head;
@@ -3421,7 +3723,9 @@ class bb_list_List2 : public Object{
 	virtual int m_Clear();
 	virtual int m_Count();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_List2**p){return "List";}
 class bb_list_Node2 : public Object{
 	public:
 	bb_list_Node2* f__succ;
@@ -3432,13 +3736,17 @@ class bb_list_Node2 : public Object{
 	bb_list_Node2* g_new2();
 	virtual int m_Remove2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Node2**p){return "Node";}
 class bb_list_HeadNode2 : public bb_list_Node2{
 	public:
 	bb_list_HeadNode2();
 	bb_list_HeadNode2* g_new();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_HeadNode2**p){return "HeadNode";}
 class bb_list_Enumerator : public Object{
 	public:
 	bb_list_List2* f__list;
@@ -3449,7 +3757,9 @@ class bb_list_Enumerator : public Object{
 	virtual bool m_HasNext();
 	virtual bb_directorevents_DirectorEvents* m_NextObject();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Enumerator**p){return "Enumerator";}
 class bb_graphics_Image : public Object{
 	public:
 	gxtkSurface* f_surface;
@@ -3471,7 +3781,9 @@ class bb_graphics_Image : public Object{
 	virtual int m_Width();
 	virtual int m_Height();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_graphics_Image**p){return "Image";}
 class bb_graphics_Frame : public Object{
 	public:
 	int f_x;
@@ -3480,7 +3792,9 @@ class bb_graphics_Frame : public Object{
 	bb_graphics_Frame* g_new(int,int);
 	bb_graphics_Frame* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_graphics_Frame**p){return "Frame";}
 bb_graphics_Image* bb_graphics_LoadImage(String,int,int);
 bb_graphics_Image* bb_graphics_LoadImage2(String,int,int,int,int);
 class bb_positionable_Positionable : public virtual gc_interface{
@@ -3503,7 +3817,9 @@ class bb_baseobject_BaseObject : public bb_partial_Partial,public virtual bb_pos
 	virtual void m_Center(bb_sizeable_Sizeable*);
 	virtual void m_CenterX(bb_sizeable_Sizeable*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_baseobject_BaseObject**p){return "BaseObject";}
 class bb_sprite_Sprite : public bb_baseobject_BaseObject{
 	public:
 	bb_graphics_Image* f_image;
@@ -3525,15 +3841,19 @@ class bb_sprite_Sprite : public bb_baseobject_BaseObject{
 	virtual bool m_Collide(bb_vector2d_Vector2D*);
 	virtual void m_Restart();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_sprite_Sprite**p){return "Sprite";}
+int bb_iap_InitInAppPurchases(String,Array<String >);
+int bb_iap_isProductPurchased(String);
 class bb_appirater_Appirater : public Object{
 	public:
 	bb_appirater_Appirater();
 	static void g_Launched();
 	void mark();
+	String debug();
 };
-int bb_iap_InitInAppPurchases(String,Array<String >);
-int bb_iap_isProductPurchased(String);
+String dbg_type(bb_appirater_Appirater**p){return "Appirater";}
 class bb_angelfont2_AngelFont : public Object{
 	public:
 	String f_iniText;
@@ -3555,7 +3875,9 @@ class bb_angelfont2_AngelFont : public Object{
 	virtual int m_TextWidth(String);
 	virtual void m_DrawText2(String,int,int,int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_angelfont2_AngelFont**p){return "AngelFont";}
 String bb_app_LoadString(String);
 class bb_kernpair_KernPair : public Object{
 	public:
@@ -3566,7 +3888,9 @@ class bb_kernpair_KernPair : public Object{
 	bb_kernpair_KernPair* g_new(int,int,int);
 	bb_kernpair_KernPair* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_kernpair_KernPair**p){return "KernPair";}
 class bb_map_Map3 : public Object{
 	public:
 	bb_map_Node3* f_root;
@@ -3582,14 +3906,18 @@ class bb_map_Map3 : public Object{
 	virtual bool m_Contains(String);
 	virtual bb_kernpair_KernPair* m_Get(String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Map3**p){return "Map";}
 class bb_map_StringMap3 : public bb_map_Map3{
 	public:
 	bb_map_StringMap3();
 	bb_map_StringMap3* g_new();
 	virtual int m_Compare(String,String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_StringMap3**p){return "StringMap";}
 class bb_map_Node3 : public Object{
 	public:
 	String f_key;
@@ -3602,7 +3930,9 @@ class bb_map_Node3 : public Object{
 	bb_map_Node3* g_new(String,bb_kernpair_KernPair*,int,bb_map_Node3*);
 	bb_map_Node3* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Node3**p){return "Node";}
 class bb_char_Char : public Object{
 	public:
 	int f_x;
@@ -3617,7 +3947,9 @@ class bb_char_Char : public Object{
 	bb_char_Char* g_new2();
 	virtual int m_Draw(bb_graphics_Image*,int,int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_char_Char**p){return "Char";}
 class bb_map_Map4 : public Object{
 	public:
 	bb_map_Node4* f_root;
@@ -3630,14 +3962,18 @@ class bb_map_Map4 : public Object{
 	virtual bool m_Set4(String,bb_angelfont2_AngelFont*);
 	virtual bool m_Insert2(String,bb_angelfont2_AngelFont*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Map4**p){return "Map";}
 class bb_map_StringMap4 : public bb_map_Map4{
 	public:
 	bb_map_StringMap4();
 	bb_map_StringMap4* g_new();
 	virtual int m_Compare(String,String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_StringMap4**p){return "StringMap";}
 class bb_map_Node4 : public Object{
 	public:
 	String f_key;
@@ -3650,7 +3986,9 @@ class bb_map_Node4 : public Object{
 	bb_map_Node4* g_new(String,bb_angelfont2_AngelFont*,int,bb_map_Node4*);
 	bb_map_Node4* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Node4**p){return "Node";}
 class bb_persistable_Persistable : public virtual gc_interface{
 	public:
 	virtual void m_FromString(String)=0;
@@ -3673,25 +4011,31 @@ class bb_highscore_Highscore : public Object,public virtual bb_persistable_Persi
 	virtual bb_list_Enumerator2* m_ObjectEnumerator();
 	virtual String m_ToString();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_highscore_Highscore**p){return "Highscore";}
 class bb_highscore_IntHighscore : public bb_highscore_Highscore{
 	public:
 	bb_highscore_IntHighscore();
 	bb_highscore_IntHighscore* g_new(int);
 	bb_highscore_IntHighscore* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_highscore_IntHighscore**p){return "IntHighscore";}
 class bb_gamehighscore_GameHighscore : public bb_highscore_IntHighscore{
 	public:
 	bb_gamehighscore_GameHighscore();
-	static Array<String > g_names;
 	static Array<int > g_scores;
 	virtual void m_LoadNamesAndScores();
+	static Array<String > g_names;
 	virtual void m_PrefillMissing();
 	bb_gamehighscore_GameHighscore* g_new();
 	virtual void m_FromString(String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_gamehighscore_GameHighscore**p){return "GameHighscore";}
 class bb_score_Score : public Object{
 	public:
 	String f_key;
@@ -3700,7 +4044,9 @@ class bb_score_Score : public Object{
 	bb_score_Score* g_new(String,int);
 	bb_score_Score* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_score_Score**p){return "Score";}
 class bb_list_List3 : public Object{
 	public:
 	bb_list_Node3* f__head;
@@ -3720,7 +4066,9 @@ class bb_list_List3 : public Object{
 	virtual bb_score_Score* m_RemoveLast();
 	virtual bb_score_Score* m_Last();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_List3**p){return "List";}
 class bb_list_Node3 : public Object{
 	public:
 	bb_list_Node3* f__succ;
@@ -3734,14 +4082,18 @@ class bb_list_Node3 : public Object{
 	virtual int m_Remove2();
 	virtual bb_list_Node3* m_PrevNode();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Node3**p){return "Node";}
 class bb_list_HeadNode3 : public bb_list_Node3{
 	public:
 	bb_list_HeadNode3();
 	bb_list_HeadNode3* g_new();
 	virtual bb_list_Node3* m_GetNode();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_HeadNode3**p){return "HeadNode";}
 class bb_list_Enumerator2 : public Object{
 	public:
 	bb_list_List3* f__list;
@@ -3752,14 +4104,18 @@ class bb_list_Enumerator2 : public Object{
 	virtual bool m_HasNext();
 	virtual bb_score_Score* m_NextObject();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Enumerator2**p){return "Enumerator";}
 class bb_statestore_StateStore : public Object{
 	public:
 	bb_statestore_StateStore();
 	static void g_Load(bb_persistable_Persistable*);
 	static void g_Save(bb_persistable_Persistable*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_statestore_StateStore**p){return "StateStore";}
 String bb_app_LoadState();
 class bb_chute_Chute : public bb_baseobject_BaseObject{
 	public:
@@ -3776,7 +4132,9 @@ class bb_chute_Chute : public bb_baseobject_BaseObject{
 	virtual void m_OnRender();
 	virtual int m_Height();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_chute_Chute**p){return "Chute";}
 class bb_severity_Severity : public Object{
 	public:
 	int f_nextChuteAdvanceTime;
@@ -3808,7 +4166,9 @@ class bb_severity_Severity : public Object{
 	virtual int m_RandomLane();
 	virtual String m_ToString();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_severity_Severity**p){return "Severity";}
 extern bb_severity_Severity* bb_severity_globalSeverityInstance;
 bb_severity_Severity* bb_severity_CurrentSeverity();
 class bb_slider_Slider : public bb_baseobject_BaseObject{
@@ -3834,7 +4194,9 @@ class bb_slider_Slider : public bb_baseobject_BaseObject{
 	virtual void m_SlideLeft();
 	virtual void m_SlideRight();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_slider_Slider**p){return "Slider";}
 class bb_font_Font : public bb_baseobject_BaseObject{
 	public:
 	String f_name;
@@ -3854,7 +4216,9 @@ class bb_font_Font : public bb_baseobject_BaseObject{
 	virtual void m_OnCreate(bb_director_Director*);
 	virtual void m_OnRender();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_font_Font**p){return "Font";}
 class bb_angelfont_AngelFont : public Object{
 	public:
 	Array<bb_char_Char* > f_chars;
@@ -3877,7 +4241,9 @@ class bb_angelfont_AngelFont : public Object{
 	virtual void m_DrawText(String,int,int);
 	virtual void m_DrawText2(String,int,int,int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_angelfont_AngelFont**p){return "AngelFont";}
 class bb_color_Color : public Object{
 	public:
 	Float f_red;
@@ -3892,7 +4258,9 @@ class bb_color_Color : public Object{
 	virtual void m_Activate();
 	virtual void m_Deactivate();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_color_Color**p){return "Color";}
 class bb_map_Map5 : public Object{
 	public:
 	bb_map_Node5* f_root;
@@ -3908,14 +4276,18 @@ class bb_map_Map5 : public Object{
 	virtual bool m_Set7(String,bb_angelfont_AngelFont*);
 	virtual bool m_Insert3(String,bb_angelfont_AngelFont*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Map5**p){return "Map";}
 class bb_map_StringMap5 : public bb_map_Map5{
 	public:
 	bb_map_StringMap5();
 	bb_map_StringMap5* g_new();
 	virtual int m_Compare(String,String);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_StringMap5**p){return "StringMap";}
 class bb_map_Node5 : public Object{
 	public:
 	String f_key;
@@ -3928,7 +4300,9 @@ class bb_map_Node5 : public Object{
 	bb_map_Node5* g_new(String,bb_angelfont_AngelFont*,int,bb_map_Node5*);
 	bb_map_Node5* g_new2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Node5**p){return "Node";}
 class bb_animation_Animation : public bb_fanout_FanOut{
 	public:
 	Float f_startValue;
@@ -3949,7 +4323,9 @@ class bb_animation_Animation : public bb_fanout_FanOut{
 	virtual void m_Restart();
 	virtual bool m_IsPlaying();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_animation_Animation**p){return "Animation";}
 class bb_fader_Fader : public virtual gc_interface{
 	public:
 	virtual void m_PreRender(Float)=0;
@@ -3970,7 +4346,9 @@ class bb_fader_FaderScale : public Object,public virtual bb_fader_Fader{
 	virtual void m_PreNode(Float,bb_directorevents_DirectorEvents*);
 	virtual void m_PostNode(Float,bb_directorevents_DirectorEvents*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_fader_FaderScale**p){return "FaderScale";}
 class bb_transition_Transition : public virtual gc_interface{
 	public:
 	virtual Float m_Calculate(Float)=0;
@@ -3981,14 +4359,18 @@ class bb_transition_TransitionInCubic : public Object,public virtual bb_transiti
 	bb_transition_TransitionInCubic* g_new();
 	virtual Float m_Calculate(Float);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_transition_TransitionInCubic**p){return "TransitionInCubic";}
 class bb_transition_TransitionLinear : public Object,public virtual bb_transition_Transition{
 	public:
 	bb_transition_TransitionLinear();
 	bb_transition_TransitionLinear* g_new();
 	virtual Float m_Calculate(Float);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_transition_TransitionLinear**p){return "TransitionLinear";}
 int bb_app_Millisecs();
 class bb_stack_Stack : public Object{
 	public:
@@ -4003,13 +4385,17 @@ class bb_stack_Stack : public Object{
 	virtual int m_Remove4(int);
 	virtual int m_Push(int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_stack_Stack**p){return "Stack";}
 class bb_stack_IntStack : public bb_stack_Stack{
 	public:
 	bb_stack_IntStack();
 	bb_stack_IntStack* g_new();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_stack_IntStack**p){return "IntStack";}
 extern int bb_random_Seed;
 Float bb_random_Rnd();
 Float bb_random_Rnd2(Float,Float);
@@ -4032,13 +4418,17 @@ class bb_list_List4 : public Object{
 	virtual int m_RemoveLast();
 	virtual bb_list_Node4* m_AddFirst2(int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_List4**p){return "List";}
 class bb_list_IntList : public bb_list_List4{
 	public:
 	bb_list_IntList();
 	bb_list_IntList* g_new();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_IntList**p){return "IntList";}
 class bb_list_Node4 : public Object{
 	public:
 	bb_list_Node4* f__succ;
@@ -4052,14 +4442,18 @@ class bb_list_Node4 : public Object{
 	virtual int m_Remove2();
 	virtual bb_list_Node4* m_PrevNode();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Node4**p){return "Node";}
 class bb_list_HeadNode4 : public bb_list_Node4{
 	public:
 	bb_list_HeadNode4();
 	bb_list_HeadNode4* g_new();
 	virtual bb_list_Node4* m_GetNode();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_HeadNode4**p){return "HeadNode";}
 class bb_set_Set : public Object{
 	public:
 	bb_map_Map6* f_map;
@@ -4072,13 +4466,17 @@ class bb_set_Set : public Object{
 	virtual int m_Remove4(int);
 	virtual bool m_Contains2(int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_set_Set**p){return "Set";}
 class bb_set_IntSet : public bb_set_Set{
 	public:
 	bb_set_IntSet();
 	bb_set_IntSet* g_new();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_set_IntSet**p){return "IntSet";}
 class bb_map_Map6 : public Object{
 	public:
 	bb_map_Node6* f_root;
@@ -4098,14 +4496,18 @@ class bb_map_Map6 : public Object{
 	virtual int m_Remove4(int);
 	virtual bool m_Contains2(int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Map6**p){return "Map";}
 class bb_map_IntMap : public bb_map_Map6{
 	public:
 	bb_map_IntMap();
 	bb_map_IntMap* g_new();
 	virtual int m_Compare2(int,int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_IntMap**p){return "IntMap";}
 class bb_map_Node6 : public Object{
 	public:
 	int f_key;
@@ -4119,7 +4521,9 @@ class bb_map_Node6 : public Object{
 	bb_map_Node6* g_new2();
 	virtual int m_Count2(int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Node6**p){return "Node";}
 class bb_list_Enumerator3 : public Object{
 	public:
 	bb_list_List4* f__list;
@@ -4130,7 +4534,9 @@ class bb_list_Enumerator3 : public Object{
 	virtual bool m_HasNext();
 	virtual int m_NextObject();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Enumerator3**p){return "Enumerator";}
 class bb_textinput_TextInput : public bb_font_Font{
 	public:
 	int f_cursorPos;
@@ -4143,7 +4549,9 @@ class bb_textinput_TextInput : public bb_font_Font{
 	virtual void m_RemoveChar();
 	virtual void m_OnKeyUp(bb_keyevent_KeyEvent*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_textinput_TextInput**p){return "TextInput";}
 int bb_graphics_SetFont(bb_graphics_Image*,int);
 extern gxtkGraphics* bb_graphics_renderDevice;
 int bb_graphics_SetMatrix(Float,Float,Float,Float,Float,Float);
@@ -4170,7 +4578,9 @@ class bb_deltatimer_DeltaTimer : public Object{
 	virtual void m_OnUpdate2();
 	virtual Float m_delta();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_deltatimer_DeltaTimer**p){return "DeltaTimer";}
 int bb_app_SetUpdateRate(int);
 int bb_input_TouchDown(int);
 class bb_touchevent_TouchEvent : public Object{
@@ -4190,7 +4600,9 @@ class bb_touchevent_TouchEvent : public Object{
 	virtual bb_touchevent_TouchEvent* m_Copy();
 	virtual bb_vector2d_Vector2D* m_startDelta();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_touchevent_TouchEvent**p){return "TouchEvent";}
 Float bb_input_TouchX(int);
 Float bb_input_TouchY(int);
 class bb_list_List5 : public Object{
@@ -4208,7 +4620,9 @@ class bb_list_List5 : public Object{
 	virtual bb_vector2d_Vector2D* m_RemoveFirst();
 	virtual bb_vector2d_Vector2D* m_Last();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_List5**p){return "List";}
 class bb_list_Node5 : public Object{
 	public:
 	bb_list_Node5* f__succ;
@@ -4223,14 +4637,18 @@ class bb_list_Node5 : public Object{
 	virtual bb_vector2d_Vector2D* m_Value();
 	virtual int m_Remove2();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_Node5**p){return "Node";}
 class bb_list_HeadNode5 : public bb_list_Node5{
 	public:
 	bb_list_HeadNode5();
 	bb_list_HeadNode5* g_new();
 	virtual bb_list_Node5* m_GetNode();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_list_HeadNode5**p){return "HeadNode";}
 int bb_input_EnableKeyboard();
 int bb_input_GetChar();
 class bb_keyevent_KeyEvent : public Object{
@@ -4243,7 +4661,9 @@ class bb_keyevent_KeyEvent : public Object{
 	virtual int m_code();
 	virtual String m_char();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_keyevent_KeyEvent**p){return "KeyEvent";}
 class bb_map_Map7 : public Object{
 	public:
 	bb_map_Node7* f_root;
@@ -4263,14 +4683,18 @@ class bb_map_Map7 : public Object{
 	virtual int m_Remove4(int);
 	virtual int m_Clear();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Map7**p){return "Map";}
 class bb_map_IntMap2 : public bb_map_Map7{
 	public:
 	bb_map_IntMap2();
 	bb_map_IntMap2* g_new();
 	virtual int m_Compare2(int,int);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_IntMap2**p){return "IntMap";}
 class bb_map_Node7 : public Object{
 	public:
 	int f_key;
@@ -4284,7 +4708,9 @@ class bb_map_Node7 : public Object{
 	bb_map_Node7* g_new2();
 	virtual bb_map_Node7* m_NextNode();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_Node7**p){return "Node";}
 class bb_map_MapValues : public Object{
 	public:
 	bb_map_Map7* f_map;
@@ -4293,7 +4719,9 @@ class bb_map_MapValues : public Object{
 	bb_map_MapValues* g_new2();
 	virtual bb_map_ValueEnumerator* m_ObjectEnumerator();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_MapValues**p){return "MapValues";}
 class bb_map_ValueEnumerator : public Object{
 	public:
 	bb_map_Node7* f_node;
@@ -4303,7 +4731,9 @@ class bb_map_ValueEnumerator : public Object{
 	virtual bool m_HasNext();
 	virtual bb_keyevent_KeyEvent* m_NextObject();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_map_ValueEnumerator**p){return "ValueEnumerator";}
 int bb_input_DisableKeyboard();
 int bb_graphics_PushMatrix();
 int bb_graphics_Transform(Float,Float,Float,Float,Float,Float);
@@ -4345,7 +4775,9 @@ class bb_shape_Shape : public bb_baseobject_BaseObject{
 	virtual void m_OnUpdate(Float,Float);
 	virtual void m_OnRender();
 	void mark();
+	String debug();
 };
+String dbg_type(bb_shape_Shape**p){return "Shape";}
 class bb_stack_Stack2 : public Object{
 	public:
 	Array<bb_sprite_Sprite* > f_data;
@@ -4357,7 +4789,9 @@ class bb_stack_Stack2 : public Object{
 	virtual bb_sprite_Sprite* m_Pop();
 	virtual int m_Push2(bb_sprite_Sprite*);
 	void mark();
+	String debug();
 };
+String dbg_type(bb_stack_Stack2**p){return "Stack";}
 int bb_math_Max(int,int);
 Float bb_math_Max2(Float,Float);
 int bb_math_Abs(int);
@@ -4374,209 +4808,245 @@ bb_router_Router::bb_router_Router(){
 	f_created=(new bb_list_List)->g_new();
 }
 bb_router_Router* bb_router_Router::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<13>";
-	popErr();
+	DBG_ENTER("Router.new")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<13>");
 	return this;
 }
 void bb_router_Router::m_Add(String t_name,bb_directorevents_DirectorEvents* t_handler){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<28>";
+	DBG_ENTER("Router.Add")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_name,"name")
+	DBG_LOCAL(t_handler,"handler")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<28>");
 	if(f_handlers->m_Contains(t_name)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<29>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<29>");
 		Error(String(L"Router already contains a handler named ")+t_name);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<32>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<32>");
 	f_handlers->m_Set(t_name,t_handler);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<33>");
 	f_routers->m_Set2(t_name,dynamic_cast<bb_routerevents_RouterEvents*>(t_handler));
-	popErr();
 }
 bb_directorevents_DirectorEvents* bb_router_Router::m_Get(String t_name){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<37>";
+	DBG_ENTER("Router.Get")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_name,"name")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<37>");
 	if(!f_handlers->m_Contains(t_name)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<38>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<38>");
 		Error(String(L"Router has no handler named ")+t_name);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<41>");
 	bb_directorevents_DirectorEvents* t_=f_handlers->m_Get(t_name);
-	popErr();
 	return t_;
 }
 void bb_router_Router::m_DispatchOnCreate(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<129>";
+	DBG_ENTER("Router.DispatchOnCreate")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<129>");
 	if(!((f_director)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<130>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<130>");
 	if(!((f__current)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<131>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<131>");
 	if(f_created->m_Contains(f__currentName)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<133>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<133>");
 	f__current->m_OnCreate(f_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<134>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<134>");
 	f_created->m_AddLast(f__currentName);
-	popErr();
 }
 void bb_router_Router::m_Goto(String t_name){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<45>";
+	DBG_ENTER("Router.Goto")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_name,"name")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<45>");
 	if(t_name==f__currentName){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<47>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<47>");
 	gc_assign(f__previous,f__current);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<48>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<48>");
 	f__previousName=f__currentName;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<50>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<50>");
 	gc_assign(f__current,m_Get(t_name));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<51>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<51>");
 	f__currentName=t_name;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<52>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<52>");
 	m_DispatchOnCreate();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<54>");
 	bb_routerevents_RouterEvents* t_tmpRouter=f_routers->m_Get(f__previousName);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<55>";
+	DBG_LOCAL(t_tmpRouter,"tmpRouter")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<55>");
 	if((t_tmpRouter)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<55>";
+		DBG_BLOCK();
 		t_tmpRouter->m_OnLeave();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<57>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<57>");
 	t_tmpRouter=f_routers->m_Get(f__currentName);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<58>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<58>");
 	if((t_tmpRouter)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<58>";
+		DBG_BLOCK();
 		t_tmpRouter->m_OnEnter();
 	}
-	popErr();
 }
 void bb_router_Router::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<62>";
+	DBG_ENTER("Router.OnCreate")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<62>");
 	gc_assign(this->f_director,t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<63>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<63>");
 	m_DispatchOnCreate();
-	popErr();
 }
 void bb_router_Router::m_OnLoading(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<67>";
+	DBG_ENTER("Router.OnLoading")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<67>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<67>";
+		DBG_BLOCK();
 		f__current->m_OnLoading();
 	}
-	popErr();
 }
 void bb_router_Router::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<71>";
+	DBG_ENTER("Router.OnUpdate")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<71>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<71>";
+		DBG_BLOCK();
 		f__current->m_OnUpdate(t_delta,t_frameTime);
 	}
-	popErr();
 }
 void bb_router_Router::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<75>";
+	DBG_ENTER("Router.OnRender")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<75>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<75>";
+		DBG_BLOCK();
 		f__current->m_OnRender();
 	}
-	popErr();
 }
 void bb_router_Router::m_OnSuspend(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<79>";
+	DBG_ENTER("Router.OnSuspend")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<79>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<79>";
+		DBG_BLOCK();
 		f__current->m_OnSuspend();
 	}
-	popErr();
 }
 void bb_router_Router::m_OnResume(int t_delta){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<83>";
+	DBG_ENTER("Router.OnResume")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<83>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<83>";
+		DBG_BLOCK();
 		f__current->m_OnResume(t_delta);
 	}
-	popErr();
 }
 void bb_router_Router::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<87>";
+	DBG_ENTER("Router.OnKeyDown")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<87>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<87>";
+		DBG_BLOCK();
 		f__current->m_OnKeyDown(t_event);
 	}
-	popErr();
 }
 void bb_router_Router::m_OnKeyPress(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<91>";
+	DBG_ENTER("Router.OnKeyPress")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<91>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<91>";
+		DBG_BLOCK();
 		f__current->m_OnKeyPress(t_event);
 	}
-	popErr();
 }
 void bb_router_Router::m_OnKeyUp(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<95>";
+	DBG_ENTER("Router.OnKeyUp")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<95>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<95>";
+		DBG_BLOCK();
 		f__current->m_OnKeyUp(t_event);
 	}
-	popErr();
 }
 void bb_router_Router::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<99>";
+	DBG_ENTER("Router.OnTouchDown")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<99>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<99>";
+		DBG_BLOCK();
 		f__current->m_OnTouchDown(t_event);
 	}
-	popErr();
 }
 void bb_router_Router::m_OnTouchMove(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<103>";
+	DBG_ENTER("Router.OnTouchMove")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<103>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<103>";
+		DBG_BLOCK();
 		f__current->m_OnTouchMove(t_event);
 	}
-	popErr();
 }
 void bb_router_Router::m_OnTouchUp(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<107>";
+	DBG_ENTER("Router.OnTouchUp")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<107>");
 	if((f__current)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<107>";
+		DBG_BLOCK();
 		f__current->m_OnTouchUp(t_event);
 	}
-	popErr();
 }
 bb_directorevents_DirectorEvents* bb_router_Router::m_previous(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<119>";
-	popErr();
+	DBG_ENTER("Router.previous")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<119>");
 	return f__previous;
 }
 String bb_router_Router::m_previousName(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<123>";
-	popErr();
+	DBG_ENTER("Router.previousName")
+	bb_router_Router *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/router.monkey<123>");
 	return f__previousName;
 }
 void bb_router_Router::mark(){
@@ -4588,526 +5058,670 @@ void bb_router_Router::mark(){
 	gc_mark_q(f_director);
 	gc_mark_q(f_created);
 }
+String bb_router_Router::debug(){
+	String t="(Router)\n";
+	t+=dbg_decl("handlers",&f_handlers);
+	t+=dbg_decl("routers",&f_routers);
+	t+=dbg_decl("created",&f_created);
+	t+=dbg_decl("_current",&f__current);
+	t+=dbg_decl("_currentName",&f__currentName);
+	t+=dbg_decl("_previous",&f__previous);
+	t+=dbg_decl("_previousName",&f__previousName);
+	t+=dbg_decl("director",&f_director);
+	return t;
+}
 bb_partial_Partial::bb_partial_Partial(){
 	f__director=0;
 }
 bb_partial_Partial* bb_partial_Partial::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/partial.monkey<12>";
-	popErr();
+	DBG_ENTER("Partial.new")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/partial.monkey<12>");
 	return this;
 }
 void bb_partial_Partial::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/partial.monkey<20>";
+	DBG_ENTER("Partial.OnCreate")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/partial.monkey<20>");
 	gc_assign(f__director,t_director);
-	popErr();
 }
 bb_director_Director* bb_partial_Partial::m_director(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/partial.monkey<57>";
-	popErr();
+	DBG_ENTER("Partial.director")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/partial.monkey<57>");
 	return f__director;
 }
 void bb_partial_Partial::m_OnRender(){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnRender")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnUpdate")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnKeyUp(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnKeyUp")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnLoading(){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnLoading")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnSuspend(){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnSuspend")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnResume(int t_delta){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnResume")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnKeyDown")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnKeyPress(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnKeyPress")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnTouchDown")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnTouchMove(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnTouchMove")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::m_OnTouchUp(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	popErr();
+	DBG_ENTER("Partial.OnTouchUp")
+	bb_partial_Partial *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_partial_Partial::mark(){
 	Object::mark();
 	gc_mark_q(f__director);
+}
+String bb_partial_Partial::debug(){
+	String t="(Partial)\n";
+	t+=dbg_decl("_director",&f__director);
+	return t;
 }
 bb_scene_Scene::bb_scene_Scene(){
 	f__layer=(new bb_fanout_FanOut)->g_new();
 	f__router=0;
 }
 bb_scene_Scene* bb_scene_Scene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<10>";
+	DBG_ENTER("Scene.new")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<10>");
 	bb_partial_Partial::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<10>";
-	popErr();
 	return this;
 }
 void bb_scene_Scene::m_OnEnter(){
-	pushErr();
-	popErr();
+	DBG_ENTER("Scene.OnEnter")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_scene_Scene::m_OnLeave(){
-	pushErr();
-	popErr();
+	DBG_ENTER("Scene.OnLeave")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
 }
 bb_graphics_Image* bb_scene_Scene::g_blend;
 void bb_scene_Scene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<32>";
+	DBG_ENTER("Scene.OnCreate")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<32>");
 	bb_partial_Partial::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<33>");
 	f__layer->m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<34>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<34>");
 	gc_assign(f__router,dynamic_cast<bb_router_Router*>(t_director->m_handler()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<36>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<36>");
 	if(!((g_blend)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<36>";
+		DBG_BLOCK();
 		gc_assign(g_blend,bb_graphics_LoadImage(String(L"blend.png"),1,bb_graphics_Image::g_DefaultFlags));
 	}
-	popErr();
 }
 bb_fanout_FanOut* bb_scene_Scene::m_layer(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<84>";
-	popErr();
+	DBG_ENTER("Scene.layer")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<84>");
 	return f__layer;
 }
 void bb_scene_Scene::m_OnLoading(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<40>";
+	DBG_ENTER("Scene.OnLoading")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<40>");
 	f__layer->m_OnLoading();
-	popErr();
 }
 void bb_scene_Scene::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<44>";
+	DBG_ENTER("Scene.OnUpdate")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<44>");
 	f__layer->m_OnUpdate(t_delta,t_frameTime);
-	popErr();
 }
 void bb_scene_Scene::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<48>";
+	DBG_ENTER("Scene.OnRender")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<48>");
 	f__layer->m_OnRender();
-	popErr();
 }
 void bb_scene_Scene::m_OnSuspend(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<52>";
+	DBG_ENTER("Scene.OnSuspend")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<52>");
 	f__layer->m_OnSuspend();
-	popErr();
 }
 void bb_scene_Scene::m_OnResume(int t_delta){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<56>";
+	DBG_ENTER("Scene.OnResume")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<56>");
 	f__layer->m_OnResume(t_delta);
-	popErr();
 }
 void bb_scene_Scene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<60>";
+	DBG_ENTER("Scene.OnKeyDown")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<60>");
 	f__layer->m_OnKeyDown(t_event);
-	popErr();
 }
 void bb_scene_Scene::m_OnKeyPress(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<64>";
+	DBG_ENTER("Scene.OnKeyPress")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<64>");
 	f__layer->m_OnKeyPress(t_event);
-	popErr();
 }
 void bb_scene_Scene::m_OnKeyUp(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<68>";
+	DBG_ENTER("Scene.OnKeyUp")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<68>");
 	f__layer->m_OnKeyUp(t_event);
-	popErr();
 }
 void bb_scene_Scene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<72>";
+	DBG_ENTER("Scene.OnTouchDown")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<72>");
 	f__layer->m_OnTouchDown(t_event);
-	popErr();
 }
 void bb_scene_Scene::m_OnTouchMove(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<76>";
+	DBG_ENTER("Scene.OnTouchMove")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<76>");
 	f__layer->m_OnTouchMove(t_event);
-	popErr();
 }
 void bb_scene_Scene::m_OnTouchUp(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<80>";
+	DBG_ENTER("Scene.OnTouchUp")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<80>");
 	f__layer->m_OnTouchUp(t_event);
-	popErr();
 }
 bb_router_Router* bb_scene_Scene::m_router(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<88>";
-	popErr();
+	DBG_ENTER("Scene.router")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<88>");
 	return f__router;
 }
 void bb_scene_Scene::m_RenderBlend(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<20>";
+	DBG_ENTER("Scene.RenderBlend")
+	bb_scene_Scene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<20>");
 	for(int t_posY=0;Float(t_posY)<m_director()->m_size()->f_y;t_posY=t_posY+8){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<21>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_posY,"posY")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/scene.monkey<21>");
 		bb_graphics_DrawImage(g_blend,FLOAT(0.0),Float(t_posY),0);
 	}
-	popErr();
 }
 void bb_scene_Scene::mark(){
 	bb_partial_Partial::mark();
 	gc_mark_q(f__layer);
 	gc_mark_q(f__router);
 }
+String bb_scene_Scene::debug(){
+	String t="(Scene)\n";
+	t=bb_partial_Partial::debug()+t;
+	t+=dbg_decl("_layer",&f__layer);
+	t+=dbg_decl("_router",&f__router);
+	t+=dbg_decl("blend",&bb_scene_Scene::g_blend);
+	return t;
+}
 bb_introscene_IntroScene::bb_introscene_IntroScene(){
 	f_background=0;
 	f_timer=0;
 }
 bb_introscene_IntroScene* bb_introscene_IntroScene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<12>";
+	DBG_ENTER("IntroScene.new")
+	bb_introscene_IntroScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<11>");
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<12>";
-	popErr();
 	return this;
 }
 void bb_introscene_IntroScene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<23>";
+	DBG_ENTER("IntroScene.OnCreate")
+	bb_introscene_IntroScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<22>");
 	gc_assign(f_background,(new bb_sprite_Sprite)->g_new(String(L"logo.jpg"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<24>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<23>");
 	m_layer()->m_Add4(f_background);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<27>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<26>");
 	bb_scene_Scene::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<30>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<29>");
 	f_background->m_Center(t_director);
-	popErr();
-}
-void bb_introscene_IntroScene::m_OnEnter(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<35>";
-	bb_appirater_Appirater::g_Launched();
-	popErr();
 }
 void bb_introscene_IntroScene::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<42>";
+	DBG_ENTER("IntroScene.OnUpdate")
+	bb_introscene_IntroScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<37>");
 	if(f_timer>=1500){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<42>";
+		DBG_BLOCK();
 		m_router()->m_Goto(String(L"menu"));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<43>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<38>");
 	f_timer=int(Float(f_timer)+t_frameTime);
-	popErr();
 }
 void bb_introscene_IntroScene::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<48>";
+	DBG_ENTER("IntroScene.OnRender")
+	bb_introscene_IntroScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<43>");
 	bb_graphics_Cls(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<49>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/introscene.monkey<44>");
 	bb_scene_Scene::m_OnRender();
-	popErr();
 }
 void bb_introscene_IntroScene::mark(){
 	bb_scene_Scene::mark();
 	gc_mark_q(f_background);
 }
+String bb_introscene_IntroScene::debug(){
+	String t="(IntroScene)\n";
+	t=bb_scene_Scene::debug()+t;
+	t+=dbg_decl("background",&f_background);
+	t+=dbg_decl("timer",&f_timer);
+	return t;
+}
 bb_map_Map::bb_map_Map(){
 	f_root=0;
 }
 bb_map_Map* bb_map_Map::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<7>";
-	popErr();
+	DBG_ENTER("Map.new")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<7>");
 	return this;
 }
 bb_map_Node* bb_map_Map::m_FindNode(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<157>";
+	DBG_ENTER("Map.FindNode")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<157>");
 	bb_map_Node* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<159>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<159>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<160>");
 		int t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<161>";
+		DBG_LOCAL(t_cmp,"cmp")
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<161>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<162>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<163>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<163>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<164>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<166>";
-				popErr();
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<166>");
 				return t_node;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<169>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<169>");
 	return t_node;
 }
 bool bb_map_Map::m_Contains(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<25>";
+	DBG_ENTER("Map.Contains")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<25>");
 	bool t_=m_FindNode(t_key)!=0;
-	popErr();
 	return t_;
 }
 int bb_map_Map::m_RotateLeft(bb_map_Node* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<251>";
+	DBG_ENTER("Map.RotateLeft")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<251>");
 	bb_map_Node* t_child=t_node->f_right;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<252>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<252>");
 	gc_assign(t_node->f_right,t_child->f_left);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<253>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<253>");
 	if((t_child->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<254>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<254>");
 		gc_assign(t_child->f_left->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<256>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<257>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<258>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<258>");
 		if(t_node==t_node->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<259>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<259>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<261>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<261>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<264>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<264>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<266>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<266>");
 	gc_assign(t_child->f_left,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<267>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<267>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map::m_RotateRight(bb_map_Node* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<271>";
+	DBG_ENTER("Map.RotateRight")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<271>");
 	bb_map_Node* t_child=t_node->f_left;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<272>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<272>");
 	gc_assign(t_node->f_left,t_child->f_right);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<273>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<273>");
 	if((t_child->f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<274>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<274>");
 		gc_assign(t_child->f_right->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<276>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<276>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<277>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<277>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<278>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<278>");
 		if(t_node==t_node->f_parent->f_right){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<279>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<279>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<281>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<281>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<284>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<284>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<286>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<286>");
 	gc_assign(t_child->f_right,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<287>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map::m_InsertFixup(bb_map_Node* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<212>";
+	DBG_ENTER("Map.InsertFixup")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<212>");
 	while(((t_node->f_parent)!=0) && t_node->f_parent->f_color==-1 && ((t_node->f_parent->f_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<213>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<213>");
 		if(t_node->f_parent==t_node->f_parent->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<214>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<214>");
 			bb_map_Node* t_uncle=t_node->f_parent->f_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<215>";
+			DBG_LOCAL(t_uncle,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<215>");
 			if(((t_uncle)!=0) && t_uncle->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<216>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<216>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<217>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<217>");
 				t_uncle->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<218>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<218>");
 				t_uncle->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<219>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<219>");
 				t_node=t_uncle->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<221>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<221>");
 				if(t_node==t_node->f_parent->f_right){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<222>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<222>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<223>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<223>");
 					m_RotateLeft(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<225>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<225>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<226>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<226>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<227>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<227>");
 				m_RotateRight(t_node->f_parent->f_parent);
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<230>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<230>");
 			bb_map_Node* t_uncle2=t_node->f_parent->f_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<231>";
+			DBG_LOCAL(t_uncle2,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<231>");
 			if(((t_uncle2)!=0) && t_uncle2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<232>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<232>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<233>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<233>");
 				t_uncle2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<234>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<234>");
 				t_uncle2->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<235>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<235>");
 				t_node=t_uncle2->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<237>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<237>");
 				if(t_node==t_node->f_parent->f_left){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<238>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<238>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<239>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<239>");
 					m_RotateRight(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<241>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<241>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<242>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<242>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<243>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<243>");
 				m_RotateLeft(t_node->f_parent->f_parent);
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<247>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<247>");
 	f_root->f_color=1;
-	popErr();
 	return 0;
 }
 bool bb_map_Map::m_Set(String t_key,bb_directorevents_DirectorEvents* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
+	DBG_ENTER("Map.Set")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<29>");
 	bb_map_Node* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<30>");
 	bb_map_Node* t_parent=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
 	int t_cmp=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<32>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_LOCAL(t_cmp,"cmp")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<32>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<33>");
 		t_parent=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<34>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<34>");
 		t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<35>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<35>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<36>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<36>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<37>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<37>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<38>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<38>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<40>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<40>");
 				gc_assign(t_node->f_value,t_value);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<41>";
-				popErr();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<41>");
 				return false;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<45>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<45>");
 	t_node=(new bb_map_Node)->g_new(t_key,t_value,-1,t_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<47>");
 	if((t_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<48>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<48>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<49>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<49>");
 			gc_assign(t_parent->f_right,t_node);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<51>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<51>");
 			gc_assign(t_parent->f_left,t_node);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<53>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<53>");
 		m_InsertFixup(t_node);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<55>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<55>");
 		gc_assign(f_root,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<57>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<57>");
 	return true;
 }
 bb_directorevents_DirectorEvents* bb_map_Map::m_Get(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<101>";
+	DBG_ENTER("Map.Get")
+	bb_map_Map *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<101>");
 	bb_map_Node* t_node=m_FindNode(t_key);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<102>");
 	if((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
-		popErr();
+		DBG_BLOCK();
 		return t_node->f_value;
 	}
-	popErr();
 	return 0;
 }
 void bb_map_Map::mark(){
 	Object::mark();
 	gc_mark_q(f_root);
 }
+String bb_map_Map::debug(){
+	String t="(Map)\n";
+	t+=dbg_decl("root",&f_root);
+	return t;
+}
 bb_map_StringMap::bb_map_StringMap(){
 }
 bb_map_StringMap* bb_map_StringMap::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
+	DBG_ENTER("StringMap.new")
+	bb_map_StringMap *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<551>");
 	bb_map_Map::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
-	popErr();
 	return this;
 }
 int bb_map_StringMap::m_Compare(String t_lhs,String t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<554>";
+	DBG_ENTER("StringMap.Compare")
+	bb_map_StringMap *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<554>");
 	int t_=t_lhs.Compare(t_rhs);
-	popErr();
 	return t_;
 }
 void bb_map_StringMap::mark(){
 	bb_map_Map::mark();
+}
+String bb_map_StringMap::debug(){
+	String t="(StringMap)\n";
+	t=bb_map_Map::debug()+t;
+	return t;
 }
 bb_map_Node::bb_map_Node(){
 	f_key=String();
@@ -5118,22 +5732,28 @@ bb_map_Node::bb_map_Node(){
 	f_parent=0;
 }
 bb_map_Node* bb_map_Node::g_new(String t_key,bb_directorevents_DirectorEvents* t_value,int t_color,bb_map_Node* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<364>";
+	DBG_ENTER("Node.new")
+	bb_map_Node *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_color,"color")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<364>");
 	this->f_key=t_key;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<365>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<365>");
 	gc_assign(this->f_value,t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<366>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<366>");
 	this->f_color=t_color;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<367>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<367>");
 	gc_assign(this->f_parent,t_parent);
-	popErr();
 	return this;
 }
 bb_map_Node* bb_map_Node::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<361>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_map_Node *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<361>");
 	return this;
 }
 void bb_map_Node::mark(){
@@ -5143,269 +5763,345 @@ void bb_map_Node::mark(){
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
 }
+String bb_map_Node::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	t+=dbg_decl("color",&f_color);
+	t+=dbg_decl("parent",&f_parent);
+	t+=dbg_decl("left",&f_left);
+	t+=dbg_decl("right",&f_right);
+	return t;
+}
 bb_map_Map2::bb_map_Map2(){
 	f_root=0;
 }
 bb_map_Map2* bb_map_Map2::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<7>";
-	popErr();
+	DBG_ENTER("Map.new")
+	bb_map_Map2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<7>");
 	return this;
 }
 int bb_map_Map2::m_RotateLeft2(bb_map_Node2* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<251>";
+	DBG_ENTER("Map.RotateLeft")
+	bb_map_Map2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<251>");
 	bb_map_Node2* t_child=t_node->f_right;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<252>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<252>");
 	gc_assign(t_node->f_right,t_child->f_left);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<253>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<253>");
 	if((t_child->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<254>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<254>");
 		gc_assign(t_child->f_left->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<256>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<257>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<258>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<258>");
 		if(t_node==t_node->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<259>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<259>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<261>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<261>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<264>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<264>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<266>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<266>");
 	gc_assign(t_child->f_left,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<267>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<267>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map2::m_RotateRight2(bb_map_Node2* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<271>";
+	DBG_ENTER("Map.RotateRight")
+	bb_map_Map2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<271>");
 	bb_map_Node2* t_child=t_node->f_left;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<272>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<272>");
 	gc_assign(t_node->f_left,t_child->f_right);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<273>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<273>");
 	if((t_child->f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<274>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<274>");
 		gc_assign(t_child->f_right->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<276>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<276>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<277>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<277>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<278>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<278>");
 		if(t_node==t_node->f_parent->f_right){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<279>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<279>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<281>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<281>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<284>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<284>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<286>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<286>");
 	gc_assign(t_child->f_right,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<287>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map2::m_InsertFixup2(bb_map_Node2* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<212>";
+	DBG_ENTER("Map.InsertFixup")
+	bb_map_Map2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<212>");
 	while(((t_node->f_parent)!=0) && t_node->f_parent->f_color==-1 && ((t_node->f_parent->f_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<213>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<213>");
 		if(t_node->f_parent==t_node->f_parent->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<214>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<214>");
 			bb_map_Node2* t_uncle=t_node->f_parent->f_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<215>";
+			DBG_LOCAL(t_uncle,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<215>");
 			if(((t_uncle)!=0) && t_uncle->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<216>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<216>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<217>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<217>");
 				t_uncle->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<218>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<218>");
 				t_uncle->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<219>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<219>");
 				t_node=t_uncle->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<221>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<221>");
 				if(t_node==t_node->f_parent->f_right){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<222>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<222>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<223>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<223>");
 					m_RotateLeft2(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<225>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<225>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<226>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<226>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<227>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<227>");
 				m_RotateRight2(t_node->f_parent->f_parent);
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<230>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<230>");
 			bb_map_Node2* t_uncle2=t_node->f_parent->f_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<231>";
+			DBG_LOCAL(t_uncle2,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<231>");
 			if(((t_uncle2)!=0) && t_uncle2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<232>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<232>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<233>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<233>");
 				t_uncle2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<234>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<234>");
 				t_uncle2->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<235>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<235>");
 				t_node=t_uncle2->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<237>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<237>");
 				if(t_node==t_node->f_parent->f_left){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<238>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<238>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<239>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<239>");
 					m_RotateRight2(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<241>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<241>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<242>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<242>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<243>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<243>");
 				m_RotateLeft2(t_node->f_parent->f_parent);
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<247>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<247>");
 	f_root->f_color=1;
-	popErr();
 	return 0;
 }
 bool bb_map_Map2::m_Set2(String t_key,bb_routerevents_RouterEvents* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
+	DBG_ENTER("Map.Set")
+	bb_map_Map2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<29>");
 	bb_map_Node2* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<30>");
 	bb_map_Node2* t_parent=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
 	int t_cmp=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<32>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_LOCAL(t_cmp,"cmp")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<32>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<33>");
 		t_parent=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<34>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<34>");
 		t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<35>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<35>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<36>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<36>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<37>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<37>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<38>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<38>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<40>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<40>");
 				gc_assign(t_node->f_value,t_value);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<41>";
-				popErr();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<41>");
 				return false;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<45>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<45>");
 	t_node=(new bb_map_Node2)->g_new(t_key,t_value,-1,t_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<47>");
 	if((t_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<48>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<48>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<49>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<49>");
 			gc_assign(t_parent->f_right,t_node);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<51>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<51>");
 			gc_assign(t_parent->f_left,t_node);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<53>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<53>");
 		m_InsertFixup2(t_node);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<55>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<55>");
 		gc_assign(f_root,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<57>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<57>");
 	return true;
 }
 bb_map_Node2* bb_map_Map2::m_FindNode(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<157>";
+	DBG_ENTER("Map.FindNode")
+	bb_map_Map2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<157>");
 	bb_map_Node2* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<159>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<159>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<160>");
 		int t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<161>";
+		DBG_LOCAL(t_cmp,"cmp")
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<161>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<162>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<163>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<163>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<164>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<166>";
-				popErr();
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<166>");
 				return t_node;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<169>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<169>");
 	return t_node;
 }
 bb_routerevents_RouterEvents* bb_map_Map2::m_Get(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<101>";
+	DBG_ENTER("Map.Get")
+	bb_map_Map2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<101>");
 	bb_map_Node2* t_node=m_FindNode(t_key);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<102>");
 	if((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
-		popErr();
+		DBG_BLOCK();
 		return t_node->f_value;
 	}
-	popErr();
 	return 0;
 }
 void bb_map_Map2::mark(){
 	Object::mark();
 	gc_mark_q(f_root);
 }
+String bb_map_Map2::debug(){
+	String t="(Map)\n";
+	t+=dbg_decl("root",&f_root);
+	return t;
+}
 bb_map_StringMap2::bb_map_StringMap2(){
 }
 bb_map_StringMap2* bb_map_StringMap2::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
+	DBG_ENTER("StringMap.new")
+	bb_map_StringMap2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<551>");
 	bb_map_Map2::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
-	popErr();
 	return this;
 }
 int bb_map_StringMap2::m_Compare(String t_lhs,String t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<554>";
+	DBG_ENTER("StringMap.Compare")
+	bb_map_StringMap2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<554>");
 	int t_=t_lhs.Compare(t_rhs);
-	popErr();
 	return t_;
 }
 void bb_map_StringMap2::mark(){
 	bb_map_Map2::mark();
+}
+String bb_map_StringMap2::debug(){
+	String t="(StringMap)\n";
+	t=bb_map_Map2::debug()+t;
+	return t;
 }
 bb_map_Node2::bb_map_Node2(){
 	f_key=String();
@@ -5416,22 +6112,28 @@ bb_map_Node2::bb_map_Node2(){
 	f_parent=0;
 }
 bb_map_Node2* bb_map_Node2::g_new(String t_key,bb_routerevents_RouterEvents* t_value,int t_color,bb_map_Node2* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<364>";
+	DBG_ENTER("Node.new")
+	bb_map_Node2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_color,"color")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<364>");
 	this->f_key=t_key;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<365>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<365>");
 	gc_assign(this->f_value,t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<366>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<366>");
 	this->f_color=t_color;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<367>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<367>");
 	gc_assign(this->f_parent,t_parent);
-	popErr();
 	return this;
 }
 bb_map_Node2* bb_map_Node2::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<361>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_map_Node2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<361>");
 	return this;
 }
 void bb_map_Node2::mark(){
@@ -5440,6 +6142,16 @@ void bb_map_Node2::mark(){
 	gc_mark_q(f_left);
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
+}
+String bb_map_Node2::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	t+=dbg_decl("color",&f_color);
+	t+=dbg_decl("parent",&f_parent);
+	t+=dbg_decl("left",&f_left);
+	t+=dbg_decl("right",&f_right);
+	return t;
 }
 bb_menuscene_MenuScene::bb_menuscene_MenuScene(){
 	f_easy=0;
@@ -5455,318 +6167,358 @@ bb_menuscene_MenuScene::bb_menuscene_MenuScene(){
 	f_waitingImage=0;
 }
 bb_menuscene_MenuScene* bb_menuscene_MenuScene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<13>";
+	DBG_ENTER("MenuScene.new")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<14>");
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<13>";
-	popErr();
 	return this;
 }
 void bb_menuscene_MenuScene::m_ToggleLock(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<141>";
+	DBG_ENTER("MenuScene.ToggleLock")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<148>");
 	if(f_isLocked){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<142>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<149>");
 		f_isLocked=false;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<143>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<150>");
 		m_layer()->m_Remove(f_lock);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<144>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<151>");
 		m_layer()->m_Remove(f_normal);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<145>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<152>");
 		m_layer()->m_Remove(f_advanced);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<146>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<153>");
 		m_layer()->m_Add4(f_normalActive);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<147>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<154>");
 		m_layer()->m_Add4(f_advancedActive);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<149>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<156>");
 		f_isLocked=true;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<150>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<157>");
 		m_layer()->m_Remove(f_normalActive);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<151>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<158>");
 		m_layer()->m_Remove(f_advancedActive);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<152>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<159>");
 		m_layer()->m_Add4(f_normal);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<153>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<160>");
 		m_layer()->m_Add4(f_advanced);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<154>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<161>");
 		m_layer()->m_Add4(f_lock);
 	}
-	popErr();
 }
 void bb_menuscene_MenuScene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<31>";
+	DBG_ENTER("MenuScene.OnCreate")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<32>");
 	bb_vector2d_Vector2D* t_offset=(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(150.0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<32>";
+	DBG_LOCAL(t_offset,"offset")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<33>");
 	gc_assign(f_easy,(new bb_sprite_Sprite)->g_new(String(L"01_02-easy.png"),(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(290.0))));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<34>");
 	gc_assign(f_normal,(new bb_sprite_Sprite)->g_new(String(L"01_02-normal.png"),f_easy->m_pos()->m_Copy()->m_Add2(t_offset)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<34>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<35>");
 	gc_assign(f_normalActive,(new bb_sprite_Sprite)->g_new(String(L"01_02-normal_active.png"),f_normal->m_pos()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<35>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<36>");
 	gc_assign(f_advanced,(new bb_sprite_Sprite)->g_new(String(L"01_02-advanced.png"),f_normal->m_pos()->m_Copy()->m_Add2(t_offset)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<36>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<37>");
 	gc_assign(f_advancedActive,(new bb_sprite_Sprite)->g_new(String(L"01_02-advanced_active.png"),f_advanced->m_pos()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<38>");
 	gc_assign(f_highscore,(new bb_sprite_Sprite)->g_new(String(L"01_04button-highscore.png"),f_advanced->m_pos()->m_Copy()->m_Add2(t_offset)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<40>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<41>");
 	bb_vector2d_Vector2D* t_pos=f_advanced->m_pos()->m_Copy()->m_Add2(f_advanced->m_size())->m_Sub(f_normal->m_pos())->m_Div2(FLOAT(2.0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<41>";
+	DBG_LOCAL(t_pos,"pos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<42>");
 	t_pos->f_y+=f_normal->m_pos()->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<42>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<43>");
 	gc_assign(f_lock,(new bb_sprite_Sprite)->g_new(String(L"locked.png"),t_pos));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<43>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<44>");
 	f_lock->m_pos()->f_y-=f_lock->m_center()->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<45>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<46>");
 	m_layer()->m_Add4((new bb_sprite_Sprite)->g_new(String(L"01_main.jpg"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<46>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<47>");
 	m_layer()->m_Add4(f_easy);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<47>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<48>");
 	m_layer()->m_Add4(f_normal);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<48>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<49>");
 	m_layer()->m_Add4(f_advanced);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<49>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<50>");
 	m_layer()->m_Add4(f_highscore);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<50>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<51>");
 	m_layer()->m_Add4(f_lock);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<52>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<53>");
 	bb_scene_Scene::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<55>");
 	f_easy->m_CenterX(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<55>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<56>");
 	f_normal->m_CenterX(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<56>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<57>");
 	f_advanced->m_CenterX(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<57>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<58>");
 	f_highscore->m_CenterX(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<59>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<60>");
 	String t_[]={String(L"com.coragames.daffydrop.fullversion")};
 	bb_iap_InitInAppPurchases(String(L"com.coragames.daffydrop"),Array<String >(t_,1));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<60>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<61>");
 	if((bb_iap_isProductPurchased(String(L"com.coragames.daffydrop.fullversion")))!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<61>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<62>");
 		m_ToggleLock();
 	}
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<65>");
+	bb_appirater_Appirater::g_Launched();
+}
+void bb_menuscene_MenuScene::m_OnResume(int t_delta){
+	DBG_ENTER("MenuScene.OnResume")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<69>");
+	bb_appirater_Appirater::g_Launched();
 }
 void bb_menuscene_MenuScene::m_PlayEasy(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<159>";
+	DBG_ENTER("MenuScene.PlayEasy")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<166>");
 	bb_severity_CurrentSeverity()->m_Set5(0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<160>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<167>");
 	m_router()->m_Goto(String(L"game"));
-	popErr();
 }
 void bb_menuscene_MenuScene::m_InitializeWaitingImages(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<128>";
+	DBG_ENTER("MenuScene.InitializeWaitingImages")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<135>");
 	gc_assign(f_waitingText,(new bb_font_Font)->g_new(String(L"CoRa"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<129>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<136>");
 	f_waitingText->m_OnCreate(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<130>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<137>");
 	f_waitingText->m_text(String(L"Loading"));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<131>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<138>");
 	f_waitingText->m_align(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<132>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<139>");
 	f_waitingText->m_pos2(m_director()->m_center()->m_Copy());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<134>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<141>");
 	gc_assign(f_waitingImage,(new bb_sprite_Sprite)->g_new(String(L"star_inside.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<135>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<142>");
 	f_waitingImage->m_OnCreate(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<136>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<143>");
 	f_waitingImage->m_Center(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<137>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<144>");
 	bb_vector2d_Vector2D* t_=f_waitingImage->m_pos();
 	t_->f_y=t_->f_y-FLOAT(50.0);
-	popErr();
 }
 void bb_menuscene_MenuScene::m_HandleLocked(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<182>";
+	DBG_ENTER("MenuScene.HandleLocked")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<189>");
 	if(f_paymentProcessing){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<183>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<190>");
 	if(!f_isLocked){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<185>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<192>");
 	m_InitializeWaitingImages();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<186>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<193>");
 	f_paymentProcessing=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<187>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<194>");
 	bb_iap_buyProduct(String(L"com.coragames.daffydrop.fullversion"));
-	popErr();
 }
 void bb_menuscene_MenuScene::m_PlayNormal(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<164>";
+	DBG_ENTER("MenuScene.PlayNormal")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<171>");
 	if(f_isLocked){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<165>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<172>");
 		m_HandleLocked();
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<168>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<175>");
 	bb_severity_CurrentSeverity()->m_Set5(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<169>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<176>");
 	m_router()->m_Goto(String(L"game"));
-	popErr();
 }
 void bb_menuscene_MenuScene::m_PlayAdvanced(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<173>";
+	DBG_ENTER("MenuScene.PlayAdvanced")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<180>");
 	if(f_isLocked){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<174>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<181>");
 		m_HandleLocked();
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<177>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<184>");
 	bb_severity_CurrentSeverity()->m_Set5(2);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<178>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<185>");
 	m_router()->m_Goto(String(L"game"));
-	popErr();
 }
 void bb_menuscene_MenuScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<66>";
+	DBG_ENTER("MenuScene.OnTouchDown")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<73>");
 	if(f_paymentProcessing){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<67>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<74>");
 	if(f_easy->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<67>";
+		DBG_BLOCK();
 		m_PlayEasy();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<68>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<75>");
 	if(f_normal->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<68>";
+		DBG_BLOCK();
 		m_PlayNormal();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<69>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<76>");
 	if(f_advanced->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<69>";
+		DBG_BLOCK();
 		m_PlayAdvanced();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<70>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<77>");
 	if(f_highscore->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<70>";
+		DBG_BLOCK();
 		m_router()->m_Goto(String(L"highscore"));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<71>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<78>");
 	if(f_lock->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<71>";
+		DBG_BLOCK();
 		m_HandleLocked();
 	}
-	popErr();
 }
 void bb_menuscene_MenuScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<75>";
+	DBG_ENTER("MenuScene.OnKeyDown")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<82>");
 	if(f_paymentProcessing){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<76>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<83>");
 	int t_1=t_event->m_code();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<77>";
+	DBG_LOCAL(t_1,"1")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<84>");
 	if(t_1==69){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<78>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<85>");
 		m_PlayEasy();
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<79>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<86>");
 		if(t_1==78){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<80>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<87>");
 			m_PlayNormal();
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<81>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<88>");
 			if(t_1==65){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<82>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<89>");
 				m_PlayAdvanced();
 			}else{
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<83>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<90>");
 				if(t_1==72){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<84>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<91>");
 					m_router()->m_Goto(String(L"highscore"));
 				}
 			}
 		}
 	}
-	popErr();
 }
 void bb_menuscene_MenuScene::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<89>";
+	DBG_ENTER("MenuScene.OnUpdate")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<96>");
 	bb_scene_Scene::m_OnUpdate(t_delta,t_frameTime);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<91>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<98>");
 	if(!f_isLocked){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<92>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<99>");
 	if(!f_paymentProcessing){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<93>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<100>");
 	if(bb_iap_isPurchaseInProgress()){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<94>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<101>");
 	f_paymentProcessing=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<96>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<103>");
 	if(!((bb_iap_isProductPurchased(String(L"com.coragames.daffydrop.fullversion")))!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<97>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<104>");
 	m_ToggleLock();
-	popErr();
 }
 void bb_menuscene_MenuScene::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<101>";
+	DBG_ENTER("MenuScene.OnRender")
+	bb_menuscene_MenuScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<108>");
 	bb_scene_Scene::m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<103>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<110>");
 	if(f_paymentProcessing){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<104>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<111>");
 		m_RenderBlend();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<105>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<112>");
 		bb_graphics_PushMatrix();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<106>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<113>");
 		bb_graphics_Translate(-m_director()->m_center()->f_x,-m_director()->m_center()->f_y);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<107>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<114>");
 		bb_graphics_Scale(FLOAT(2.0),FLOAT(2.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<109>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<116>");
 		f_waitingImage->m_OnRender();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<111>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<118>");
 		bb_graphics_PushMatrix();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<112>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<119>");
 		bb_graphics_Translate(FLOAT(-2.0),FLOAT(1.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<113>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<120>");
 		bb_graphics_SetColor(FLOAT(47.0),FLOAT(85.0),FLOAT(98.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<114>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<121>");
 		f_waitingText->m_OnRender();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<115>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<122>");
 		bb_graphics_PopMatrix();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<117>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<124>");
 		bb_graphics_PushMatrix();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<118>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<125>");
 		bb_graphics_SetColor(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<119>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<126>");
 		f_waitingText->m_OnRender();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<120>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<127>");
 		bb_graphics_PopMatrix();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<121>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/menuscene.monkey<128>");
 		bb_graphics_PopMatrix();
 	}
-	popErr();
 }
 void bb_menuscene_MenuScene::mark(){
 	bb_scene_Scene::mark();
@@ -5780,6 +6532,22 @@ void bb_menuscene_MenuScene::mark(){
 	gc_mark_q(f_waitingText);
 	gc_mark_q(f_waitingImage);
 }
+String bb_menuscene_MenuScene::debug(){
+	String t="(MenuScene)\n";
+	t=bb_scene_Scene::debug()+t;
+	t+=dbg_decl("easy",&f_easy);
+	t+=dbg_decl("normal",&f_normal);
+	t+=dbg_decl("normalActive",&f_normalActive);
+	t+=dbg_decl("advanced",&f_advanced);
+	t+=dbg_decl("advancedActive",&f_advancedActive);
+	t+=dbg_decl("highscore",&f_highscore);
+	t+=dbg_decl("isLocked",&f_isLocked);
+	t+=dbg_decl("lock",&f_lock);
+	t+=dbg_decl("paymentProcessing",&f_paymentProcessing);
+	t+=dbg_decl("waitingText",&f_waitingText);
+	t+=dbg_decl("waitingImage",&f_waitingImage);
+	return t;
+}
 bb_highscorescene_HighscoreScene::bb_highscorescene_HighscoreScene(){
 	f_font=0;
 	f_background=0;
@@ -5788,104 +6556,127 @@ bb_highscorescene_HighscoreScene::bb_highscorescene_HighscoreScene(){
 	f_lastScoreKey=String();
 }
 bb_highscorescene_HighscoreScene* bb_highscorescene_HighscoreScene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<12>";
+	DBG_ENTER("HighscoreScene.new")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<12>");
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<12>";
-	popErr();
 	return this;
 }
 void bb_highscorescene_HighscoreScene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<25>";
+	DBG_ENTER("HighscoreScene.OnCreate")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<25>");
 	gc_assign(f_font,(new bb_angelfont2_AngelFont)->g_new(String(L"CoRa")));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<27>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<27>");
 	gc_assign(f_background,(new bb_sprite_Sprite)->g_new(String(L"highscore_bg.jpg"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<28>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<28>");
 	f_background->m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<30>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<30>");
 	bb_scene_Scene::m_OnCreate(t_director);
-	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_OnEnter(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<34>";
+	DBG_ENTER("HighscoreScene.OnEnter")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<34>");
 	bb_statestore_StateStore::g_Load(f_highscore);
-	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_OnLeave(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<38>";
+	DBG_ENTER("HighscoreScene.OnLeave")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<38>");
 	f_lastScoreValue=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<39>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<39>");
 	f_lastScoreKey=String();
-	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_DrawEntries(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<69>";
+	DBG_ENTER("HighscoreScene.DrawEntries")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<69>");
 	int t_posY=290;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<70>";
+	DBG_LOCAL(t_posY,"posY")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<70>");
 	bool t_found=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
+	DBG_LOCAL(t_found,"found")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>");
 	bb_list_Enumerator2* t_=f_highscore->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<72>";
+		DBG_BLOCK();
 		bb_score_Score* t_score=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<73>";
+		DBG_LOCAL(t_score,"score")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<73>");
 		if(!t_found && t_score->f_value==f_lastScoreValue && t_score->f_key==f_lastScoreKey){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<74>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<74>");
 			bb_graphics_SetColor(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0));
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<77>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<77>");
 		f_font->m_DrawText2(String(t_score->f_value),150,t_posY,2);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<78>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<78>");
 		f_font->m_DrawText(t_score->f_key,160,t_posY);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<79>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<79>");
 		t_posY+=55;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<81>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<81>");
 		if(!t_found && t_score->f_value==f_lastScoreValue && t_score->f_key==f_lastScoreKey){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<82>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<82>");
 			bb_graphics_SetColor(FLOAT(95.0),FLOAT(85.0),FLOAT(83.0));
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<83>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<83>");
 			t_found=true;
 		}
 	}
-	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<51>";
+	DBG_ENTER("HighscoreScene.OnRender")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<51>");
 	f_background->m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<52>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<52>");
 	bb_graphics_PushMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<53>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<53>");
 	bb_graphics_SetColor(FLOAT(95.0),FLOAT(85.0),FLOAT(83.0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<54>");
 	m_DrawEntries();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<55>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<55>");
 	bb_graphics_PopMatrix();
-	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<59>";
+	DBG_ENTER("HighscoreScene.OnKeyDown")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<59>");
 	m_router()->m_Goto(String(L"menu"));
-	popErr();
 }
 void bb_highscorescene_HighscoreScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<63>";
+	DBG_ENTER("HighscoreScene.OnTouchDown")
+	bb_highscorescene_HighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/highscorescene.monkey<63>");
 	m_router()->m_Goto(String(L"menu"));
-	popErr();
 }
 void bb_highscorescene_HighscoreScene::mark(){
 	bb_scene_Scene::mark();
 	gc_mark_q(f_font);
 	gc_mark_q(f_background);
 	gc_mark_q(f_highscore);
+}
+String bb_highscorescene_HighscoreScene::debug(){
+	String t="(HighscoreScene)\n";
+	t=bb_scene_Scene::debug()+t;
+	t+=dbg_decl("background",&f_background);
+	t+=dbg_decl("highscore",&f_highscore);
+	t+=dbg_decl("font",&f_font);
+	t+=dbg_decl("lastScoreKey",&f_lastScoreKey);
+	t+=dbg_decl("lastScoreValue",&f_lastScoreValue);
+	return t;
 }
 bb_gamescene_GameScene::bb_gamescene_GameScene(){
 	f_chute=0;
@@ -5915,587 +6706,667 @@ bb_gamescene_GameScene::bb_gamescene_GameScene(){
 	f_lastSlowUpdate=FLOAT(.0);
 }
 bb_gamescene_GameScene* bb_gamescene_GameScene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<18>";
+	DBG_ENTER("GameScene.new")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<18>");
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<18>";
-	popErr();
 	return this;
 }
 void bb_gamescene_GameScene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<53>";
+	DBG_ENTER("GameScene.OnCreate")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<53>");
 	gc_assign(f_chute,(new bb_chute_Chute)->g_new());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<54>");
 	gc_assign(f_lowerShapes,(new bb_fanout_FanOut)->g_new());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<55>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<55>");
 	gc_assign(f_severity,bb_severity_CurrentSeverity());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<56>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<56>");
 	gc_assign(f_slider,(new bb_slider_Slider)->g_new());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<57>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<57>");
 	gc_assign(f_upperShapes,(new bb_fanout_FanOut)->g_new());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<58>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<58>");
 	gc_assign(f_errorAnimations,(new bb_fanout_FanOut)->g_new());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<60>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<60>");
 	gc_assign(f_pauseButton,(new bb_sprite_Sprite)->g_new(String(L"pause-button.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<61>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<61>");
 	f_pauseButton->m_pos2(t_director->m_size()->m_Copy()->m_Sub(f_pauseButton->m_size()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<62>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<62>");
 	f_pauseButton->m_pos()->f_y=FLOAT(0.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<64>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<64>");
 	gc_assign(f_scoreFont,(new bb_font_Font)->g_new(String(L"CoRa"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<65>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<65>");
 	f_scoreFont->m_pos2((new bb_vector2d_Vector2D)->g_new(t_director->m_center()->f_x,t_director->m_size()->f_y-FLOAT(65.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<66>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<66>");
 	f_scoreFont->m_align(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<67>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<67>");
 	gc_assign(f_scoreFont->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<69>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<69>");
 	gc_assign(f_comboFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<70>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<70>");
 	gc_assign(f_comboFont->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<71>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<71>");
 	f_comboFont->m_text(String(L"COMBO x 2"));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<72>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<72>");
 	bb_vector2d_Vector2D* t_=f_comboFont->m_pos();
 	t_->f_y=t_->f_y-FLOAT(150.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<74>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<74>");
 	bb_vector2d_Vector2D* t_2=f_comboFont->m_pos();
 	t_2->f_x=t_2->f_x-FLOAT(130.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<77>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<77>");
 	gc_assign(f_comboAnimation,(new bb_animation_Animation)->g_new(FLOAT(1.8),FLOAT(0.0),FLOAT(850.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<78>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<78>");
 	gc_assign(f_comboAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<79>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<79>");
 	gc_assign(f_comboAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<80>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<80>");
 	f_comboAnimation->m_Add4(f_comboFont);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<81>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<81>");
 	f_comboAnimation->m_Pause();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<83>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<83>");
 	gc_assign(f_newHighscoreFont,(new bb_font_Font)->g_new(String(L"CoRa"),t_director->m_center()->m_Copy()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<84>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<84>");
 	gc_assign(f_newHighscoreFont->f_color,(new bb_color_Color)->g_new(FLOAT(209.0),FLOAT(146.0),FLOAT(31.0),FLOAT(1.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<85>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<85>");
 	f_newHighscoreFont->m_text(String(L"NEW HIGHSCORE"));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<86>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<86>");
 	bb_vector2d_Vector2D* t_3=f_newHighscoreFont->m_pos();
 	t_3->f_y=t_3->f_y/FLOAT(2.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<88>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<88>");
 	bb_vector2d_Vector2D* t_4=f_newHighscoreFont->m_pos();
 	t_4->f_x=t_4->f_x-FLOAT(200.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<91>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<91>");
 	gc_assign(f_newHighscoreAnimation,(new bb_animation_Animation)->g_new(FLOAT(1.5),FLOAT(0.0),FLOAT(2500.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<92>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<92>");
 	gc_assign(f_newHighscoreAnimation->f_effect,((new bb_fader_FaderScale)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<93>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<93>");
 	gc_assign(f_newHighscoreAnimation->f_transition,((new bb_transition_TransitionInCubic)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<94>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<94>");
 	f_newHighscoreAnimation->m_Add4(f_newHighscoreFont);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<95>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<95>");
 	f_newHighscoreAnimation->m_Pause();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<97>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<97>");
 	m_layer()->m_Add4((new bb_sprite_Sprite)->g_new(String(L"bg_960x640.jpg"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<98>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<98>");
 	m_layer()->m_Add4(f_lowerShapes);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<99>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<99>");
 	m_layer()->m_Add4(f_slider);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<100>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<100>");
 	m_layer()->m_Add4(f_upperShapes);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<101>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<101>");
 	m_layer()->m_Add4(f_errorAnimations);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<102>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<102>");
 	m_layer()->m_Add4(f_newHighscoreAnimation);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<103>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<103>");
 	m_layer()->m_Add4(f_comboAnimation);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<104>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<104>");
 	m_layer()->m_Add4(f_chute);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<105>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<105>");
 	m_layer()->m_Add4(f_scoreFont);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<106>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<106>");
 	m_layer()->m_Add4(f_pauseButton);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<108>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<108>");
 	bb_scene_Scene::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<110>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<110>");
 	f_checkPosY=t_director->m_size()->f_y-Float(f_slider->f_images.At(0)->m_Height()/2)-FLOAT(5.0);
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnEnterPaused(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<214>";
+	DBG_ENTER("GameScene.OnEnterPaused")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<218>");
 	int t_diff=bb_app_Millisecs()-f_pauseTime;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<215>";
+	DBG_LOCAL(t_diff,"diff")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<219>");
 	f_pauseTime=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<217>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<221>");
 	f_severity->m_WarpTime(t_diff);
-	popErr();
 }
 void bb_gamescene_GameScene::m_LoadHighscoreMinValue(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<381>";
+	DBG_ENTER("GameScene.LoadHighscoreMinValue")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<385>");
 	bb_gamehighscore_GameHighscore* t_highscore=(new bb_gamehighscore_GameHighscore)->g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<382>";
+	DBG_LOCAL(t_highscore,"highscore")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<386>");
 	bb_statestore_StateStore::g_Load(t_highscore);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<383>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<387>");
 	f_minHighscore=t_highscore->m_Last()->f_value;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<384>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<388>");
 	f_isNewHighscoreRecord=!(t_highscore->m_Count()==t_highscore->m_maxCount());
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnEnter(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<114>";
+	DBG_ENTER("GameScene.OnEnter")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<114>");
 	if(f_pauseTime>0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<115>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<115>");
 		m_OnEnterPaused();
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<119>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<119>");
 	f_ignoreFirstTouchUp=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<120>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<120>");
 	f_score=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<121>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<121>");
 	f_scoreFont->m_text(String(L"Score: 0"));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<122>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<122>");
 	f_lowerShapes->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<123>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<123>");
 	f_upperShapes->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<124>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<124>");
 	f_errorAnimations->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<125>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<125>");
 	f_severity->m_Restart();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<126>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<126>");
 	f_chute->m_Restart();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<127>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<127>");
 	f_slider->m_Restart();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<128>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<128>");
 	m_LoadHighscoreMinValue();
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnLeave(){
-	pushErr();
-	popErr();
+	DBG_ENTER("GameScene.OnLeave")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
 }
 bool bb_gamescene_GameScene::m_HandleGameOver(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<237>";
+	DBG_ENTER("GameScene.HandleGameOver")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<241>");
 	if(Float(f_chute->m_Height())<f_slider->f_arrowLeft->m_pos()->f_y+FLOAT(50.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<237>";
-		popErr();
+		DBG_BLOCK();
 		return false;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<239>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<243>");
 	if(f_isNewHighscoreRecord){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<243>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<247>");
 		dynamic_cast<bb_newhighscorescene_NewHighscoreScene*>(m_router()->m_Get(String(L"newhighscore")))->f_score=f_score;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<244>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<248>");
 		m_router()->m_Goto(String(L"newhighscore"));
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<246>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<250>");
 		m_router()->m_Goto(String(L"gameover"));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<249>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<253>");
 	return true;
 }
 void bb_gamescene_GameScene::m_OnMissmatch(bb_shape_Shape* t_shape){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<364>";
+	DBG_ENTER("GameScene.OnMissmatch")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_shape,"shape")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<368>");
 	bb_sprite_Sprite* t_sprite=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<365>";
+	DBG_LOCAL(t_sprite,"sprite")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<369>");
 	if(f_falseSpriteStrack->m_Length()>0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<366>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<370>");
 		t_sprite=f_falseSpriteStrack->m_Pop();
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<368>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<372>");
 		t_sprite=(new bb_sprite_Sprite)->g_new2(String(L"false.png"),140,88,6,100,0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<370>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<374>");
 	t_sprite->m_pos2(t_shape->m_pos());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<371>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<375>");
 	t_sprite->m_Restart();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<372>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<376>");
 	f_chute->f_height+=15;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<374>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<378>");
 	int t_[]={0,0,0,0};
 	gc_assign(f_lastMatchTime,Array<int >(t_,4));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<375>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<379>");
 	f_comboPending=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<376>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<380>");
 	f_comboPendingSince=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<377>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<381>");
 	f_errorAnimations->m_Add4(t_sprite);
-	popErr();
 }
 void bb_gamescene_GameScene::m_IncrementScore(int t_value){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<353>";
+	DBG_ENTER("GameScene.IncrementScore")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<357>");
 	f_score+=t_value;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<354>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<358>");
 	f_scoreFont->m_text(String(L"Score: ")+String(f_score));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<356>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<360>");
 	if(!f_isNewHighscoreRecord && f_score>=f_minHighscore){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<357>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<361>");
 		f_isNewHighscoreRecord=true;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<358>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<362>");
 		f_newHighscoreAnimation->m_Restart();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<359>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<363>");
 		m_layer()->m_Add4(f_newHighscoreAnimation);
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnMatch(bb_shape_Shape* t_shape){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<348>";
+	DBG_ENTER("GameScene.OnMatch")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_shape,"shape")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<352>");
 	f_lastMatchTime.At(t_shape->f_lane)=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<349>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<353>");
 	m_IncrementScore(10);
-	popErr();
 }
 void bb_gamescene_GameScene::m_CheckShapeCollisions(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<290>";
+	DBG_ENTER("GameScene.CheckShapeCollisions")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<294>");
 	bb_shape_Shape* t_shape=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
+	DBG_LOCAL(t_shape,"shape")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<296>");
 	bb_list_Enumerator* t_=f_upperShapes->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<292>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<293>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<297>");
 		t_shape=dynamic_cast<bb_shape_Shape*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<294>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<298>");
 		if(t_shape->m_pos()->f_y+Float(bb_shape_Shape::g_images.At(0)->m_Height())<f_checkPosY){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<294>";
+			DBG_BLOCK();
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<296>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<300>");
 		f_upperShapes->m_Remove(t_shape);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<297>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<301>");
 		if(!f_slider->m_Match(t_shape)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<298>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<302>");
 			m_OnMissmatch(t_shape);
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<300>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<304>");
 			f_lowerShapes->m_Add4(t_shape);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<301>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<305>");
 			m_OnMatch(t_shape);
 		}
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_DetectComboTrigger(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<307>";
+	DBG_ENTER("GameScene.DetectComboTrigger")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<311>");
 	int t_lanesNotZero=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<308>";
+	DBG_LOCAL(t_lanesNotZero,"lanesNotZero")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<312>");
 	int t_hotLanes=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<309>";
+	DBG_LOCAL(t_hotLanes,"hotLanes")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<313>");
 	int t_now=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<311>";
+	DBG_LOCAL(t_now,"now")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<315>");
 	for(int t_lane=0;t_lane<f_lastMatchTime.Length();t_lane=t_lane+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<312>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_lane,"lane")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<316>");
 		if(f_lastMatchTime.At(t_lane)==0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<312>";
+			DBG_BLOCK();
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<314>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<318>");
 		t_lanesNotZero+=1;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<315>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<319>");
 		if(f_lastMatchTime.At(t_lane)+325>=t_now){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<316>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<320>");
 			t_hotLanes+=1;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<318>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<322>");
 			if(t_hotLanes>=2 && !f_comboPending){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<319>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<323>");
 				f_comboPending=true;
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<320>";
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<324>");
 				f_comboPendingSince=t_now;
 			}
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<324>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<328>");
 			if(!f_comboPending){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<324>";
+				DBG_BLOCK();
 				f_lastMatchTime.At(t_lane)=0;
 			}
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<328>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<332>");
 	if(!f_comboPending){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<329>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<333>");
 	if(f_comboPendingSince+325>t_now){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<331>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<335>");
 	int t_[]={0,0,0,0};
 	gc_assign(f_lastMatchTime,Array<int >(t_,4));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<332>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<336>");
 	f_comboPending=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<334>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<338>");
 	f_chute->f_height=bb_math_Max(75,f_chute->f_height-18*t_lanesNotZero);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<335>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<339>");
 	m_IncrementScore(15*t_lanesNotZero);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<336>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<340>");
 	f_comboFont->m_text(String(L"COMBO x ")+String(t_lanesNotZero));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<338>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<342>");
 	f_comboAnimation->m_Restart();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<339>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<343>");
 	m_layer()->m_Add4(f_comboAnimation);
-	popErr();
 }
 void bb_gamescene_GameScene::m_DropNewShapeIfRequested(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<274>";
+	DBG_ENTER("GameScene.DropNewShapeIfRequested")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<278>");
 	if(!f_severity->m_ShapeShouldBeDropped()){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<275>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<279>");
 	f_upperShapes->m_Add4((new bb_shape_Shape)->g_new(f_severity->m_RandomType(),f_severity->m_RandomLane(),f_chute));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<276>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<280>");
 	f_severity->m_ShapeDropped();
-	popErr();
 }
 void bb_gamescene_GameScene::m_RemoveLostShapes(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<253>";
+	DBG_ENTER("GameScene.RemoveLostShapes")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<257>");
 	Float t_directoySizeY=m_director()->m_size()->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<254>";
+	DBG_LOCAL(t_directoySizeY,"directoySizeY")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<258>");
 	bb_shape_Shape* t_shape=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
+	DBG_LOCAL(t_shape,"shape")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<260>");
 	bb_list_Enumerator* t_=f_lowerShapes->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<256>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<257>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<261>");
 		t_shape=dynamic_cast<bb_shape_Shape*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<258>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<262>");
 		if(t_shape->m_pos()->f_y>t_directoySizeY){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<258>";
+			DBG_BLOCK();
 			f_lowerShapes->m_Remove(t_shape);
 		}
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_RemoveFinishedErroAnimations(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<263>";
+	DBG_ENTER("GameScene.RemoveFinishedErroAnimations")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<267>");
 	bb_sprite_Sprite* t_sprite=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
+	DBG_LOCAL(t_sprite,"sprite")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<268>");
 	bb_list_Enumerator* t_=f_errorAnimations->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<264>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<265>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<269>");
 		t_sprite=dynamic_cast<bb_sprite_Sprite*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<266>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<270>");
 		if(t_sprite->m_animationIsDone()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<267>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<271>");
 			f_errorAnimations->m_Remove(t_sprite);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<268>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<272>");
 			f_falseSpriteStrack->m_Push2(t_sprite);
 		}
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<139>";
+	DBG_ENTER("GameScene.OnUpdate")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<139>");
 	bb_scene_Scene::m_OnUpdate(t_delta,t_frameTime);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<141>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<141>");
 	if(m_HandleGameOver()){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<143>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<143>");
 	if(f_collisionCheckedLastUpdate){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<144>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<144>");
 		f_collisionCheckedLastUpdate=false;
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<146>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<146>");
 		f_collisionCheckedLastUpdate=true;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<147>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<147>");
 		m_CheckShapeCollisions();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<150>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<150>");
 	m_DetectComboTrigger();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<151>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<151>");
 	f_severity->m_OnUpdate(t_delta,t_frameTime);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<152>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<152>");
 	m_DropNewShapeIfRequested();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<154>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<154>");
 	f_lastSlowUpdate+=t_frameTime;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<155>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<155>");
 	if(f_lastSlowUpdate>=FLOAT(1000.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<156>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<156>");
 		f_lastSlowUpdate=FLOAT(0.0);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<157>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<157>");
 		m_RemoveLostShapes();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<158>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<158>");
 		m_RemoveFinishedErroAnimations();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<160>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<160>");
 		if(!f_comboAnimation->m_IsPlaying()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<161>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<161>");
 			m_layer()->m_Remove(f_comboAnimation);
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<163>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<163>");
 		if(!f_newHighscoreAnimation->m_IsPlaying()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<164>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<164>");
 			m_layer()->m_Remove(f_newHighscoreAnimation);
 		}
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_StartPause(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<209>";
+	DBG_ENTER("GameScene.StartPause")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<213>");
 	f_pauseTime=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<210>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<214>");
 	m_router()->m_Goto(String(L"pause"));
-	popErr();
 }
 void bb_gamescene_GameScene::m_FastDropMatchingShapes(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<280>";
+	DBG_ENTER("GameScene.FastDropMatchingShapes")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<284>");
 	bb_shape_Shape* t_shape=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
+	DBG_LOCAL(t_shape,"shape")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<286>");
 	bb_list_Enumerator* t_=f_upperShapes->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<282>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<283>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<287>");
 		t_shape=dynamic_cast<bb_shape_Shape*>(t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<284>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<288>");
 		if(t_shape->f_isFast){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<284>";
+			DBG_BLOCK();
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<285>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<289>");
 		if(f_slider->m_Match(t_shape)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<285>";
+			DBG_BLOCK();
 			t_shape->f_isFast=true;
 		}
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<170>";
+	DBG_ENTER("GameScene.OnKeyDown")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<170>");
 	int t_1=t_event->m_code();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<171>";
+	DBG_LOCAL(t_1,"1")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<171>");
 	if(t_1==80){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<172>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<172>");
 		m_StartPause();
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<173>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<173>");
 		if(t_1==40 || t_1==65576){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<174>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<174>");
 			m_FastDropMatchingShapes();
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<175>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<175>");
 			if(t_1==37 || t_1==65573){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<176>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<176>");
 				f_slider->m_SlideLeft();
 			}else{
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<177>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<177>");
 				if(t_1==39 || t_1==65575){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<178>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<178>");
 					f_slider->m_SlideRight();
 				}
 			}
 		}
 	}
-	popErr();
+}
+void bb_gamescene_GameScene::m_OnSuspend(){
+	DBG_ENTER("GameScene.OnSuspend")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<183>");
+	m_StartPause();
 }
 void bb_gamescene_GameScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<183>";
+	DBG_ENTER("GameScene.OnTouchDown")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<187>");
 	if(f_pauseButton->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<183>";
+		DBG_BLOCK();
 		m_StartPause();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<184>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<188>");
 	if(f_slider->f_arrowRight->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<184>";
+		DBG_BLOCK();
 		f_slider->m_SlideRight();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<185>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<189>");
 	if(f_slider->f_arrowLeft->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<185>";
+		DBG_BLOCK();
 		f_slider->m_SlideLeft();
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_HandleSliderSwipe(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<226>";
+	DBG_ENTER("GameScene.HandleSliderSwipe")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<230>");
 	bb_vector2d_Vector2D* t_swipe=t_event->m_startDelta()->m_Normalize();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<227>";
+	DBG_LOCAL(t_swipe,"swipe")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<231>");
 	if(bb_math_Abs2(t_swipe->f_x)<=FLOAT(0.4)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<229>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<233>");
 	if(t_swipe->f_x<FLOAT(0.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<230>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<234>");
 		f_slider->m_SlideLeft();
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<232>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<236>");
 		f_slider->m_SlideRight();
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_HandleBackgroundSwipe(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<221>";
+	DBG_ENTER("GameScene.HandleBackgroundSwipe")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<225>");
 	bb_vector2d_Vector2D* t_swipe=t_event->m_startDelta()->m_Normalize();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<222>";
+	DBG_LOCAL(t_swipe,"swipe")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<226>");
 	if(t_swipe->f_y>FLOAT(0.2)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<222>";
+		DBG_BLOCK();
 		m_FastDropMatchingShapes();
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnTouchUp(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<189>";
+	DBG_ENTER("GameScene.OnTouchUp")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<193>");
 	if(f_ignoreFirstTouchUp){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<190>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<194>");
 		f_ignoreFirstTouchUp=false;
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<194>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<198>");
 	if(t_event->m_startPos()->f_y>=f_slider->m_pos()->f_y){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<195>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<199>");
 		m_HandleSliderSwipe(t_event);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<197>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<201>");
 		m_HandleBackgroundSwipe(t_event);
 	}
-	popErr();
 }
 void bb_gamescene_GameScene::m_OnTouchMove(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	popErr();
+	DBG_ENTER("GameScene.OnTouchMove")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_gamescene_GameScene::m_OnPauseLeaveGame(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<132>";
+	DBG_ENTER("GameScene.OnPauseLeaveGame")
+	bb_gamescene_GameScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamescene.monkey<132>");
 	f_pauseTime=0;
-	popErr();
 }
 void bb_gamescene_GameScene::mark(){
 	bb_scene_Scene::mark();
@@ -6514,64 +7385,107 @@ void bb_gamescene_GameScene::mark(){
 	gc_mark_q(f_falseSpriteStrack);
 	gc_mark_q(f_lastMatchTime);
 }
+String bb_gamescene_GameScene::debug(){
+	String t="(GameScene)\n";
+	t=bb_scene_Scene::debug()+t;
+	t+=dbg_decl("severity",&f_severity);
+	t+=dbg_decl("chute",&f_chute);
+	t+=dbg_decl("slider",&f_slider);
+	t+=dbg_decl("upperShapes",&f_upperShapes);
+	t+=dbg_decl("lowerShapes",&f_lowerShapes);
+	t+=dbg_decl("errorAnimations",&f_errorAnimations);
+	t+=dbg_decl("newHighscoreAnimation",&f_newHighscoreAnimation);
+	t+=dbg_decl("score",&f_score);
+	t+=dbg_decl("lastSlowUpdate",&f_lastSlowUpdate);
+	t+=dbg_decl("scoreFont",&f_scoreFont);
+	t+=dbg_decl("newHighscoreFont",&f_newHighscoreFont);
+	t+=dbg_decl("comboFont",&f_comboFont);
+	t+=dbg_decl("comboAnimation",&f_comboAnimation);
+	t+=dbg_decl("lastMatchTime",&f_lastMatchTime);
+	t+=dbg_decl("isNewHighscoreRecord",&f_isNewHighscoreRecord);
+	t+=dbg_decl("falseSpriteStrack",&f_falseSpriteStrack);
+	t+=dbg_decl("pauseButton",&f_pauseButton);
+	t+=dbg_decl("minHighscore",&f_minHighscore);
+	t+=dbg_decl("ignoreFirstTouchUp",&f_ignoreFirstTouchUp);
+	t+=dbg_decl("pauseTime",&f_pauseTime);
+	t+=dbg_decl("comboPending",&f_comboPending);
+	t+=dbg_decl("comboPendingSince",&f_comboPendingSince);
+	t+=dbg_decl("checkPosY",&f_checkPosY);
+	t+=dbg_decl("collisionCheckedLastUpdate",&f_collisionCheckedLastUpdate);
+	return t;
+}
 bb_gameoverscene_GameOverScene::bb_gameoverscene_GameOverScene(){
 	f_main=0;
 	f_small=0;
 }
 bb_gameoverscene_GameOverScene* bb_gameoverscene_GameOverScene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<10>";
+	DBG_ENTER("GameOverScene.new")
+	bb_gameoverscene_GameOverScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<10>");
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<10>";
-	popErr();
 	return this;
 }
 void bb_gameoverscene_GameOverScene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<19>";
+	DBG_ENTER("GameOverScene.OnCreate")
+	bb_gameoverscene_GameOverScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<19>");
 	bb_scene_Scene::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<21>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<21>");
 	gc_assign(f_main,(new bb_sprite_Sprite)->g_new(String(L"gameover_main.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<22>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<22>");
 	f_main->m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<23>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<23>");
 	f_main->m_Center(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<25>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<25>");
 	gc_assign(f_small,(new bb_sprite_Sprite)->g_new(String(L"gameover_small.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<26>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<26>");
 	f_small->m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<27>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<27>");
 	f_small->m_pos()->f_x=t_director->m_size()->f_x-f_small->m_size()->f_x;
-	popErr();
 }
 void bb_gameoverscene_GameOverScene::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<31>";
+	DBG_ENTER("GameOverScene.OnRender")
+	bb_gameoverscene_GameOverScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<31>");
 	m_router()->m_previous()->m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<32>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<32>");
 	m_RenderBlend();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<33>");
 	f_small->m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<34>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<34>");
 	f_main->m_OnRender();
-	popErr();
 }
 void bb_gameoverscene_GameOverScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<38>";
+	DBG_ENTER("GameOverScene.OnTouchDown")
+	bb_gameoverscene_GameOverScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<38>");
 	m_router()->m_Goto(String(L"menu"));
-	popErr();
 }
 void bb_gameoverscene_GameOverScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<42>";
+	DBG_ENTER("GameOverScene.OnKeyDown")
+	bb_gameoverscene_GameOverScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gameoverscene.monkey<42>");
 	m_router()->m_Goto(String(L"menu"));
-	popErr();
 }
 void bb_gameoverscene_GameOverScene::mark(){
 	bb_scene_Scene::mark();
 	gc_mark_q(f_main);
 	gc_mark_q(f_small);
+}
+String bb_gameoverscene_GameOverScene::debug(){
+	String t="(GameOverScene)\n";
+	t=bb_scene_Scene::debug()+t;
+	t+=dbg_decl("main",&f_main);
+	t+=dbg_decl("small",&f_small);
+	return t;
 }
 bb_pausescene_PauseScene::bb_pausescene_PauseScene(){
 	f_overlay=0;
@@ -6579,95 +7493,116 @@ bb_pausescene_PauseScene::bb_pausescene_PauseScene(){
 	f_quitBtn=0;
 }
 bb_pausescene_PauseScene* bb_pausescene_PauseScene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<12>";
+	DBG_ENTER("PauseScene.new")
+	bb_pausescene_PauseScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<12>");
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<12>";
-	popErr();
 	return this;
 }
 void bb_pausescene_PauseScene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<22>";
+	DBG_ENTER("PauseScene.OnCreate")
+	bb_pausescene_PauseScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<22>");
 	gc_assign(f_overlay,(new bb_sprite_Sprite)->g_new(String(L"pause.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<23>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<23>");
 	m_layer()->m_Add4(f_overlay);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<25>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<25>");
 	gc_assign(f_continueBtn,(new bb_sprite_Sprite)->g_new(String(L"01_06-continue.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<26>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<26>");
 	m_layer()->m_Add4(f_continueBtn);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<28>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<28>");
 	gc_assign(f_quitBtn,(new bb_sprite_Sprite)->g_new(String(L"01_07-quit.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<29>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<29>");
 	m_layer()->m_Add4(f_quitBtn);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<31>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<31>");
 	bb_scene_Scene::m_OnCreate(t_director);
-	popErr();
 }
 void bb_pausescene_PauseScene::m_OnEnter(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<35>";
+	DBG_ENTER("PauseScene.OnEnter")
+	bb_pausescene_PauseScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<35>");
 	f_overlay->m_Center(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<36>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<36>");
 	f_overlay->m_pos()->f_y-=f_overlay->m_size()->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<37>");
 	bb_vector2d_Vector2D* t_=f_overlay->m_pos();
 	t_->f_y=t_->f_y-FLOAT(50.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<39>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<39>");
 	f_continueBtn->m_Center(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<41>");
 	f_quitBtn->m_pos2(f_continueBtn->m_pos()->m_Copy());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<42>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<42>");
 	f_quitBtn->m_pos()->f_y+=f_continueBtn->m_size()->f_y+FLOAT(40.0);
-	popErr();
 }
 void bb_pausescene_PauseScene::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<46>";
+	DBG_ENTER("PauseScene.OnRender")
+	bb_pausescene_PauseScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<46>");
 	m_router()->m_previous()->m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<47>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<47>");
 	m_RenderBlend();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<48>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<48>");
 	bb_scene_Scene::m_OnRender();
-	popErr();
 }
 void bb_pausescene_PauseScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<52>";
+	DBG_ENTER("PauseScene.OnKeyDown")
+	bb_pausescene_PauseScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<52>");
 	int t_1=t_event->m_code();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<53>";
+	DBG_LOCAL(t_1,"1")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<53>");
 	if(t_1==27 || t_1==81){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<54>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<54>");
 		dynamic_cast<bb_gamescene_GameScene*>(m_router()->m_previous())->m_OnPauseLeaveGame();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<55>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<55>");
 		m_router()->m_Goto(String(L"menu"));
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<57>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<57>");
 		m_router()->m_Goto(m_router()->m_previousName());
 	}
-	popErr();
 }
 void bb_pausescene_PauseScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<62>";
+	DBG_ENTER("PauseScene.OnTouchDown")
+	bb_pausescene_PauseScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<62>");
 	if(f_continueBtn->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<63>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<63>");
 		m_router()->m_Goto(m_router()->m_previousName());
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<66>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<66>");
 	if(f_quitBtn->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<67>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<67>");
 		dynamic_cast<bb_gamescene_GameScene*>(m_router()->m_previous())->m_OnPauseLeaveGame();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<68>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/pausescene.monkey<68>");
 		m_router()->m_Goto(String(L"menu"));
 	}
-	popErr();
 }
 void bb_pausescene_PauseScene::mark(){
 	bb_scene_Scene::mark();
 	gc_mark_q(f_overlay);
 	gc_mark_q(f_continueBtn);
 	gc_mark_q(f_quitBtn);
+}
+String bb_pausescene_PauseScene::debug(){
+	String t="(PauseScene)\n";
+	t=bb_scene_Scene::debug()+t;
+	t+=dbg_decl("overlay",&f_overlay);
+	t+=dbg_decl("continueBtn",&f_continueBtn);
+	t+=dbg_decl("quitBtn",&f_quitBtn);
+	return t;
 }
 bb_newhighscorescene_NewHighscoreScene::bb_newhighscorescene_NewHighscoreScene(){
 	f_continueBtn=0;
@@ -6676,90 +7611,101 @@ bb_newhighscorescene_NewHighscoreScene::bb_newhighscorescene_NewHighscoreScene()
 	f_highscore=(new bb_gamehighscore_GameHighscore)->g_new();
 }
 bb_newhighscorescene_NewHighscoreScene* bb_newhighscorescene_NewHighscoreScene::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<14>";
+	DBG_ENTER("NewHighscoreScene.new")
+	bb_newhighscorescene_NewHighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<14>");
 	bb_scene_Scene::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<14>";
-	popErr();
 	return this;
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<27>";
+	DBG_ENTER("NewHighscoreScene.OnCreate")
+	bb_newhighscorescene_NewHighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<27>");
 	bb_sprite_Sprite* t_background=(new bb_sprite_Sprite)->g_new(String(L"newhighscore.png"),0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<28>";
+	DBG_LOCAL(t_background,"background")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<28>");
 	t_background->m_pos()->f_y=FLOAT(40.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<29>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<29>");
 	m_layer()->m_Add4(t_background);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<32>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<32>");
 	gc_assign(f_continueBtn,(new bb_sprite_Sprite)->g_new(String(L"01_06-continue.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<33>");
 	m_layer()->m_Add4(f_continueBtn);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<36>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<36>");
 	gc_assign(f_input,(new bb_textinput_TextInput)->g_new(String(L"CoRa"),(new bb_vector2d_Vector2D)->g_new(FLOAT(110.0),FLOAT(415.0))));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<37>");
 	gc_assign(f_input->f_color,(new bb_color_Color)->g_new(FLOAT(3.0),FLOAT(105.0),FLOAT(187.0),FLOAT(1.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<38>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<38>");
 	m_layer()->m_Add4(f_input);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<40>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<40>");
 	bb_scene_Scene::m_OnCreate(t_director);
-	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnEnter(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<45>";
+	DBG_ENTER("NewHighscoreScene.OnEnter")
+	bb_newhighscorescene_NewHighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<45>");
 	f_continueBtn->m_CenterX(m_director());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<46>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<46>");
 	f_continueBtn->m_pos()->f_y=f_input->m_pos()->f_y+FLOAT(175.0);
-	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<51>";
+	DBG_ENTER("NewHighscoreScene.OnRender")
+	bb_newhighscorescene_NewHighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<51>");
 	m_router()->m_previous()->m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<52>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<52>");
 	m_RenderBlend();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<53>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<53>");
 	bb_scene_Scene::m_OnRender();
-	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_SaveAndContinue(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<70>";
+	DBG_ENTER("NewHighscoreScene.SaveAndContinue")
+	bb_newhighscorescene_NewHighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<70>");
 	String t_level=bb_severity_CurrentSeverity()->m_ToString()+String(L" ");
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<71>";
+	DBG_LOCAL(t_level,"level")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<71>");
 	bb_statestore_StateStore::g_Load(f_highscore);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<72>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<72>");
 	f_highscore->m_Add5(t_level+f_input->m_text2(),f_score);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<73>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<73>");
 	bb_statestore_StateStore::g_Save(f_highscore);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<75>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<75>");
 	dynamic_cast<bb_highscorescene_HighscoreScene*>(m_router()->m_Get(String(L"highscore")))->f_lastScoreKey=t_level+f_input->m_text2();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<76>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<76>");
 	dynamic_cast<bb_highscorescene_HighscoreScene*>(m_router()->m_Get(String(L"highscore")))->f_lastScoreValue=f_score;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<77>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<77>");
 	m_router()->m_Goto(String(L"highscore"));
-	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<57>";
+	DBG_ENTER("NewHighscoreScene.OnKeyDown")
+	bb_newhighscorescene_NewHighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<57>");
 	bb_scene_Scene::m_OnKeyDown(t_event);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<58>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<58>");
 	if(t_event->m_code()==13){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<58>";
+		DBG_BLOCK();
 		m_SaveAndContinue();
 	}
-	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<63>";
+	DBG_ENTER("NewHighscoreScene.OnTouchDown")
+	bb_newhighscorescene_NewHighscoreScene *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<63>");
 	if(f_continueBtn->m_Collide(t_event->m_pos())){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/newhighscorescene.monkey<63>";
+		DBG_BLOCK();
 		m_SaveAndContinue();
 	}
-	popErr();
 }
 void bb_newhighscorescene_NewHighscoreScene::mark(){
 	bb_scene_Scene::mark();
@@ -6767,47 +7713,67 @@ void bb_newhighscorescene_NewHighscoreScene::mark(){
 	gc_mark_q(f_input);
 	gc_mark_q(f_highscore);
 }
+String bb_newhighscorescene_NewHighscoreScene::debug(){
+	String t="(NewHighscoreScene)\n";
+	t=bb_scene_Scene::debug()+t;
+	t+=dbg_decl("highscore",&f_highscore);
+	t+=dbg_decl("continueBtn",&f_continueBtn);
+	t+=dbg_decl("input",&f_input);
+	t+=dbg_decl("score",&f_score);
+	return t;
+}
 bb_app_App::bb_app_App(){
 }
 bb_app_App* bb_app_App::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<105>";
+	DBG_ENTER("App.new")
+	bb_app_App *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<105>");
 	gc_assign(bb_app_device,(new bb_app_AppDevice)->g_new(this));
-	popErr();
 	return this;
 }
 int bb_app_App::m_OnCreate2(){
-	pushErr();
-	popErr();
+	DBG_ENTER("App.OnCreate")
+	bb_app_App *self=this;
+	DBG_LOCAL(self,"Self")
 	return 0;
 }
 int bb_app_App::m_OnUpdate2(){
-	pushErr();
-	popErr();
+	DBG_ENTER("App.OnUpdate")
+	bb_app_App *self=this;
+	DBG_LOCAL(self,"Self")
 	return 0;
 }
 int bb_app_App::m_OnSuspend(){
-	pushErr();
-	popErr();
+	DBG_ENTER("App.OnSuspend")
+	bb_app_App *self=this;
+	DBG_LOCAL(self,"Self")
 	return 0;
 }
 int bb_app_App::m_OnResume2(){
-	pushErr();
-	popErr();
+	DBG_ENTER("App.OnResume")
+	bb_app_App *self=this;
+	DBG_LOCAL(self,"Self")
 	return 0;
 }
 int bb_app_App::m_OnRender(){
-	pushErr();
-	popErr();
+	DBG_ENTER("App.OnRender")
+	bb_app_App *self=this;
+	DBG_LOCAL(self,"Self")
 	return 0;
 }
 int bb_app_App::m_OnLoading(){
-	pushErr();
-	popErr();
+	DBG_ENTER("App.OnLoading")
+	bb_app_App *self=this;
+	DBG_LOCAL(self,"Self")
 	return 0;
 }
 void bb_app_App::mark(){
 	Object::mark();
+}
+String bb_app_App::debug(){
+	String t="(App)\n";
+	return t;
 }
 bb_director_Director::bb_director_Director(){
 	f__size=0;
@@ -6821,197 +7787,218 @@ bb_director_Director::bb_director_Director(){
 	f_deltaTimer=0;
 }
 bb_vector2d_Vector2D* bb_director_Director::m_size(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<106>";
-	popErr();
+	DBG_ENTER("Director.size")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<106>");
 	return f__size;
 }
 void bb_director_Director::m_RecalculateScale(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<126>";
+	DBG_ENTER("Director.RecalculateScale")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<126>");
 	gc_assign(f__scale,f__device->m_Copy()->m_Div(f__size));
-	popErr();
 }
 void bb_director_Director::m_size2(bb_vector2d_Vector2D* t_newSize){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<110>";
+	DBG_ENTER("Director.size")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_newSize,"newSize")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<110>");
 	gc_assign(f__size,t_newSize);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<111>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<111>");
 	gc_assign(f__center,f__size->m_Copy()->m_Div2(FLOAT(2.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<112>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<112>");
 	m_RecalculateScale();
-	popErr();
 }
 bb_director_Director* bb_director_Director::g_new(int t_width,int t_height){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<31>";
+	DBG_ENTER("Director.new")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_width,"width")
+	DBG_LOCAL(t_height,"height")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<31>");
 	bb_app_App::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<32>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<32>");
 	m_size2((new bb_vector2d_Vector2D)->g_new(Float(t_width),Float(t_height)));
-	popErr();
 	return this;
 }
 bb_director_Director* bb_director_Director::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<15>";
+	DBG_ENTER("Director.new")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<15>");
 	bb_app_App::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<15>";
-	popErr();
 	return this;
 }
 bb_inputcontroller_InputController* bb_director_Director::m_inputController(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<116>";
-	popErr();
+	DBG_ENTER("Director.inputController")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<116>");
 	return f__inputController;
 }
 void bb_director_Director::m_DispatchOnCreate(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<130>";
+	DBG_ENTER("Director.DispatchOnCreate")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<130>");
 	if(f_onCreateDispatched){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<131>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<131>");
 	if(!((f__handler)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<132>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<132>");
 	if(!f_appOnCreateCatched){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<134>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<134>");
 	f__handler->m_OnCreate(this);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<135>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<135>");
 	f_onCreateDispatched=true;
-	popErr();
 }
 void bb_director_Director::m_Run(bb_directorevents_DirectorEvents* t__handler){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<89>";
+	DBG_ENTER("Director.Run")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t__handler,"_handler")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<89>");
 	gc_assign(this->f__handler,t__handler);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<90>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<90>");
 	m_DispatchOnCreate();
-	popErr();
 }
 bb_directorevents_DirectorEvents* bb_director_Director::m_handler(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<120>";
-	popErr();
+	DBG_ENTER("Director.handler")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<120>");
 	return f__handler;
 }
 bb_vector2d_Vector2D* bb_director_Director::m_center(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<94>";
-	popErr();
+	DBG_ENTER("Director.center")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<94>");
 	return f__center;
 }
 bb_vector2d_Vector2D* bb_director_Director::m_scale(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<102>";
-	popErr();
+	DBG_ENTER("Director.scale")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<102>");
 	return f__scale;
 }
 int bb_director_Director::m_OnCreate2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<36>";
+	DBG_ENTER("Director.OnCreate")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<36>");
 	gc_assign(f__device,(new bb_vector2d_Vector2D)->g_new(Float(bb_graphics_DeviceWidth()),Float(bb_graphics_DeviceHeight())));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<37>");
 	if(!((m_size())!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<37>";
+		DBG_BLOCK();
 		m_size2(f__device->m_Copy());
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<38>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<38>");
 	m_RecalculateScale();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<40>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<40>");
 	gc_assign(m_inputController()->f_scale,m_scale());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<41>");
 	bb_random_Seed=util::GetTimestamp();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<43>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<43>");
 	gc_assign(f_deltaTimer,(new bb_deltatimer_DeltaTimer)->g_new(FLOAT(30.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<44>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<44>");
 	bb_app_SetUpdateRate(60);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<46>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<46>");
 	f_appOnCreateCatched=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<47>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<47>");
 	m_DispatchOnCreate();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<48>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<48>");
 	return 0;
 }
 int bb_director_Director::m_OnLoading(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<52>";
+	DBG_ENTER("Director.OnLoading")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<52>");
 	if((f__handler)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<52>";
+		DBG_BLOCK();
 		f__handler->m_OnLoading();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<53>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<53>");
 	return 0;
 }
 int bb_director_Director::m_OnUpdate2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<57>";
+	DBG_ENTER("Director.OnUpdate")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<57>");
 	f_deltaTimer->m_OnUpdate2();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<58>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<58>");
 	if((f__handler)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<59>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<59>");
 		f__handler->m_OnUpdate(f_deltaTimer->m_delta(),f_deltaTimer->m_frameTime());
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<60>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<60>");
 		m_inputController()->m_OnUpdate3(f__handler);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<62>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<62>");
 	return 0;
 }
 int bb_director_Director::m_OnResume2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<66>";
+	DBG_ENTER("Director.OnResume")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<66>");
 	if((f__handler)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<66>";
+		DBG_BLOCK();
 		f__handler->m_OnResume(0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<67>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<67>");
 	return 0;
 }
 int bb_director_Director::m_OnSuspend(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<71>";
+	DBG_ENTER("Director.OnSuspend")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<71>");
 	if((f__handler)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<71>";
+		DBG_BLOCK();
 		f__handler->m_OnSuspend();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<72>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<72>");
 	return 0;
 }
 int bb_director_Director::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<76>";
+	DBG_ENTER("Director.OnRender")
+	bb_director_Director *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<76>");
 	bb_graphics_PushMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<77>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<77>");
 	bb_graphics_Scale(f__scale->f_x,f__scale->f_y);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<78>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<78>");
 	bb_graphics_SetScissor(FLOAT(0.0),FLOAT(0.0),f__device->f_x,f__device->f_y);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<79>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<79>");
 	bb_graphics_Cls(FLOAT(0.0),FLOAT(0.0),FLOAT(0.0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<81>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<81>");
 	bb_graphics_PushMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<82>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<82>");
 	if((f__handler)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<82>";
+		DBG_BLOCK();
 		f__handler->m_OnRender();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<83>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<83>");
 	bb_graphics_PopMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<84>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<84>");
 	bb_graphics_PopMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<85>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/director.monkey<85>");
 	return 0;
 }
 void bb_director_Director::mark(){
@@ -7024,68 +8011,95 @@ void bb_director_Director::mark(){
 	gc_mark_q(f__handler);
 	gc_mark_q(f_deltaTimer);
 }
+String bb_director_Director::debug(){
+	String t="(Director)\n";
+	t=bb_app_App::debug()+t;
+	t+=dbg_decl("_center",&f__center);
+	t+=dbg_decl("_device",&f__device);
+	t+=dbg_decl("_inputController",&f__inputController);
+	t+=dbg_decl("_scale",&f__scale);
+	t+=dbg_decl("_size",&f__size);
+	t+=dbg_decl("deltaTimer",&f_deltaTimer);
+	t+=dbg_decl("_handler",&f__handler);
+	t+=dbg_decl("onCreateDispatched",&f_onCreateDispatched);
+	t+=dbg_decl("appOnCreateCatched",&f_appOnCreateCatched);
+	return t;
+}
 bb_list_List::bb_list_List(){
 	f__head=((new bb_list_HeadNode)->g_new());
 }
 bb_list_List* bb_list_List::g_new(){
-	pushErr();
-	popErr();
+	DBG_ENTER("List.new")
+	bb_list_List *self=this;
+	DBG_LOCAL(self,"Self")
 	return this;
 }
 bb_list_Node* bb_list_List::m_AddLast(String t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<120>";
+	DBG_ENTER("List.AddLast")
+	bb_list_List *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<120>");
 	bb_list_Node* t_=(new bb_list_Node)->g_new(f__head,f__head->f__pred,t_data);
-	popErr();
 	return t_;
 }
 bb_list_List* bb_list_List::g_new2(Array<String > t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+	DBG_ENTER("List.new")
+	bb_list_List *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<13>");
 	Array<String > t_=t_data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	int t_2=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	while(t_2<t_.Length()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+		DBG_BLOCK();
 		String t_t=t_.At(t_2);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 		t_2=t_2+1;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<14>";
+		DBG_LOCAL(t_t,"t")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<14>");
 		m_AddLast(t_t);
 	}
-	popErr();
 	return this;
 }
 bool bb_list_List::m_Equals(String t_lhs,String t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<28>";
+	DBG_ENTER("List.Equals")
+	bb_list_List *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<28>");
 	bool t_=t_lhs==t_rhs;
-	popErr();
 	return t_;
 }
 bool bb_list_List::m_Contains(String t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<54>";
+	DBG_ENTER("List.Contains")
+	bb_list_List *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<54>");
 	bb_list_Node* t_node=f__head->f__succ;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<55>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<55>");
 	while(t_node!=f__head){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<56>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<56>");
 		if(m_Equals(t_node->f__data,t_value)){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<56>";
-			popErr();
+			DBG_BLOCK();
 			return true;
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<57>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<57>");
 		t_node=t_node->f__succ;
 	}
-	popErr();
 	return false;
 }
 void bb_list_List::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
+}
+String bb_list_List::debug(){
+	String t="(List)\n";
+	t+=dbg_decl("_head",&f__head);
+	return t;
 }
 bb_list_Node::bb_list_Node(){
 	f__succ=0;
@@ -7093,24 +8107,29 @@ bb_list_Node::bb_list_Node(){
 	f__data=String();
 }
 bb_list_Node* bb_list_Node::g_new(bb_list_Node* t_succ,bb_list_Node* t_pred,String t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<199>";
+	DBG_ENTER("Node.new")
+	bb_list_Node *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_succ,"succ")
+	DBG_LOCAL(t_pred,"pred")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<199>");
 	gc_assign(f__succ,t_succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<200>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<200>");
 	gc_assign(f__pred,t_pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<201>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<201>");
 	gc_assign(f__succ->f__pred,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<202>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<202>");
 	gc_assign(f__pred->f__succ,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<203>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<203>");
 	f__data=t_data;
-	popErr();
 	return this;
 }
 bb_list_Node* bb_list_Node::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<196>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_list_Node *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<196>");
 	return this;
 }
 void bb_list_Node::mark(){
@@ -7118,111 +8137,143 @@ void bb_list_Node::mark(){
 	gc_mark_q(f__succ);
 	gc_mark_q(f__pred);
 }
+String bb_list_Node::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("_succ",&f__succ);
+	t+=dbg_decl("_pred",&f__pred);
+	t+=dbg_decl("_data",&f__data);
+	return t;
+}
 bb_list_HeadNode::bb_list_HeadNode(){
 }
 bb_list_HeadNode* bb_list_HeadNode::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<248>";
+	DBG_ENTER("HeadNode.new")
+	bb_list_HeadNode *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<248>");
 	bb_list_Node::g_new2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<249>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<249>");
 	gc_assign(f__succ,(this));
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<250>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<250>");
 	gc_assign(f__pred,(this));
-	popErr();
 	return this;
 }
 void bb_list_HeadNode::mark(){
 	bb_list_Node::mark();
+}
+String bb_list_HeadNode::debug(){
+	String t="(HeadNode)\n";
+	t=bb_list_Node::debug()+t;
+	return t;
 }
 bb_app_AppDevice::bb_app_AppDevice(){
 	f_app=0;
 	f_updateRate=0;
 }
 bb_app_AppDevice* bb_app_AppDevice::g_new(bb_app_App* t_app){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<45>";
+	DBG_ENTER("AppDevice.new")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_app,"app")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<45>");
 	gc_assign(this->f_app,t_app);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<46>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<46>");
 	bb_graphics_SetGraphicsContext((new bb_graphics_GraphicsContext)->g_new(GraphicsDevice()));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<47>");
 	bb_input_SetInputDevice(InputDevice());
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<48>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<48>");
 	bb_audio_SetAudioDevice(AudioDevice());
-	popErr();
 	return this;
 }
 bb_app_AppDevice* bb_app_AppDevice::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<42>";
-	popErr();
+	DBG_ENTER("AppDevice.new")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<42>");
 	return this;
 }
 int bb_app_AppDevice::OnCreate(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<52>";
+	DBG_ENTER("AppDevice.OnCreate")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<52>");
 	bb_graphics_SetFont(0,32);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<53>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<53>");
 	int t_=f_app->m_OnCreate2();
-	popErr();
 	return t_;
 }
 int bb_app_AppDevice::OnUpdate(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<57>";
+	DBG_ENTER("AppDevice.OnUpdate")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<57>");
 	int t_=f_app->m_OnUpdate2();
-	popErr();
 	return t_;
 }
 int bb_app_AppDevice::OnSuspend(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<61>";
+	DBG_ENTER("AppDevice.OnSuspend")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<61>");
 	int t_=f_app->m_OnSuspend();
-	popErr();
 	return t_;
 }
 int bb_app_AppDevice::OnResume(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<65>";
+	DBG_ENTER("AppDevice.OnResume")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<65>");
 	int t_=f_app->m_OnResume2();
-	popErr();
 	return t_;
 }
 int bb_app_AppDevice::OnRender(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<69>";
+	DBG_ENTER("AppDevice.OnRender")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<69>");
 	bb_graphics_BeginRender();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<70>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<70>");
 	int t_r=f_app->m_OnRender();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<71>";
+	DBG_LOCAL(t_r,"r")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<71>");
 	bb_graphics_EndRender();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<72>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<72>");
 	return t_r;
 }
 int bb_app_AppDevice::OnLoading(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<76>";
+	DBG_ENTER("AppDevice.OnLoading")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<76>");
 	bb_graphics_BeginRender();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<77>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<77>");
 	int t_r=f_app->m_OnLoading();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<78>";
+	DBG_LOCAL(t_r,"r")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<78>");
 	bb_graphics_EndRender();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<79>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<79>");
 	return t_r;
 }
 int bb_app_AppDevice::SetUpdateRate(int t_hertz){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<83>";
+	DBG_ENTER("AppDevice.SetUpdateRate")
+	bb_app_AppDevice *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_hertz,"hertz")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<83>");
 	gxtkApp::SetUpdateRate(t_hertz);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<84>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<84>");
 	f_updateRate=t_hertz;
-	popErr();
 	return 0;
 }
 void bb_app_AppDevice::mark(){
 	gxtkApp::mark();
 	gc_mark_q(f_app);
+}
+String bb_app_AppDevice::debug(){
+	String t="(AppDevice)\n";
+	t+=dbg_decl("app",&f_app);
+	t+=dbg_decl("updateRate",&f_updateRate);
+	return t;
 }
 bb_graphics_GraphicsContext::bb_graphics_GraphicsContext(){
 	f_device=0;
@@ -7250,16 +8301,19 @@ bb_graphics_GraphicsContext::bb_graphics_GraphicsContext(){
 	f_matrixStack=Array<Float >(192);
 }
 bb_graphics_GraphicsContext* bb_graphics_GraphicsContext::g_new(gxtkGraphics* t_device){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<210>";
+	DBG_ENTER("GraphicsContext.new")
+	bb_graphics_GraphicsContext *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_device,"device")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<210>");
 	gc_assign(this->f_device,t_device);
-	popErr();
 	return this;
 }
 bb_graphics_GraphicsContext* bb_graphics_GraphicsContext::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<207>";
-	popErr();
+	DBG_ENTER("GraphicsContext.new")
+	bb_graphics_GraphicsContext *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<207>");
 	return this;
 }
 void bb_graphics_GraphicsContext::mark(){
@@ -7269,28 +8323,55 @@ void bb_graphics_GraphicsContext::mark(){
 	gc_mark_q(f_font);
 	gc_mark_q(f_matrixStack);
 }
+String bb_graphics_GraphicsContext::debug(){
+	String t="(GraphicsContext)\n";
+	t+=dbg_decl("device",&f_device);
+	t+=dbg_decl("color_r",&f_color_r);
+	t+=dbg_decl("color_g",&f_color_g);
+	t+=dbg_decl("color_b",&f_color_b);
+	t+=dbg_decl("alpha",&f_alpha);
+	t+=dbg_decl("blend",&f_blend);
+	t+=dbg_decl("ix",&f_ix);
+	t+=dbg_decl("iy",&f_iy);
+	t+=dbg_decl("jx",&f_jx);
+	t+=dbg_decl("jy",&f_jy);
+	t+=dbg_decl("tx",&f_tx);
+	t+=dbg_decl("ty",&f_ty);
+	t+=dbg_decl("tformed",&f_tformed);
+	t+=dbg_decl("matDirty",&f_matDirty);
+	t+=dbg_decl("scissor_x",&f_scissor_x);
+	t+=dbg_decl("scissor_y",&f_scissor_y);
+	t+=dbg_decl("scissor_width",&f_scissor_width);
+	t+=dbg_decl("scissor_height",&f_scissor_height);
+	t+=dbg_decl("matrixStack",&f_matrixStack);
+	t+=dbg_decl("matrixSp",&f_matrixSp);
+	t+=dbg_decl("font",&f_font);
+	t+=dbg_decl("firstChar",&f_firstChar);
+	t+=dbg_decl("defaultFont",&f_defaultFont);
+	return t;
+}
 bb_graphics_GraphicsContext* bb_graphics_context;
 int bb_graphics_SetGraphicsContext(bb_graphics_GraphicsContext* t_gc){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<250>";
+	DBG_ENTER("SetGraphicsContext")
+	DBG_LOCAL(t_gc,"gc")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<250>");
 	gc_assign(bb_graphics_context,t_gc);
-	popErr();
 	return 0;
 }
 gxtkInput* bb_input_device;
 int bb_input_SetInputDevice(gxtkInput* t_dev){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/input.monkey<40>";
+	DBG_ENTER("SetInputDevice")
+	DBG_LOCAL(t_dev,"dev")
+	DBG_INFO("/Applications/Monkey/modules/mojo/input.monkey<40>");
 	gc_assign(bb_input_device,t_dev);
-	popErr();
 	return 0;
 }
 gxtkAudio* bb_audio_device;
 int bb_audio_SetAudioDevice(gxtkAudio* t_dev){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/audio.monkey<60>";
+	DBG_ENTER("SetAudioDevice")
+	DBG_LOCAL(t_dev,"dev")
+	DBG_INFO("/Applications/Monkey/modules/mojo/audio.monkey<60>");
 	gc_assign(bb_audio_device,t_dev);
-	popErr();
 	return 0;
 }
 bb_app_AppDevice* bb_app_device;
@@ -7299,128 +8380,156 @@ bb_vector2d_Vector2D::bb_vector2d_Vector2D(){
 	f_y=FLOAT(.0);
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::g_new(Float t_x,Float t_y){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<8>";
+	DBG_ENTER("Vector2D.new")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<8>");
 	this->f_x=t_x;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<9>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<9>");
 	this->f_y=t_y;
-	popErr();
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Copy(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<37>";
+	DBG_ENTER("Vector2D.Copy")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<37>");
 	bb_vector2d_Vector2D* t_=(new bb_vector2d_Vector2D)->g_new(f_x,f_y);
-	popErr();
 	return t_;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Div(bb_vector2d_Vector2D* t_v2){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<97>";
+	DBG_ENTER("Vector2D.Div")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_v2,"v2")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<97>");
 	f_x/=t_v2->f_x;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<98>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<98>");
 	f_y/=t_v2->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<99>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<99>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Div2(Float t_factor){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<103>";
+	DBG_ENTER("Vector2D.Div")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_factor,"factor")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<103>");
 	f_y/=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<104>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<104>");
 	f_x/=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<105>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<105>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Sub(bb_vector2d_Vector2D* t_v2){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<73>";
+	DBG_ENTER("Vector2D.Sub")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_v2,"v2")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<73>");
 	f_x-=t_v2->f_x;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<74>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<74>");
 	f_y-=t_v2->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<75>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<75>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Sub2(Float t_factor){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<79>";
+	DBG_ENTER("Vector2D.Sub")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_factor,"factor")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<79>");
 	f_x-=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<80>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<80>");
 	f_y-=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<81>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<81>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Add2(bb_vector2d_Vector2D* t_v2){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<61>";
+	DBG_ENTER("Vector2D.Add")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_v2,"v2")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<61>");
 	f_x+=t_v2->f_x;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<62>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<62>");
 	f_y+=t_v2->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<63>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<63>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Add3(Float t_factor){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<67>";
+	DBG_ENTER("Vector2D.Add")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_factor,"factor")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<67>");
 	f_x+=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<68>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<68>");
 	f_y+=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<69>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<69>");
 	return this;
 }
 Float bb_vector2d_Vector2D::m_Length(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<17>";
+	DBG_ENTER("Vector2D.Length")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<17>");
 	Float t_=(Float)sqrt(f_x*f_x+f_y*f_y);
-	popErr();
 	return t_;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Normalize(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<41>";
+	DBG_ENTER("Vector2D.Normalize")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<41>");
 	Float t_length=m_Length();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<42>";
+	DBG_LOCAL(t_length,"length")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<42>");
 	if(t_length==FLOAT(0.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<42>";
-		popErr();
+		DBG_BLOCK();
 		return this;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<44>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<44>");
 	f_x/=t_length;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<45>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<45>");
 	f_y/=t_length;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<47>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<47>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Mul(bb_vector2d_Vector2D* t_v2){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<85>";
+	DBG_ENTER("Vector2D.Mul")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_v2,"v2")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<85>");
 	f_x*=t_v2->f_x;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<86>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<86>");
 	f_y*=t_v2->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<87>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<87>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_vector2d_Vector2D::m_Mul2(Float t_factor){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<91>";
+	DBG_ENTER("Vector2D.Mul")
+	bb_vector2d_Vector2D *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_factor,"factor")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<91>");
 	f_x*=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<92>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<92>");
 	f_y*=t_factor;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<93>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vector2d.monkey<93>");
 	return this;
 }
 void bb_vector2d_Vector2D::mark(){
 	Object::mark();
+}
+String bb_vector2d_Vector2D::debug(){
+	String t="(Vector2D)\n";
+	t+=dbg_decl("x",&f_x);
+	t+=dbg_decl("y",&f_y);
+	return t;
 }
 bb_inputcontroller_InputController::bb_inputcontroller_InputController(){
 	f_trackKeys=false;
@@ -7438,197 +8547,234 @@ bb_inputcontroller_InputController::bb_inputcontroller_InputController(){
 	f_dispatchedKeyEvents=(new bb_set_IntSet)->g_new();
 }
 bb_inputcontroller_InputController* bb_inputcontroller_InputController::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<13>";
-	popErr();
+	DBG_ENTER("InputController.new")
+	bb_inputcontroller_InputController *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<13>");
 	return this;
 }
 void bb_inputcontroller_InputController::m_touchFingers(int t_number){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<60>";
+	DBG_ENTER("InputController.touchFingers")
+	bb_inputcontroller_InputController *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_number,"number")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<60>");
 	if(t_number>31){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<61>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<61>");
 		Error(String(L"Only 31 can be tracked."));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<63>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<63>");
 	if(((!((t_number)!=0))?1:0)>0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<64>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<64>");
 		Error(String(L"Number of fingers must be greater than 0."));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<67>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<67>");
 	f__touchFingers=t_number;
-	popErr();
 }
 void bb_inputcontroller_InputController::m_ReadTouch(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<123>";
+	DBG_ENTER("InputController.ReadTouch")
+	bb_inputcontroller_InputController *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<123>");
 	bb_vector2d_Vector2D* t_scaledVector=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<124>";
+	DBG_LOCAL(t_scaledVector,"scaledVector")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<124>");
 	bb_vector2d_Vector2D* t_diffVector=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<125>";
+	DBG_LOCAL(t_diffVector,"diffVector")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<125>");
 	bool t_lastTouchDown=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<127>";
+	DBG_LOCAL(t_lastTouchDown,"lastTouchDown")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<127>");
 	for(int t_i=0;t_i<f__touchFingers;t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<128>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<128>");
 		t_lastTouchDown=f_isTouchDown.At(t_i);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<129>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<129>");
 		f_isTouchDown.At(t_i)=((bb_input_TouchDown(t_i))!=0);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<131>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<131>");
 		if(!f_isTouchDown.At(t_i) && !t_lastTouchDown){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<131>";
+			DBG_BLOCK();
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<133>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<133>");
 		if(f_touchEvents.At(t_i)==0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<134>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<134>");
 			f_touchDownDispatched.At(t_i)=false;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<135>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<135>");
 			gc_assign(f_touchEvents.At(t_i),(new bb_touchevent_TouchEvent)->g_new(t_i));
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<138>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<138>");
 		t_scaledVector=((new bb_vector2d_Vector2D)->g_new(bb_input_TouchX(t_i),bb_input_TouchY(t_i)))->m_Div(f_scale);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<139>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<139>");
 		t_diffVector=t_scaledVector->m_Copy()->m_Sub(f_touchEvents.At(t_i)->m_prevPos());
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<141>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<141>");
 		if(t_diffVector->m_Length()>=f_touchMinDistance){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<142>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<142>");
 			f_touchEvents.At(t_i)->m_Add2(t_scaledVector);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<143>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<143>");
 			if(f_touchRetainSize>-1){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<143>";
+				DBG_BLOCK();
 				f_touchEvents.At(t_i)->m_Trim(f_touchRetainSize);
 			}
 		}
 	}
-	popErr();
 }
 void bb_inputcontroller_InputController::m_ProcessTouch(bb_directorevents_DirectorEvents* t_handler){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<107>";
+	DBG_ENTER("InputController.ProcessTouch")
+	bb_inputcontroller_InputController *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_handler,"handler")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<107>");
 	for(int t_i=0;t_i<f__touchFingers;t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<108>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<108>");
 		if(f_touchEvents.At(t_i)==0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<108>";
+			DBG_BLOCK();
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<110>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<110>");
 		if(!f_touchDownDispatched.At(t_i)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<111>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<111>");
 			t_handler->m_OnTouchDown(f_touchEvents.At(t_i)->m_Copy());
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<112>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<112>");
 			f_touchDownDispatched.At(t_i)=true;
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<113>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<113>");
 			if(!f_isTouchDown.At(t_i)){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<114>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<114>");
 				t_handler->m_OnTouchUp(f_touchEvents.At(t_i));
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<115>";
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<115>");
 				f_touchEvents.At(t_i)=0;
 			}else{
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<117>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<117>");
 				t_handler->m_OnTouchMove(f_touchEvents.At(t_i));
 			}
 		}
 	}
-	popErr();
 }
 void bb_inputcontroller_InputController::m_ReadKeys(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<91>";
+	DBG_ENTER("InputController.ReadKeys")
+	bb_inputcontroller_InputController *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<91>");
 	f_keysActive->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<92>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<92>");
 	int t_charCode=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<103>";
+	DBG_LOCAL(t_charCode,"charCode")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<103>");
 	do{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<95>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<95>");
 		t_charCode=bb_input_GetChar();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<96>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<96>");
 		if(!((t_charCode)!=0)){
-			popErr();
+			DBG_BLOCK();
 			return;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<98>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<98>");
 		f_keysActive->m_Insert4(t_charCode);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<99>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<99>");
 		if(!f_keyEvents->m_Contains2(t_charCode)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<100>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<100>");
 			f_keyEvents->m_Add6(t_charCode,(new bb_keyevent_KeyEvent)->g_new(t_charCode));
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<101>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<101>");
 			f_dispatchedKeyEvents->m_Remove4(t_charCode);
 		}
 	}while(!(false));
 }
 void bb_inputcontroller_InputController::m_ProcessKeys(bb_directorevents_DirectorEvents* t_handler){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<73>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<73>";
+	DBG_ENTER("InputController.ProcessKeys")
+	bb_inputcontroller_InputController *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_handler,"handler")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<73>");
 	bb_map_ValueEnumerator* t_=f_keyEvents->m_Values()->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<73>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<73>";
+		DBG_BLOCK();
 		bb_keyevent_KeyEvent* t_event=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<74>";
+		DBG_LOCAL(t_event,"event")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<74>");
 		if(!f_dispatchedKeyEvents->m_Contains2(t_event->m_code())){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<75>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<75>");
 			t_handler->m_OnKeyDown(t_event);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<76>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<76>");
 			f_dispatchedKeyEvents->m_Insert4(t_event->m_code());
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<77>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<77>");
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<80>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<80>");
 		if(!f_keysActive->m_Contains2(t_event->m_code())){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<81>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<81>");
 			t_handler->m_OnKeyUp(t_event);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<82>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<82>");
 			f_dispatchedKeyEvents->m_Remove4(t_event->m_code());
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<83>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<83>");
 			f_keyEvents->m_Remove4(t_event->m_code());
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<85>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<85>");
 			t_handler->m_OnKeyPress(t_event);
 		}
 	}
-	popErr();
 }
 void bb_inputcontroller_InputController::m_OnUpdate3(bb_directorevents_DirectorEvents* t_handler){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<36>";
+	DBG_ENTER("InputController.OnUpdate")
+	bb_inputcontroller_InputController *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_handler,"handler")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<36>");
 	if(f_trackTouch){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<37>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<37>");
 		m_ReadTouch();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<38>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<38>");
 		m_ProcessTouch(t_handler);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<41>");
 	if(f_trackKeys){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<42>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<42>");
 		if(!f_keyboardEnabled){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<43>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<43>");
 			f_keyboardEnabled=true;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<44>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<44>");
 			bb_input_EnableKeyboard();
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<46>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<46>");
 		m_ReadKeys();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<47>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<47>");
 		m_ProcessKeys(t_handler);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<49>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<49>");
 		if(f_keyboardEnabled){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<50>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<50>");
 			f_keyboardEnabled=false;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<51>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<51>");
 			bb_input_DisableKeyboard();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<52>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<52>");
 			f_keysActive->m_Clear();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<53>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<53>");
 			f_keyEvents->m_Clear();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<54>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/inputcontroller.monkey<54>");
 			f_dispatchedKeyEvents->m_Clear();
 		}
 	}
-	popErr();
 }
 void bb_inputcontroller_InputController::mark(){
 	Object::mark();
@@ -7640,411 +8786,472 @@ void bb_inputcontroller_InputController::mark(){
 	gc_mark_q(f_keyEvents);
 	gc_mark_q(f_dispatchedKeyEvents);
 }
+String bb_inputcontroller_InputController::debug(){
+	String t="(InputController)\n";
+	t+=dbg_decl("_touchFingers",&f__touchFingers);
+	t+=dbg_decl("isTouchDown",&f_isTouchDown);
+	t+=dbg_decl("touchDownDispatched",&f_touchDownDispatched);
+	t+=dbg_decl("touchEvents",&f_touchEvents);
+	t+=dbg_decl("keyboardEnabled",&f_keyboardEnabled);
+	t+=dbg_decl("keyEvents",&f_keyEvents);
+	t+=dbg_decl("keysActive",&f_keysActive);
+	t+=dbg_decl("dispatchedKeyEvents",&f_dispatchedKeyEvents);
+	t+=dbg_decl("scale",&f_scale);
+	t+=dbg_decl("trackKeys",&f_trackKeys);
+	t+=dbg_decl("trackTouch",&f_trackTouch);
+	t+=dbg_decl("touchMinDistance",&f_touchMinDistance);
+	t+=dbg_decl("touchRetainSize",&f_touchRetainSize);
+	return t;
+}
 int bbMain(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<28>";
+	DBG_ENTER("Main")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<28>");
 	bb_router_Router* t_router=(new bb_router_Router)->g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<29>";
+	DBG_LOCAL(t_router,"router")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<29>");
 	t_router->m_Add(String(L"intro"),((new bb_introscene_IntroScene)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<30>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<30>");
 	t_router->m_Add(String(L"menu"),((new bb_menuscene_MenuScene)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<31>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<31>");
 	t_router->m_Add(String(L"highscore"),((new bb_highscorescene_HighscoreScene)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<32>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<32>");
 	t_router->m_Add(String(L"game"),((new bb_gamescene_GameScene)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<33>");
 	t_router->m_Add(String(L"gameover"),((new bb_gameoverscene_GameOverScene)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<34>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<34>");
 	t_router->m_Add(String(L"pause"),((new bb_pausescene_PauseScene)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<35>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<35>");
 	t_router->m_Add(String(L"newhighscore"),((new bb_newhighscorescene_NewHighscoreScene)->g_new()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<37>");
 	t_router->m_Goto(String(L"menu"));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<42>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<42>");
 	bb_director_Director* t_director=(new bb_director_Director)->g_new(640,960);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<44>";
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<44>");
 	t_director->m_inputController()->f_trackKeys=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<46>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<46>");
 	t_director->m_inputController()->f_trackTouch=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<47>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<47>");
 	t_director->m_inputController()->m_touchFingers(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<48>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<48>");
 	t_director->m_inputController()->f_touchRetainSize=25;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<49>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<49>");
 	t_director->m_Run(t_router);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<50>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.monkey<50>");
 	return 0;
 }
 bb_fanout_FanOut::bb_fanout_FanOut(){
 	f_objects=(new bb_list_List2)->g_new();
 }
 bb_fanout_FanOut* bb_fanout_FanOut::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<12>";
-	popErr();
+	DBG_ENTER("FanOut.new")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<12>");
 	return this;
 }
 void bb_fanout_FanOut::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<40>";
+	DBG_ENTER("FanOut.OnCreate")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<40>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<41>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<41>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<41>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<41>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<42>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<42>");
 		t_obj->m_OnCreate(t_director);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_Add4(bb_directorevents_DirectorEvents* t_obj){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<20>";
+	DBG_ENTER("FanOut.Add")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_obj,"obj")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<20>");
 	f_objects->m_AddLast2(t_obj);
-	popErr();
 }
 void bb_fanout_FanOut::m_Remove(bb_directorevents_DirectorEvents* t_obj){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<32>";
+	DBG_ENTER("FanOut.Remove")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_obj,"obj")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<32>");
 	f_objects->m_RemoveEach(t_obj);
-	popErr();
 }
 void bb_fanout_FanOut::m_Clear(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<28>";
+	DBG_ENTER("FanOut.Clear")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<28>");
 	f_objects->m_Clear();
-	popErr();
 }
 void bb_fanout_FanOut::m_OnLoading(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<47>";
+	DBG_ENTER("FanOut.OnLoading")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<47>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<48>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<48>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<48>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<48>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<48>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<49>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<49>");
 		t_obj->m_OnLoading();
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<54>";
+	DBG_ENTER("FanOut.OnUpdate")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<54>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<55>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<55>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<55>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<55>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<55>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<56>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<56>");
 		t_obj->m_OnUpdate(t_delta,t_frameTime);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<61>";
+	DBG_ENTER("FanOut.OnRender")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<61>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<62>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<62>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<62>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<62>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<62>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<63>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<63>");
 		t_obj->m_OnRender();
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnSuspend(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<68>";
+	DBG_ENTER("FanOut.OnSuspend")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<68>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<69>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<69>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<69>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<69>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<69>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<70>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<70>");
 		t_obj->m_OnSuspend();
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnResume(int t_delta){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<75>";
+	DBG_ENTER("FanOut.OnResume")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<75>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<76>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<76>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<76>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<76>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<76>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<77>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<77>");
 		t_obj->m_OnResume(t_delta);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnKeyDown(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<82>";
+	DBG_ENTER("FanOut.OnKeyDown")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<82>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<83>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<83>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<83>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<83>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<83>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<84>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<84>");
 		t_obj->m_OnKeyDown(t_event);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnKeyPress(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<89>";
+	DBG_ENTER("FanOut.OnKeyPress")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<89>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<90>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<90>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<90>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<90>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<90>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<91>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<91>");
 		t_obj->m_OnKeyPress(t_event);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnKeyUp(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<96>";
+	DBG_ENTER("FanOut.OnKeyUp")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<96>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<97>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<97>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<97>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<97>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<97>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<98>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<98>");
 		t_obj->m_OnKeyUp(t_event);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<103>";
+	DBG_ENTER("FanOut.OnTouchDown")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<103>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<104>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<104>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<104>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<104>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<104>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<105>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<105>");
 		t_obj->m_OnTouchDown(t_event);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnTouchMove(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<110>";
+	DBG_ENTER("FanOut.OnTouchMove")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<110>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<111>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<111>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<111>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<111>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<111>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<112>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<112>");
 		t_obj->m_OnTouchMove(t_event);
 	}
-	popErr();
 }
 void bb_fanout_FanOut::m_OnTouchUp(bb_touchevent_TouchEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<117>";
+	DBG_ENTER("FanOut.OnTouchUp")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<117>");
 	if(!((f_objects)!=0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<118>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<118>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<118>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<118>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<118>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<119>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<119>");
 		t_obj->m_OnTouchUp(t_event);
 	}
-	popErr();
 }
 int bb_fanout_FanOut::m_Count(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<24>";
+	DBG_ENTER("FanOut.Count")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<24>");
 	int t_=f_objects->m_Count();
-	popErr();
 	return t_;
 }
 bb_list_Enumerator* bb_fanout_FanOut::m_ObjectEnumerator(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<36>";
+	DBG_ENTER("FanOut.ObjectEnumerator")
+	bb_fanout_FanOut *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fanout.monkey<36>");
 	bb_list_Enumerator* t_=f_objects->m_ObjectEnumerator();
-	popErr();
 	return t_;
 }
 void bb_fanout_FanOut::mark(){
 	Object::mark();
 	gc_mark_q(f_objects);
 }
+String bb_fanout_FanOut::debug(){
+	String t="(FanOut)\n";
+	t+=dbg_decl("objects",&f_objects);
+	return t;
+}
 bb_list_List2::bb_list_List2(){
 	f__head=((new bb_list_HeadNode2)->g_new());
 }
 bb_list_List2* bb_list_List2::g_new(){
-	pushErr();
-	popErr();
+	DBG_ENTER("List.new")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
 	return this;
 }
 bb_list_Node2* bb_list_List2::m_AddLast2(bb_directorevents_DirectorEvents* t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<120>";
+	DBG_ENTER("List.AddLast")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<120>");
 	bb_list_Node2* t_=(new bb_list_Node2)->g_new(f__head,f__head->f__pred,t_data);
-	popErr();
 	return t_;
 }
 bb_list_List2* bb_list_List2::g_new2(Array<bb_directorevents_DirectorEvents* > t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+	DBG_ENTER("List.new")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<13>");
 	Array<bb_directorevents_DirectorEvents* > t_=t_data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	int t_2=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	while(t_2<t_.Length()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_t=t_.At(t_2);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 		t_2=t_2+1;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<14>";
+		DBG_LOCAL(t_t,"t")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<14>");
 		m_AddLast2(t_t);
 	}
-	popErr();
 	return this;
 }
 bb_list_Enumerator* bb_list_List2::m_ObjectEnumerator(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<124>";
+	DBG_ENTER("List.ObjectEnumerator")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<124>");
 	bb_list_Enumerator* t_=(new bb_list_Enumerator)->g_new(this);
-	popErr();
 	return t_;
 }
 bool bb_list_List2::m_Equals2(bb_directorevents_DirectorEvents* t_lhs,bb_directorevents_DirectorEvents* t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<28>";
+	DBG_ENTER("List.Equals")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<28>");
 	bool t_=t_lhs==t_rhs;
-	popErr();
 	return t_;
 }
 int bb_list_List2::m_RemoveEach(bb_directorevents_DirectorEvents* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<107>";
+	DBG_ENTER("List.RemoveEach")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<107>");
 	bb_list_Node2* t_node=f__head->f__succ;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<108>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<108>");
 	while(t_node!=f__head){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<109>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<109>");
 		bb_list_Node2* t_succ=t_node->f__succ;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<110>";
+		DBG_LOCAL(t_succ,"succ")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<110>");
 		if(m_Equals2(t_node->f__data,t_value)){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<110>";
+			DBG_BLOCK();
 			t_node->m_Remove2();
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<111>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<111>");
 		t_node=t_succ;
 	}
-	popErr();
 	return 0;
 }
 int bb_list_List2::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<36>";
+	DBG_ENTER("List.Clear")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<36>");
 	gc_assign(f__head->f__succ,f__head);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<37>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<37>");
 	gc_assign(f__head->f__pred,f__head);
-	popErr();
 	return 0;
 }
 int bb_list_List2::m_Count(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
+	DBG_ENTER("List.Count")
+	bb_list_List2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<41>");
 	int t_n=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
 	bb_list_Node2* t_node=f__head->f__succ;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<42>";
+	DBG_LOCAL(t_n,"n")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<42>");
 	while(t_node!=f__head){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<43>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<43>");
 		t_node=t_node->f__succ;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<44>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<44>");
 		t_n+=1;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<46>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<46>");
 	return t_n;
 }
 void bb_list_List2::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
+}
+String bb_list_List2::debug(){
+	String t="(List)\n";
+	t+=dbg_decl("_head",&f__head);
+	return t;
 }
 bb_list_Node2::bb_list_Node2(){
 	f__succ=0;
@@ -8052,38 +9259,44 @@ bb_list_Node2::bb_list_Node2(){
 	f__data=0;
 }
 bb_list_Node2* bb_list_Node2::g_new(bb_list_Node2* t_succ,bb_list_Node2* t_pred,bb_directorevents_DirectorEvents* t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<199>";
+	DBG_ENTER("Node.new")
+	bb_list_Node2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_succ,"succ")
+	DBG_LOCAL(t_pred,"pred")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<199>");
 	gc_assign(f__succ,t_succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<200>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<200>");
 	gc_assign(f__pred,t_pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<201>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<201>");
 	gc_assign(f__succ->f__pred,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<202>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<202>");
 	gc_assign(f__pred->f__succ,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<203>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<203>");
 	gc_assign(f__data,t_data);
-	popErr();
 	return this;
 }
 bb_list_Node2* bb_list_Node2::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<196>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_list_Node2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<196>");
 	return this;
 }
 int bb_list_Node2::m_Remove2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+	DBG_ENTER("Node.Remove")
+	bb_list_Node2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<212>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<214>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<214>");
 	gc_assign(f__succ->f__pred,f__pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<215>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<215>");
 	gc_assign(f__pred->f__succ,f__succ);
-	popErr();
 	return 0;
 }
 void bb_list_Node2::mark(){
@@ -8092,67 +9305,93 @@ void bb_list_Node2::mark(){
 	gc_mark_q(f__pred);
 	gc_mark_q(f__data);
 }
+String bb_list_Node2::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("_succ",&f__succ);
+	t+=dbg_decl("_pred",&f__pred);
+	t+=dbg_decl("_data",&f__data);
+	return t;
+}
 bb_list_HeadNode2::bb_list_HeadNode2(){
 }
 bb_list_HeadNode2* bb_list_HeadNode2::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<248>";
+	DBG_ENTER("HeadNode.new")
+	bb_list_HeadNode2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<248>");
 	bb_list_Node2::g_new2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<249>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<249>");
 	gc_assign(f__succ,(this));
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<250>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<250>");
 	gc_assign(f__pred,(this));
-	popErr();
 	return this;
 }
 void bb_list_HeadNode2::mark(){
 	bb_list_Node2::mark();
+}
+String bb_list_HeadNode2::debug(){
+	String t="(HeadNode)\n";
+	t=bb_list_Node2::debug()+t;
+	return t;
 }
 bb_list_Enumerator::bb_list_Enumerator(){
 	f__list=0;
 	f__curr=0;
 }
 bb_list_Enumerator* bb_list_Enumerator::g_new(bb_list_List2* t_list){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<264>";
+	DBG_ENTER("Enumerator.new")
+	bb_list_Enumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_list,"list")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<264>");
 	gc_assign(f__list,t_list);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<265>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<265>");
 	gc_assign(f__curr,t_list->f__head->f__succ);
-	popErr();
 	return this;
 }
 bb_list_Enumerator* bb_list_Enumerator::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<261>";
-	popErr();
+	DBG_ENTER("Enumerator.new")
+	bb_list_Enumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<261>");
 	return this;
 }
 bool bb_list_Enumerator::m_HasNext(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<269>";
+	DBG_ENTER("Enumerator.HasNext")
+	bb_list_Enumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<269>");
 	while(f__curr->f__succ->f__pred!=f__curr){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<270>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<270>");
 		gc_assign(f__curr,f__curr->f__succ);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<272>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<272>");
 	bool t_=f__curr!=f__list->f__head;
-	popErr();
 	return t_;
 }
 bb_directorevents_DirectorEvents* bb_list_Enumerator::m_NextObject(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<276>";
+	DBG_ENTER("Enumerator.NextObject")
+	bb_list_Enumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<276>");
 	bb_directorevents_DirectorEvents* t_data=f__curr->f__data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<277>";
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<277>");
 	gc_assign(f__curr,f__curr->f__succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<278>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<278>");
 	return t_data;
 }
 void bb_list_Enumerator::mark(){
 	Object::mark();
 	gc_mark_q(f__list);
 	gc_mark_q(f__curr);
+}
+String bb_list_Enumerator::debug(){
+	String t="(Enumerator)\n";
+	t+=dbg_decl("_list",&f__list);
+	t+=dbg_decl("_curr",&f__curr);
+	return t;
 }
 bb_graphics_Image::bb_graphics_Image(){
 	f_surface=0;
@@ -8166,168 +9405,198 @@ bb_graphics_Image::bb_graphics_Image(){
 }
 int bb_graphics_Image::g_DefaultFlags;
 bb_graphics_Image* bb_graphics_Image::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<64>";
-	popErr();
+	DBG_ENTER("Image.new")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<64>");
 	return this;
 }
 int bb_graphics_Image::m_SetHandle(Float t_tx,Float t_ty){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<110>";
+	DBG_ENTER("Image.SetHandle")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_tx,"tx")
+	DBG_LOCAL(t_ty,"ty")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<110>");
 	this->f_tx=t_tx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<111>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<111>");
 	this->f_ty=t_ty;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<112>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<112>");
 	this->f_flags=this->f_flags&-2;
-	popErr();
 	return 0;
 }
 int bb_graphics_Image::m_ApplyFlags(int t_iflags){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<180>";
+	DBG_ENTER("Image.ApplyFlags")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_iflags,"iflags")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<180>");
 	f_flags=t_iflags;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<182>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<182>");
 	if((f_flags&2)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<183>";
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<183>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<183>");
 		Array<bb_graphics_Frame* > t_=f_frames;
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<183>";
 		int t_2=0;
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<183>";
 		while(t_2<t_.Length()){
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<183>";
+			DBG_BLOCK();
 			bb_graphics_Frame* t_f=t_.At(t_2);
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<183>";
 			t_2=t_2+1;
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<184>";
+			DBG_LOCAL(t_f,"f")
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<184>");
 			t_f->f_x+=1;
 		}
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<186>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<186>");
 		f_width-=2;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<189>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<189>");
 	if((f_flags&4)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<190>";
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<190>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<190>");
 		Array<bb_graphics_Frame* > t_3=f_frames;
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<190>";
 		int t_4=0;
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<190>";
 		while(t_4<t_3.Length()){
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<190>";
+			DBG_BLOCK();
 			bb_graphics_Frame* t_f2=t_3.At(t_4);
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<190>";
 			t_4=t_4+1;
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<191>";
+			DBG_LOCAL(t_f2,"f")
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<191>");
 			t_f2->f_y+=1;
 		}
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<193>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<193>");
 		f_height-=2;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<196>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<196>");
 	if((f_flags&1)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<197>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<197>");
 		m_SetHandle(Float(f_width)/FLOAT(2.0),Float(f_height)/FLOAT(2.0));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<200>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<200>");
 	if(f_frames.Length()==1 && f_frames.At(0)->f_x==0 && f_frames.At(0)->f_y==0 && f_width==f_surface->Width() && f_height==f_surface->Height()){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<201>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<201>");
 		f_flags|=65536;
 	}
-	popErr();
 	return 0;
 }
 bb_graphics_Image* bb_graphics_Image::m_Load(String t_path,int t_nframes,int t_iflags){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<133>";
+	DBG_ENTER("Image.Load")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_path,"path")
+	DBG_LOCAL(t_nframes,"nframes")
+	DBG_LOCAL(t_iflags,"iflags")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<133>");
 	gc_assign(f_surface,bb_graphics_context->f_device->LoadSurface(t_path));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<134>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<134>");
 	if(!((f_surface)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<134>";
-		popErr();
+		DBG_BLOCK();
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<136>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<136>");
 	f_width=f_surface->Width()/t_nframes;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<137>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<137>");
 	f_height=f_surface->Height();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<139>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<139>");
 	gc_assign(f_frames,Array<bb_graphics_Frame* >(t_nframes));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<141>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<141>");
 	for(int t_i=0;t_i<t_nframes;t_i=t_i+1){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<142>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<142>");
 		gc_assign(f_frames.At(t_i),(new bb_graphics_Frame)->g_new(t_i*f_width,0));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<145>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<145>");
 	m_ApplyFlags(t_iflags);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<147>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<147>");
 	return this;
 }
 bb_graphics_Image* bb_graphics_Image::m_Grab(int t_x,int t_y,int t_iwidth,int t_iheight,int t_nframes,int t_iflags,bb_graphics_Image* t_source){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<152>";
+	DBG_ENTER("Image.Grab")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_iwidth,"iwidth")
+	DBG_LOCAL(t_iheight,"iheight")
+	DBG_LOCAL(t_nframes,"nframes")
+	DBG_LOCAL(t_iflags,"iflags")
+	DBG_LOCAL(t_source,"source")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<152>");
 	gc_assign(this->f_source,t_source);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<153>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<153>");
 	gc_assign(f_surface,t_source->f_surface);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<155>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<155>");
 	f_width=t_iwidth;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<156>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<156>");
 	f_height=t_iheight;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<158>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<158>");
 	gc_assign(f_frames,Array<bb_graphics_Frame* >(t_nframes));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<160>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<160>");
 	int t_ix=t_x;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<160>";
 	int t_iy=t_y;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<162>";
+	DBG_LOCAL(t_ix,"ix")
+	DBG_LOCAL(t_iy,"iy")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<162>");
 	for(int t_i=0;t_i<t_nframes;t_i=t_i+1){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<163>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<163>");
 		if(t_ix+f_width>t_source->f_width){
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<164>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<164>");
 			t_ix=0;
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<165>";
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<165>");
 			t_iy+=f_height;
 		}
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<167>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<167>");
 		if(t_ix+f_width>t_source->f_width || t_iy+f_height>t_source->f_height){
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<168>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<168>");
 			Error(String(L"Image frame outside surface"));
 		}
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<170>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<170>");
 		gc_assign(f_frames.At(t_i),(new bb_graphics_Frame)->g_new(t_ix+t_source->f_frames.At(0)->f_x,t_iy+t_source->f_frames.At(0)->f_y));
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<171>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<171>");
 		t_ix+=f_width;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<174>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<174>");
 	m_ApplyFlags(t_iflags);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<176>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<176>");
 	return this;
 }
 bb_graphics_Image* bb_graphics_Image::m_GrabImage(int t_x,int t_y,int t_width,int t_height,int t_frames,int t_flags){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<105>";
+	DBG_ENTER("Image.GrabImage")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_width,"width")
+	DBG_LOCAL(t_height,"height")
+	DBG_LOCAL(t_frames,"frames")
+	DBG_LOCAL(t_flags,"flags")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<105>");
 	if(this->f_frames.Length()!=1){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<105>";
-		popErr();
+		DBG_BLOCK();
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<106>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<106>");
 	bb_graphics_Image* t_=((new bb_graphics_Image)->g_new())->m_Grab(t_x,t_y,t_width,t_height,t_frames,t_flags,this);
-	popErr();
 	return t_;
 }
 int bb_graphics_Image::m_Width(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<77>";
-	popErr();
+	DBG_ENTER("Image.Width")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<77>");
 	return f_width;
 }
 int bb_graphics_Image::m_Height(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<81>";
-	popErr();
+	DBG_ENTER("Image.Height")
+	bb_graphics_Image *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<81>");
 	return f_height;
 }
 void bb_graphics_Image::mark(){
@@ -8336,47 +9605,76 @@ void bb_graphics_Image::mark(){
 	gc_mark_q(f_frames);
 	gc_mark_q(f_source);
 }
+String bb_graphics_Image::debug(){
+	String t="(Image)\n";
+	t+=dbg_decl("DefaultFlags",&bb_graphics_Image::g_DefaultFlags);
+	t+=dbg_decl("source",&f_source);
+	t+=dbg_decl("surface",&f_surface);
+	t+=dbg_decl("width",&f_width);
+	t+=dbg_decl("height",&f_height);
+	t+=dbg_decl("flags",&f_flags);
+	t+=dbg_decl("frames",&f_frames);
+	t+=dbg_decl("tx",&f_tx);
+	t+=dbg_decl("ty",&f_ty);
+	return t;
+}
 bb_graphics_Frame::bb_graphics_Frame(){
 	f_x=0;
 	f_y=0;
 }
 bb_graphics_Frame* bb_graphics_Frame::g_new(int t_x,int t_y){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<56>";
+	DBG_ENTER("Frame.new")
+	bb_graphics_Frame *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<56>");
 	this->f_x=t_x;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<57>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<57>");
 	this->f_y=t_y;
-	popErr();
 	return this;
 }
 bb_graphics_Frame* bb_graphics_Frame::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<51>";
-	popErr();
+	DBG_ENTER("Frame.new")
+	bb_graphics_Frame *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<51>");
 	return this;
 }
 void bb_graphics_Frame::mark(){
 	Object::mark();
 }
+String bb_graphics_Frame::debug(){
+	String t="(Frame)\n";
+	t+=dbg_decl("x",&f_x);
+	t+=dbg_decl("y",&f_y);
+	return t;
+}
 bb_graphics_Image* bb_graphics_LoadImage(String t_path,int t_frameCount,int t_flags){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<277>";
+	DBG_ENTER("LoadImage")
+	DBG_LOCAL(t_path,"path")
+	DBG_LOCAL(t_frameCount,"frameCount")
+	DBG_LOCAL(t_flags,"flags")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<277>");
 	bb_graphics_Image* t_=((new bb_graphics_Image)->g_new())->m_Load(t_path,t_frameCount,t_flags);
-	popErr();
 	return t_;
 }
 bb_graphics_Image* bb_graphics_LoadImage2(String t_path,int t_frameWidth,int t_frameHeight,int t_frameCount,int t_flags){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<281>";
+	DBG_ENTER("LoadImage")
+	DBG_LOCAL(t_path,"path")
+	DBG_LOCAL(t_frameWidth,"frameWidth")
+	DBG_LOCAL(t_frameHeight,"frameHeight")
+	DBG_LOCAL(t_frameCount,"frameCount")
+	DBG_LOCAL(t_flags,"flags")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<281>");
 	bb_graphics_Image* t_atlas=((new bb_graphics_Image)->g_new())->m_Load(t_path,1,0);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<282>";
+	DBG_LOCAL(t_atlas,"atlas")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<282>");
 	if((t_atlas)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<282>";
+		DBG_BLOCK();
 		bb_graphics_Image* t_=t_atlas->m_GrabImage(0,0,t_frameWidth,t_frameHeight,t_frameCount,t_flags);
-		popErr();
 		return t_;
 	}
-	popErr();
 	return 0;
 }
 bb_baseobject_BaseObject::bb_baseobject_BaseObject(){
@@ -8385,77 +9683,96 @@ bb_baseobject_BaseObject::bb_baseobject_BaseObject(){
 	f__center=0;
 }
 bb_baseobject_BaseObject* bb_baseobject_BaseObject::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<12>";
+	DBG_ENTER("BaseObject.new")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<12>");
 	bb_partial_Partial::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<12>";
-	popErr();
 	return this;
 }
 bb_vector2d_Vector2D* bb_baseobject_BaseObject::m_pos(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<34>";
+	DBG_ENTER("BaseObject.pos")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<34>");
 	if(f__pos==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<34>";
+		DBG_BLOCK();
 		Error(String(L"Position not set yet."));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<35>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<35>");
 	return f__pos;
 }
 void bb_baseobject_BaseObject::m_pos2(bb_vector2d_Vector2D* t_newPos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<39>";
+	DBG_ENTER("BaseObject.pos")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_newPos,"newPos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<39>");
 	gc_assign(f__pos,t_newPos);
-	popErr();
 }
 bb_vector2d_Vector2D* bb_baseobject_BaseObject::m_size(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<43>";
+	DBG_ENTER("BaseObject.size")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<43>");
 	if(f__size==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<43>";
+		DBG_BLOCK();
 		Error(String(L"Size not set yet."));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<44>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<44>");
 	return f__size;
 }
 void bb_baseobject_BaseObject::m_size2(bb_vector2d_Vector2D* t_newSize){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<48>";
+	DBG_ENTER("BaseObject.size")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_newSize,"newSize")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<48>");
 	gc_assign(f__size,t_newSize);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<49>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<49>");
 	gc_assign(f__center,t_newSize->m_Copy()->m_Div2(FLOAT(2.0)));
-	popErr();
 }
 bb_vector2d_Vector2D* bb_baseobject_BaseObject::m_center(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<53>";
+	DBG_ENTER("BaseObject.center")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<53>");
 	if(f__center==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<53>";
+		DBG_BLOCK();
 		Error(String(L"No size set and center therefore unset."));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<54>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<54>");
 	return f__center;
 }
 void bb_baseobject_BaseObject::m_Center(bb_sizeable_Sizeable* t_entity){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<30>";
+	DBG_ENTER("BaseObject.Center")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_entity,"entity")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<30>");
 	m_pos2(t_entity->m_center()->m_Copy()->m_Sub(m_center()));
-	popErr();
 }
 void bb_baseobject_BaseObject::m_CenterX(bb_sizeable_Sizeable* t_entity){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<22>";
+	DBG_ENTER("BaseObject.CenterX")
+	bb_baseobject_BaseObject *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_entity,"entity")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/baseobject.monkey<22>");
 	m_pos()->f_x=t_entity->m_center()->f_x-m_center()->f_x;
-	popErr();
 }
 void bb_baseobject_BaseObject::mark(){
 	bb_partial_Partial::mark();
 	gc_mark_q(f__pos);
 	gc_mark_q(f__size);
 	gc_mark_q(f__center);
+}
+String bb_baseobject_BaseObject::debug(){
+	String t="(BaseObject)\n";
+	t=bb_partial_Partial::debug()+t;
+	t+=dbg_decl("_pos",&f__pos);
+	t+=dbg_decl("_center",&f__center);
+	t+=dbg_decl("_size",&f__size);
+	return t;
 }
 bb_sprite_Sprite::bb_sprite_Sprite(){
 	f_image=0;
@@ -8468,159 +9785,197 @@ bb_sprite_Sprite::bb_sprite_Sprite(){
 	f_frameTimer=0;
 }
 void bb_sprite_Sprite::m_InitVectors(int t_width,int t_height,bb_vector2d_Vector2D* t_pos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<85>";
+	DBG_ENTER("Sprite.InitVectors")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_width,"width")
+	DBG_LOCAL(t_height,"height")
+	DBG_LOCAL(t_pos,"pos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<85>");
 	if(t_pos==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<86>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<86>");
 		this->m_pos2((new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(0.0)));
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<88>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<88>");
 		this->m_pos2(t_pos);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<90>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<90>");
 	m_size2((new bb_vector2d_Vector2D)->g_new(Float(t_width),Float(t_height)));
-	popErr();
 }
 bb_sprite_Sprite* bb_sprite_Sprite::g_new(String t_imageName,bb_vector2d_Vector2D* t_pos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<28>";
+	DBG_ENTER("Sprite.new")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_imageName,"imageName")
+	DBG_LOCAL(t_pos,"pos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<28>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<29>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<29>");
 	gc_assign(f_image,bb_graphics_LoadImage(t_imageName,1,bb_graphics_Image::g_DefaultFlags));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<30>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<30>");
 	m_InitVectors(f_image->m_Width(),f_image->m_Height(),t_pos);
-	popErr();
 	return this;
 }
 bb_sprite_Sprite* bb_sprite_Sprite::g_new2(String t_imageName,int t_frameWidth,int t_frameHeight,int t_frameCount,int t_frameSpeed,bb_vector2d_Vector2D* t_pos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<33>";
+	DBG_ENTER("Sprite.new")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_imageName,"imageName")
+	DBG_LOCAL(t_frameWidth,"frameWidth")
+	DBG_LOCAL(t_frameHeight,"frameHeight")
+	DBG_LOCAL(t_frameCount,"frameCount")
+	DBG_LOCAL(t_frameSpeed,"frameSpeed")
+	DBG_LOCAL(t_pos,"pos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<33>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<34>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<34>");
 	this->f_frameCount=t_frameCount-1;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<35>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<35>");
 	this->f_frameSpeed=t_frameSpeed;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<37>");
 	gc_assign(f_image,bb_graphics_LoadImage2(t_imageName,t_frameWidth,t_frameHeight,t_frameCount,bb_graphics_Image::g_DefaultFlags));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<38>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<38>");
 	m_InitVectors(t_frameWidth,t_frameHeight,t_pos);
-	popErr();
 	return this;
 }
 bb_sprite_Sprite* bb_sprite_Sprite::g_new3(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<12>";
+	DBG_ENTER("Sprite.new")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<12>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<12>";
-	popErr();
 	return this;
 }
 void bb_sprite_Sprite::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<42>";
+	DBG_ENTER("Sprite.OnRender")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<42>");
 	bb_partial_Partial::m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<43>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<43>");
 	bb_graphics_DrawImage2(f_image,m_pos()->f_x,m_pos()->f_y,f_rotation,f_scale->f_x,f_scale->f_y,f_currentFrame);
-	popErr();
 }
 bool bb_sprite_Sprite::m_animationIsDone(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<78>";
+	DBG_ENTER("Sprite.animationIsDone")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<78>");
 	if(f_loopAnimation){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<78>";
-		popErr();
+		DBG_BLOCK();
 		return false;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<79>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<79>");
 	bool t_=f_currentFrame==f_frameCount;
-	popErr();
 	return t_;
 }
 void bb_sprite_Sprite::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<47>";
+	DBG_ENTER("Sprite.OnUpdate")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<47>");
 	bb_partial_Partial::m_OnUpdate(t_delta,t_frameTime);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<49>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<49>");
 	if(f_frameCount<=0){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<50>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<50>");
 	if(m_animationIsDone()){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<52>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<52>");
 	if(f_frameTimer<f_frameSpeed){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<53>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<53>");
 		f_frameTimer=int(Float(f_frameTimer)+t_frameTime);
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<57>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<57>");
 	if(f_currentFrame==f_frameCount){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<58>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<58>");
 		if(f_loopAnimation){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<59>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<59>");
 			f_currentFrame=1;
 		}
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<62>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<62>");
 		f_currentFrame+=1;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<64>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<64>");
 	f_frameTimer=0;
-	popErr();
 }
 bool bb_sprite_Sprite::m_Collide(bb_vector2d_Vector2D* t_checkPos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<72>";
+	DBG_ENTER("Sprite.Collide")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_checkPos,"checkPos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<72>");
 	if(t_checkPos->f_x<m_pos()->f_x || t_checkPos->f_x>m_pos()->f_x+m_size()->f_x){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<72>";
-		popErr();
+		DBG_BLOCK();
 		return false;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<73>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<73>");
 	if(t_checkPos->f_y<m_pos()->f_y || t_checkPos->f_y>m_pos()->f_y+m_size()->f_y){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<73>";
-		popErr();
+		DBG_BLOCK();
 		return false;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<74>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<74>");
 	return true;
 }
 void bb_sprite_Sprite::m_Restart(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<68>";
+	DBG_ENTER("Sprite.Restart")
+	bb_sprite_Sprite *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/sprite.monkey<68>");
 	f_currentFrame=0;
-	popErr();
 }
 void bb_sprite_Sprite::mark(){
 	bb_baseobject_BaseObject::mark();
 	gc_mark_q(f_image);
 	gc_mark_q(f_scale);
 }
+String bb_sprite_Sprite::debug(){
+	String t="(Sprite)\n";
+	t=bb_baseobject_BaseObject::debug()+t;
+	t+=dbg_decl("image",&f_image);
+	t+=dbg_decl("frameTimer",&f_frameTimer);
+	t+=dbg_decl("currentFrame",&f_currentFrame);
+	t+=dbg_decl("frameCount",&f_frameCount);
+	t+=dbg_decl("rotation",&f_rotation);
+	t+=dbg_decl("scale",&f_scale);
+	t+=dbg_decl("loopAnimation",&f_loopAnimation);
+	t+=dbg_decl("frameSpeed",&f_frameSpeed);
+	return t;
+}
+int bb_iap_InitInAppPurchases(String t_bundleID,Array<String > t_productList){
+	DBG_ENTER("InitInAppPurchases")
+	return 0;
+}
+int bb_iap_isProductPurchased(String t_product){
+	DBG_ENTER("isProductPurchased")
+	return 0;
+}
 bb_appirater_Appirater::bb_appirater_Appirater(){
 }
 void bb_appirater_Appirater::g_Launched(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/appirater.monkey<14>";
+	DBG_ENTER("Appirater.Launched")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/appirater.monkey<14>");
 	Print(String(L"Appirater: App launched"));
-	popErr();
 }
 void bb_appirater_Appirater::mark(){
 	Object::mark();
 }
-int bb_iap_InitInAppPurchases(String t_bundleID,Array<String > t_productList){
-	pushErr();
-	popErr();
-	return 0;
-}
-int bb_iap_isProductPurchased(String t_product){
-	pushErr();
-	popErr();
-	return 0;
+String bb_appirater_Appirater::debug(){
+	String t="(Appirater)\n";
+	return t;
 }
 bb_angelfont2_AngelFont::bb_angelfont2_AngelFont(){
 	f_iniText=String();
@@ -8636,189 +9991,239 @@ bb_angelfont2_AngelFont::bb_angelfont2_AngelFont(){
 String bb_angelfont2_AngelFont::g_error;
 bb_angelfont2_AngelFont* bb_angelfont2_AngelFont::g_current;
 void bb_angelfont2_AngelFont::m_LoadFont(String t_url){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<61>";
+	DBG_ENTER("AngelFont.LoadFont")
+	bb_angelfont2_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_url,"url")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<61>");
 	g_error=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<62>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<62>");
 	gc_assign(g_current,this);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<63>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<63>");
 	f_iniText=bb_app_LoadString(t_url+String(L".txt"));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<64>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<64>");
 	Array<String > t_lines=f_iniText.Split(String((Char)(10),1));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<65>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<65>";
+	DBG_LOCAL(t_lines,"lines")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<65>");
 	Array<String > t_=t_lines;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<65>";
 	int t_2=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<65>";
 	while(t_2<t_.Length()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<65>";
+		DBG_BLOCK();
 		String t_line=t_.At(t_2);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<65>";
 		t_2=t_2+1;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<67>";
+		DBG_LOCAL(t_line,"line")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<67>");
 		t_line=t_line.Trim();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<69>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<69>");
 		if(t_line.StartsWith(String(L"id,")) || t_line==String()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<69>";
+			DBG_BLOCK();
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<70>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<70>");
 		if(t_line.StartsWith(String(L"first,"))){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<72>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<72>");
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<74>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<74>");
 		Array<String > t_data=t_line.Split(String(L","));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<76>";
+		DBG_LOCAL(t_data,"data")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<76>");
 		for(int t_i=0;t_i<t_data.Length();t_i=t_i+1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<77>";
+			DBG_BLOCK();
+			DBG_LOCAL(t_i,"i")
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<77>");
 			t_data.At(t_i)=t_data.At(t_i).Trim();
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<80>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<80>");
 		g_error=g_error+(String(t_data.Length())+String(L","));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<81>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<81>");
 		if(t_data.Length()>0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<82>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<82>");
 			if(t_data.Length()==3){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<84>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<84>");
 				f_kernPairs->m_Insert(String((Char)((t_data.At(0)).ToInt()),1)+String(L"_")+String((Char)((t_data.At(1)).ToInt()),1),(new bb_kernpair_KernPair)->g_new((t_data.At(0)).ToInt(),(t_data.At(1)).ToInt(),(t_data.At(2)).ToInt()));
 			}else{
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<86>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<86>");
 				if(t_data.Length()>=8){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<87>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<87>");
 					gc_assign(f_chars.At((t_data.At(0)).ToInt()),(new bb_char_Char)->g_new((t_data.At(1)).ToInt(),(t_data.At(2)).ToInt(),(t_data.At(3)).ToInt(),(t_data.At(4)).ToInt(),(t_data.At(5)).ToInt(),(t_data.At(6)).ToInt(),(t_data.At(7)).ToInt()));
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<88>";
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<88>");
 					bb_char_Char* t_ch=f_chars.At((t_data.At(0)).ToInt());
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<89>";
+					DBG_LOCAL(t_ch,"ch")
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<89>");
 					if(t_ch->f_height>this->f_height){
-						errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<89>";
+						DBG_BLOCK();
 						this->f_height=t_ch->f_height;
 					}
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<90>";
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<90>");
 					if(t_ch->f_yOffset<this->f_heightOffset){
-						errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<90>";
+						DBG_BLOCK();
 						this->f_heightOffset=t_ch->f_yOffset;
 					}
 				}
 			}
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<97>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<97>");
 	gc_assign(f_image,bb_graphics_LoadImage(t_url+String(L".png"),1,bb_graphics_Image::g_DefaultFlags));
-	popErr();
 }
 bb_map_StringMap4* bb_angelfont2_AngelFont::g__list;
 bb_angelfont2_AngelFont* bb_angelfont2_AngelFont::g_new(String t_url){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<48>";
+	DBG_ENTER("AngelFont.new")
+	bb_angelfont2_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_url,"url")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<48>");
 	if(t_url!=String()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<49>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<49>");
 		this->m_LoadFont(t_url);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<50>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<50>");
 		this->f_name=t_url;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<51>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<51>");
 		g__list->m_Insert2(t_url,this);
 	}
-	popErr();
 	return this;
 }
 void bb_angelfont2_AngelFont::m_DrawText(String t_txt,int t_x,int t_y){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<134>";
+	DBG_ENTER("AngelFont.DrawText")
+	bb_angelfont2_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_txt,"txt")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<134>");
 	String t_prevChar=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<135>";
+	DBG_LOCAL(t_prevChar,"prevChar")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<135>");
 	f_xOffset=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<137>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<137>");
 	for(int t_i=0;t_i<t_txt.Length();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<138>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<138>");
 		int t_asc=(int)t_txt[t_i];
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<139>";
+		DBG_LOCAL(t_asc,"asc")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<139>");
 		bb_char_Char* t_ac=f_chars.At(t_asc);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<140>";
+		DBG_LOCAL(t_ac,"ac")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<140>");
 		String t_thisChar=String((Char)(t_asc),1);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<141>";
+		DBG_LOCAL(t_thisChar,"thisChar")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<141>");
 		if(t_ac!=0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<142>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<142>");
 			if(f_useKerning){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<143>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<143>");
 				String t_key=t_prevChar+String(L"_")+t_thisChar;
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<144>";
+				DBG_LOCAL(t_key,"key")
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<144>");
 				if(f_kernPairs->m_Contains(t_key)){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<145>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<145>");
 					f_xOffset+=f_kernPairs->m_Get(t_key)->f_amount;
 				}
 			}
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<148>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<148>");
 			t_ac->m_Draw(f_image,t_x+f_xOffset,t_y);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<149>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<149>");
 			f_xOffset+=t_ac->f_xAdvance;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<150>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<150>");
 			t_prevChar=t_thisChar;
 		}
 	}
-	popErr();
 }
 int bb_angelfont2_AngelFont::m_TextWidth(String t_txt){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<250>";
+	DBG_ENTER("AngelFont.TextWidth")
+	bb_angelfont2_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_txt,"txt")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<250>");
 	String t_prevChar=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<251>";
+	DBG_LOCAL(t_prevChar,"prevChar")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<251>");
 	int t_width=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<252>";
+	DBG_LOCAL(t_width,"width")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<252>");
 	for(int t_i=0;t_i<t_txt.Length();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<253>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<253>");
 		int t_asc=(int)t_txt[t_i];
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<254>";
+		DBG_LOCAL(t_asc,"asc")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<254>");
 		bb_char_Char* t_ac=f_chars.At(t_asc);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<255>";
+		DBG_LOCAL(t_ac,"ac")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<255>");
 		String t_thisChar=String((Char)(t_asc),1);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<256>";
+		DBG_LOCAL(t_thisChar,"thisChar")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<256>");
 		if(t_ac!=0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<257>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<257>");
 			if(f_useKerning){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<258>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<258>");
 				String t_key=t_prevChar+String(L"_")+t_thisChar;
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<259>";
+				DBG_LOCAL(t_key,"key")
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<259>");
 				if(f_kernPairs->m_Contains(t_key)){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<261>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<261>");
 					t_width+=f_kernPairs->m_Get(t_key)->f_amount;
 				}
 			}
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<265>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<265>");
 			t_width+=t_ac->f_xAdvance;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<266>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<266>");
 			t_prevChar=t_thisChar;
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<269>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<269>");
 	return t_width;
 }
 void bb_angelfont2_AngelFont::m_DrawText2(String t_txt,int t_x,int t_y,int t_align){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<156>";
+	DBG_ENTER("AngelFont.DrawText")
+	bb_angelfont2_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_txt,"txt")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_align,"align")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<156>");
 	f_xOffset=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<157>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<157>");
 	int t_1=t_align;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<158>";
+	DBG_LOCAL(t_1,"1")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<158>");
 	if(t_1==1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<159>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<159>");
 		m_DrawText(t_txt,t_x-m_TextWidth(t_txt)/2,t_y);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<160>");
 		if(t_1==2){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<161>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<161>");
 			m_DrawText(t_txt,t_x-m_TextWidth(t_txt),t_y);
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<162>");
 			if(t_1==0){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/angelfont.monkey<164>");
 				m_DrawText(t_txt,t_x,t_y);
 			}
 		}
 	}
-	popErr();
 }
 void bb_angelfont2_AngelFont::mark(){
 	Object::mark();
@@ -8826,11 +10231,27 @@ void bb_angelfont2_AngelFont::mark(){
 	gc_mark_q(f_chars);
 	gc_mark_q(f_image);
 }
+String bb_angelfont2_AngelFont::debug(){
+	String t="(AngelFont)\n";
+	t+=dbg_decl("_list",&bb_angelfont2_AngelFont::g__list);
+	t+=dbg_decl("image",&f_image);
+	t+=dbg_decl("chars",&f_chars);
+	t+=dbg_decl("kernPairs",&f_kernPairs);
+	t+=dbg_decl("iniText",&f_iniText);
+	t+=dbg_decl("xOffset",&f_xOffset);
+	t+=dbg_decl("current",&bb_angelfont2_AngelFont::g_current);
+	t+=dbg_decl("error",&bb_angelfont2_AngelFont::g_error);
+	t+=dbg_decl("name",&f_name);
+	t+=dbg_decl("useKerning",&f_useKerning);
+	t+=dbg_decl("height",&f_height);
+	t+=dbg_decl("heightOffset",&f_heightOffset);
+	return t;
+}
 String bb_app_LoadString(String t_path){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<137>";
+	DBG_ENTER("LoadString")
+	DBG_LOCAL(t_path,"path")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<137>");
 	String t_=bb_app_device->LoadString(t_path);
-	popErr();
 	return t_;
 }
 bb_kernpair_KernPair::bb_kernpair_KernPair(){
@@ -8839,302 +10260,385 @@ bb_kernpair_KernPair::bb_kernpair_KernPair(){
 	f_amount=0;
 }
 bb_kernpair_KernPair* bb_kernpair_KernPair::g_new(int t_first,int t_second,int t_amount){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<9>";
+	DBG_ENTER("KernPair.new")
+	bb_kernpair_KernPair *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_first,"first")
+	DBG_LOCAL(t_second,"second")
+	DBG_LOCAL(t_amount,"amount")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<9>");
 	this->f_first=String(t_first);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<10>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<10>");
 	this->f_second=String(t_second);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<11>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<11>");
 	this->f_amount=t_amount;
-	popErr();
 	return this;
 }
 bb_kernpair_KernPair* bb_kernpair_KernPair::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<2>";
-	popErr();
+	DBG_ENTER("KernPair.new")
+	bb_kernpair_KernPair *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/kernpair.monkey<2>");
 	return this;
 }
 void bb_kernpair_KernPair::mark(){
 	Object::mark();
 }
+String bb_kernpair_KernPair::debug(){
+	String t="(KernPair)\n";
+	t+=dbg_decl("first",&f_first);
+	t+=dbg_decl("second",&f_second);
+	t+=dbg_decl("amount",&f_amount);
+	return t;
+}
 bb_map_Map3::bb_map_Map3(){
 	f_root=0;
 }
 bb_map_Map3* bb_map_Map3::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<7>";
-	popErr();
+	DBG_ENTER("Map.new")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<7>");
 	return this;
 }
 int bb_map_Map3::m_RotateLeft3(bb_map_Node3* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<251>";
+	DBG_ENTER("Map.RotateLeft")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<251>");
 	bb_map_Node3* t_child=t_node->f_right;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<252>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<252>");
 	gc_assign(t_node->f_right,t_child->f_left);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<253>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<253>");
 	if((t_child->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<254>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<254>");
 		gc_assign(t_child->f_left->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<256>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<257>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<258>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<258>");
 		if(t_node==t_node->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<259>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<259>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<261>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<261>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<264>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<264>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<266>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<266>");
 	gc_assign(t_child->f_left,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<267>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<267>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map3::m_RotateRight3(bb_map_Node3* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<271>";
+	DBG_ENTER("Map.RotateRight")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<271>");
 	bb_map_Node3* t_child=t_node->f_left;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<272>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<272>");
 	gc_assign(t_node->f_left,t_child->f_right);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<273>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<273>");
 	if((t_child->f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<274>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<274>");
 		gc_assign(t_child->f_right->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<276>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<276>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<277>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<277>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<278>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<278>");
 		if(t_node==t_node->f_parent->f_right){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<279>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<279>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<281>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<281>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<284>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<284>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<286>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<286>");
 	gc_assign(t_child->f_right,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<287>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map3::m_InsertFixup3(bb_map_Node3* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<212>";
+	DBG_ENTER("Map.InsertFixup")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<212>");
 	while(((t_node->f_parent)!=0) && t_node->f_parent->f_color==-1 && ((t_node->f_parent->f_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<213>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<213>");
 		if(t_node->f_parent==t_node->f_parent->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<214>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<214>");
 			bb_map_Node3* t_uncle=t_node->f_parent->f_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<215>";
+			DBG_LOCAL(t_uncle,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<215>");
 			if(((t_uncle)!=0) && t_uncle->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<216>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<216>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<217>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<217>");
 				t_uncle->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<218>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<218>");
 				t_uncle->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<219>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<219>");
 				t_node=t_uncle->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<221>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<221>");
 				if(t_node==t_node->f_parent->f_right){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<222>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<222>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<223>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<223>");
 					m_RotateLeft3(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<225>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<225>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<226>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<226>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<227>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<227>");
 				m_RotateRight3(t_node->f_parent->f_parent);
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<230>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<230>");
 			bb_map_Node3* t_uncle2=t_node->f_parent->f_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<231>";
+			DBG_LOCAL(t_uncle2,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<231>");
 			if(((t_uncle2)!=0) && t_uncle2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<232>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<232>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<233>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<233>");
 				t_uncle2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<234>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<234>");
 				t_uncle2->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<235>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<235>");
 				t_node=t_uncle2->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<237>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<237>");
 				if(t_node==t_node->f_parent->f_left){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<238>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<238>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<239>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<239>");
 					m_RotateRight3(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<241>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<241>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<242>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<242>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<243>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<243>");
 				m_RotateLeft3(t_node->f_parent->f_parent);
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<247>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<247>");
 	f_root->f_color=1;
-	popErr();
 	return 0;
 }
 bool bb_map_Map3::m_Set3(String t_key,bb_kernpair_KernPair* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
+	DBG_ENTER("Map.Set")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<29>");
 	bb_map_Node3* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<30>");
 	bb_map_Node3* t_parent=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
 	int t_cmp=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<32>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_LOCAL(t_cmp,"cmp")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<32>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<33>");
 		t_parent=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<34>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<34>");
 		t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<35>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<35>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<36>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<36>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<37>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<37>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<38>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<38>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<40>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<40>");
 				gc_assign(t_node->f_value,t_value);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<41>";
-				popErr();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<41>");
 				return false;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<45>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<45>");
 	t_node=(new bb_map_Node3)->g_new(t_key,t_value,-1,t_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<47>");
 	if((t_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<48>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<48>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<49>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<49>");
 			gc_assign(t_parent->f_right,t_node);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<51>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<51>");
 			gc_assign(t_parent->f_left,t_node);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<53>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<53>");
 		m_InsertFixup3(t_node);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<55>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<55>");
 		gc_assign(f_root,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<57>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<57>");
 	return true;
 }
 bool bb_map_Map3::m_Insert(String t_key,bb_kernpair_KernPair* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<126>";
+	DBG_ENTER("Map.Insert")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<126>");
 	bool t_=m_Set3(t_key,t_value);
-	popErr();
 	return t_;
 }
 bb_map_Node3* bb_map_Map3::m_FindNode(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<157>";
+	DBG_ENTER("Map.FindNode")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<157>");
 	bb_map_Node3* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<159>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<159>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<160>");
 		int t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<161>";
+		DBG_LOCAL(t_cmp,"cmp")
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<161>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<162>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<163>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<163>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<164>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<166>";
-				popErr();
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<166>");
 				return t_node;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<169>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<169>");
 	return t_node;
 }
 bool bb_map_Map3::m_Contains(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<25>";
+	DBG_ENTER("Map.Contains")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<25>");
 	bool t_=m_FindNode(t_key)!=0;
-	popErr();
 	return t_;
 }
 bb_kernpair_KernPair* bb_map_Map3::m_Get(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<101>";
+	DBG_ENTER("Map.Get")
+	bb_map_Map3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<101>");
 	bb_map_Node3* t_node=m_FindNode(t_key);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<102>");
 	if((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
-		popErr();
+		DBG_BLOCK();
 		return t_node->f_value;
 	}
-	popErr();
 	return 0;
 }
 void bb_map_Map3::mark(){
 	Object::mark();
 	gc_mark_q(f_root);
 }
+String bb_map_Map3::debug(){
+	String t="(Map)\n";
+	t+=dbg_decl("root",&f_root);
+	return t;
+}
 bb_map_StringMap3::bb_map_StringMap3(){
 }
 bb_map_StringMap3* bb_map_StringMap3::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
+	DBG_ENTER("StringMap.new")
+	bb_map_StringMap3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<551>");
 	bb_map_Map3::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
-	popErr();
 	return this;
 }
 int bb_map_StringMap3::m_Compare(String t_lhs,String t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<554>";
+	DBG_ENTER("StringMap.Compare")
+	bb_map_StringMap3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<554>");
 	int t_=t_lhs.Compare(t_rhs);
-	popErr();
 	return t_;
 }
 void bb_map_StringMap3::mark(){
 	bb_map_Map3::mark();
+}
+String bb_map_StringMap3::debug(){
+	String t="(StringMap)\n";
+	t=bb_map_Map3::debug()+t;
+	return t;
 }
 bb_map_Node3::bb_map_Node3(){
 	f_key=String();
@@ -9145,22 +10649,28 @@ bb_map_Node3::bb_map_Node3(){
 	f_parent=0;
 }
 bb_map_Node3* bb_map_Node3::g_new(String t_key,bb_kernpair_KernPair* t_value,int t_color,bb_map_Node3* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<364>";
+	DBG_ENTER("Node.new")
+	bb_map_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_color,"color")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<364>");
 	this->f_key=t_key;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<365>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<365>");
 	gc_assign(this->f_value,t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<366>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<366>");
 	this->f_color=t_color;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<367>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<367>");
 	gc_assign(this->f_parent,t_parent);
-	popErr();
 	return this;
 }
 bb_map_Node3* bb_map_Node3::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<361>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_map_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<361>");
 	return this;
 }
 void bb_map_Node3::mark(){
@@ -9169,6 +10679,16 @@ void bb_map_Node3::mark(){
 	gc_mark_q(f_left);
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
+}
+String bb_map_Node3::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	t+=dbg_decl("color",&f_color);
+	t+=dbg_decl("parent",&f_parent);
+	t+=dbg_decl("left",&f_left);
+	t+=dbg_decl("right",&f_right);
+	return t;
 }
 bb_char_Char::bb_char_Char(){
 	f_x=0;
@@ -9180,269 +10700,352 @@ bb_char_Char::bb_char_Char(){
 	f_xAdvance=0;
 }
 bb_char_Char* bb_char_Char::g_new(int t_x,int t_y,int t_w,int t_h,int t_xoff,int t_yoff,int t_xadv){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<17>";
+	DBG_ENTER("Char.new")
+	bb_char_Char *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_w,"w")
+	DBG_LOCAL(t_h,"h")
+	DBG_LOCAL(t_xoff,"xoff")
+	DBG_LOCAL(t_yoff,"yoff")
+	DBG_LOCAL(t_xadv,"xadv")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<17>");
 	this->f_x=t_x;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<18>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<18>");
 	this->f_y=t_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<19>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<19>");
 	this->f_width=t_w;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<20>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<20>");
 	this->f_height=t_h;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<22>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<22>");
 	this->f_xOffset=t_xoff;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<23>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<23>");
 	this->f_yOffset=t_yoff;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<24>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<24>");
 	this->f_xAdvance=t_xadv;
-	popErr();
 	return this;
 }
 bb_char_Char* bb_char_Char::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<3>";
-	popErr();
+	DBG_ENTER("Char.new")
+	bb_char_Char *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<3>");
 	return this;
 }
 int bb_char_Char::m_Draw(bb_graphics_Image* t_fontImage,int t_linex,int t_liney){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<28>";
+	DBG_ENTER("Char.Draw")
+	bb_char_Char *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_fontImage,"fontImage")
+	DBG_LOCAL(t_linex,"linex")
+	DBG_LOCAL(t_liney,"liney")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/vendor/angelfont/char.monkey<28>");
 	bb_graphics_DrawImageRect(t_fontImage,Float(t_linex+f_xOffset),Float(t_liney+f_yOffset),f_x,f_y,f_width,f_height,0);
-	popErr();
 	return 0;
 }
 void bb_char_Char::mark(){
 	Object::mark();
 }
+String bb_char_Char::debug(){
+	String t="(Char)\n";
+	t+=dbg_decl("x",&f_x);
+	t+=dbg_decl("y",&f_y);
+	t+=dbg_decl("width",&f_width);
+	t+=dbg_decl("height",&f_height);
+	t+=dbg_decl("xOffset",&f_xOffset);
+	t+=dbg_decl("yOffset",&f_yOffset);
+	t+=dbg_decl("xAdvance",&f_xAdvance);
+	return t;
+}
 bb_map_Map4::bb_map_Map4(){
 	f_root=0;
 }
 bb_map_Map4* bb_map_Map4::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<7>";
-	popErr();
+	DBG_ENTER("Map.new")
+	bb_map_Map4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<7>");
 	return this;
 }
 int bb_map_Map4::m_RotateLeft4(bb_map_Node4* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<251>";
+	DBG_ENTER("Map.RotateLeft")
+	bb_map_Map4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<251>");
 	bb_map_Node4* t_child=t_node->f_right;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<252>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<252>");
 	gc_assign(t_node->f_right,t_child->f_left);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<253>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<253>");
 	if((t_child->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<254>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<254>");
 		gc_assign(t_child->f_left->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<256>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<257>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<258>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<258>");
 		if(t_node==t_node->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<259>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<259>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<261>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<261>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<264>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<264>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<266>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<266>");
 	gc_assign(t_child->f_left,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<267>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<267>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map4::m_RotateRight4(bb_map_Node4* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<271>";
+	DBG_ENTER("Map.RotateRight")
+	bb_map_Map4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<271>");
 	bb_map_Node4* t_child=t_node->f_left;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<272>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<272>");
 	gc_assign(t_node->f_left,t_child->f_right);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<273>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<273>");
 	if((t_child->f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<274>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<274>");
 		gc_assign(t_child->f_right->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<276>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<276>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<277>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<277>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<278>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<278>");
 		if(t_node==t_node->f_parent->f_right){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<279>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<279>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<281>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<281>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<284>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<284>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<286>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<286>");
 	gc_assign(t_child->f_right,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<287>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map4::m_InsertFixup4(bb_map_Node4* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<212>";
+	DBG_ENTER("Map.InsertFixup")
+	bb_map_Map4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<212>");
 	while(((t_node->f_parent)!=0) && t_node->f_parent->f_color==-1 && ((t_node->f_parent->f_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<213>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<213>");
 		if(t_node->f_parent==t_node->f_parent->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<214>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<214>");
 			bb_map_Node4* t_uncle=t_node->f_parent->f_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<215>";
+			DBG_LOCAL(t_uncle,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<215>");
 			if(((t_uncle)!=0) && t_uncle->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<216>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<216>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<217>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<217>");
 				t_uncle->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<218>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<218>");
 				t_uncle->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<219>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<219>");
 				t_node=t_uncle->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<221>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<221>");
 				if(t_node==t_node->f_parent->f_right){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<222>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<222>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<223>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<223>");
 					m_RotateLeft4(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<225>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<225>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<226>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<226>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<227>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<227>");
 				m_RotateRight4(t_node->f_parent->f_parent);
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<230>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<230>");
 			bb_map_Node4* t_uncle2=t_node->f_parent->f_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<231>";
+			DBG_LOCAL(t_uncle2,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<231>");
 			if(((t_uncle2)!=0) && t_uncle2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<232>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<232>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<233>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<233>");
 				t_uncle2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<234>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<234>");
 				t_uncle2->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<235>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<235>");
 				t_node=t_uncle2->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<237>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<237>");
 				if(t_node==t_node->f_parent->f_left){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<238>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<238>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<239>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<239>");
 					m_RotateRight4(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<241>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<241>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<242>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<242>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<243>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<243>");
 				m_RotateLeft4(t_node->f_parent->f_parent);
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<247>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<247>");
 	f_root->f_color=1;
-	popErr();
 	return 0;
 }
 bool bb_map_Map4::m_Set4(String t_key,bb_angelfont2_AngelFont* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
+	DBG_ENTER("Map.Set")
+	bb_map_Map4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<29>");
 	bb_map_Node4* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<30>");
 	bb_map_Node4* t_parent=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
 	int t_cmp=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<32>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_LOCAL(t_cmp,"cmp")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<32>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<33>");
 		t_parent=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<34>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<34>");
 		t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<35>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<35>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<36>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<36>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<37>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<37>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<38>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<38>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<40>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<40>");
 				gc_assign(t_node->f_value,t_value);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<41>";
-				popErr();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<41>");
 				return false;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<45>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<45>");
 	t_node=(new bb_map_Node4)->g_new(t_key,t_value,-1,t_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<47>");
 	if((t_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<48>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<48>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<49>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<49>");
 			gc_assign(t_parent->f_right,t_node);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<51>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<51>");
 			gc_assign(t_parent->f_left,t_node);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<53>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<53>");
 		m_InsertFixup4(t_node);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<55>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<55>");
 		gc_assign(f_root,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<57>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<57>");
 	return true;
 }
 bool bb_map_Map4::m_Insert2(String t_key,bb_angelfont2_AngelFont* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<126>";
+	DBG_ENTER("Map.Insert")
+	bb_map_Map4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<126>");
 	bool t_=m_Set4(t_key,t_value);
-	popErr();
 	return t_;
 }
 void bb_map_Map4::mark(){
 	Object::mark();
 	gc_mark_q(f_root);
 }
+String bb_map_Map4::debug(){
+	String t="(Map)\n";
+	t+=dbg_decl("root",&f_root);
+	return t;
+}
 bb_map_StringMap4::bb_map_StringMap4(){
 }
 bb_map_StringMap4* bb_map_StringMap4::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
+	DBG_ENTER("StringMap.new")
+	bb_map_StringMap4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<551>");
 	bb_map_Map4::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
-	popErr();
 	return this;
 }
 int bb_map_StringMap4::m_Compare(String t_lhs,String t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<554>";
+	DBG_ENTER("StringMap.Compare")
+	bb_map_StringMap4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<554>");
 	int t_=t_lhs.Compare(t_rhs);
-	popErr();
 	return t_;
 }
 void bb_map_StringMap4::mark(){
 	bb_map_Map4::mark();
+}
+String bb_map_StringMap4::debug(){
+	String t="(StringMap)\n";
+	t=bb_map_Map4::debug()+t;
+	return t;
 }
 bb_map_Node4::bb_map_Node4(){
 	f_key=String();
@@ -9453,22 +11056,28 @@ bb_map_Node4::bb_map_Node4(){
 	f_parent=0;
 }
 bb_map_Node4* bb_map_Node4::g_new(String t_key,bb_angelfont2_AngelFont* t_value,int t_color,bb_map_Node4* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<364>";
+	DBG_ENTER("Node.new")
+	bb_map_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_color,"color")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<364>");
 	this->f_key=t_key;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<365>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<365>");
 	gc_assign(this->f_value,t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<366>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<366>");
 	this->f_color=t_color;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<367>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<367>");
 	gc_assign(this->f_parent,t_parent);
-	popErr();
 	return this;
 }
 bb_map_Node4* bb_map_Node4::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<361>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_map_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<361>");
 	return this;
 }
 void bb_map_Node4::mark(){
@@ -9478,408 +11087,504 @@ void bb_map_Node4::mark(){
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
 }
+String bb_map_Node4::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	t+=dbg_decl("color",&f_color);
+	t+=dbg_decl("parent",&f_parent);
+	t+=dbg_decl("left",&f_left);
+	t+=dbg_decl("right",&f_right);
+	return t;
+}
 bb_highscore_Highscore::bb_highscore_Highscore(){
 	f__maxCount=0;
 	f_objects=(new bb_list_List3)->g_new();
 }
 bb_highscore_Highscore* bb_highscore_Highscore::g_new(int t_maxCount){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<19>";
+	DBG_ENTER("Highscore.new")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_maxCount,"maxCount")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<19>");
 	f__maxCount=t_maxCount;
-	popErr();
 	return this;
 }
 bb_highscore_Highscore* bb_highscore_Highscore::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<10>";
-	popErr();
+	DBG_ENTER("Highscore.new")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<10>");
 	return this;
 }
 int bb_highscore_Highscore::m_Count(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<33>";
+	DBG_ENTER("Highscore.Count")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<33>");
 	int t_=f_objects->m_Count();
-	popErr();
 	return t_;
 }
 int bb_highscore_Highscore::m_maxCount(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<74>";
-	popErr();
+	DBG_ENTER("Highscore.maxCount")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<74>");
 	return f__maxCount;
 }
 void bb_highscore_Highscore::m_Sort(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<86>";
+	DBG_ENTER("Highscore.Sort")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<86>");
 	if(f_objects->m_Count()<2){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<88>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<88>");
 	bb_list_List3* t_newList=(new bb_list_List3)->g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<89>";
+	DBG_LOCAL(t_newList,"newList")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<89>");
 	bb_score_Score* t_current=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<91>";
+	DBG_LOCAL(t_current,"current")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<91>");
 	while(f_objects->m_Count()>0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<92>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<92>");
 		t_current=f_objects->m_First();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<93>";
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<93>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<93>");
 		bb_list_Enumerator2* t_=f_objects->m_ObjectEnumerator();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<93>";
 		while(t_->m_HasNext()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<93>";
+			DBG_BLOCK();
 			bb_score_Score* t_check=t_->m_NextObject();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<94>";
+			DBG_LOCAL(t_check,"check")
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<94>");
 			if(t_check->f_value<t_current->f_value){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<95>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<95>");
 				t_current=t_check;
 			}
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<99>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<99>");
 		t_newList->m_AddFirst(t_current);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<100>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<100>");
 		f_objects->m_Remove3(t_current);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<103>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<103>");
 	f_objects->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<104>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<104>");
 	gc_assign(f_objects,t_newList);
-	popErr();
 }
 void bb_highscore_Highscore::m_SizeTrim(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<80>";
+	DBG_ENTER("Highscore.SizeTrim")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<80>");
 	while(f_objects->m_Count()>f__maxCount){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<81>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<81>");
 		f_objects->m_RemoveLast();
 	}
-	popErr();
 }
 void bb_highscore_Highscore::m_Add5(String t_key,int t_value){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<23>";
+	DBG_ENTER("Highscore.Add")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<23>");
 	f_objects->m_AddLast3((new bb_score_Score)->g_new(t_key,t_value));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<24>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<24>");
 	m_Sort();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<25>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<25>");
 	m_SizeTrim();
-	popErr();
 }
 bb_score_Score* bb_highscore_Highscore::m_Last(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<69>";
+	DBG_ENTER("Highscore.Last")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<69>");
 	if(f_objects->m_Count()==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<69>";
+		DBG_BLOCK();
 		bb_score_Score* t_=(new bb_score_Score)->g_new(String(),0);
-		popErr();
 		return t_;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<70>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<70>");
 	bb_score_Score* t_2=f_objects->m_Last();
-	popErr();
 	return t_2;
 }
 void bb_highscore_Highscore::m_FromString(String t_input){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<37>";
+	DBG_ENTER("Highscore.FromString")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_input,"input")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<37>");
 	f_objects->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<38>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<38>");
 	String t_key=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<39>";
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<39>");
 	int t_value=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<40>";
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<40>");
 	Array<String > t_splitted=t_input.Split(String(L","));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<42>";
+	DBG_LOCAL(t_splitted,"splitted")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<42>");
 	for(int t_count=0;t_count<=t_splitted.Length()-2;t_count=t_count+2){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<43>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_count,"count")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<43>");
 		t_key=t_splitted.At(t_count).Replace(String(L"[COMMA]"),String(L","));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<44>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<44>");
 		t_value=(t_splitted.At(t_count+1)).ToInt();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<45>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<45>");
 		f_objects->m_AddLast3((new bb_score_Score)->g_new(t_key,t_value));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<48>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<48>");
 	m_Sort();
-	popErr();
 }
 bb_list_Enumerator2* bb_highscore_Highscore::m_ObjectEnumerator(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<60>";
+	DBG_ENTER("Highscore.ObjectEnumerator")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<60>");
 	bb_list_Enumerator2* t_=f_objects->m_ObjectEnumerator();
-	popErr();
 	return t_;
 }
 String bb_highscore_Highscore::m_ToString(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<52>";
+	DBG_ENTER("Highscore.ToString")
+	bb_highscore_Highscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<52>");
 	String t_result=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<53>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<53>";
+	DBG_LOCAL(t_result,"result")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<53>");
 	bb_list_Enumerator2* t_=this->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<53>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<53>";
+		DBG_BLOCK();
 		bb_score_Score* t_score=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<54>";
+		DBG_LOCAL(t_score,"score")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<54>");
 		t_result=t_result+(t_score->f_key.Replace(String(L","),String(L"[COMMA]"))+String(L",")+String(t_score->f_value)+String(L","));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<56>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<56>");
 	return t_result;
 }
 void bb_highscore_Highscore::mark(){
 	Object::mark();
 	gc_mark_q(f_objects);
 }
+String bb_highscore_Highscore::debug(){
+	String t="(Highscore)\n";
+	t+=dbg_decl("objects",&f_objects);
+	t+=dbg_decl("_maxCount",&f__maxCount);
+	return t;
+}
 bb_highscore_IntHighscore::bb_highscore_IntHighscore(){
 }
 bb_highscore_IntHighscore* bb_highscore_IntHighscore::g_new(int t_maxCount){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<110>";
+	DBG_ENTER("IntHighscore.new")
+	bb_highscore_IntHighscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_maxCount,"maxCount")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<110>");
 	bb_highscore_Highscore::g_new(t_maxCount);
-	popErr();
 	return this;
 }
 bb_highscore_IntHighscore* bb_highscore_IntHighscore::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<108>";
+	DBG_ENTER("IntHighscore.new")
+	bb_highscore_IntHighscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<108>");
 	bb_highscore_Highscore::g_new2();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/highscore.monkey<108>";
-	popErr();
 	return this;
 }
 void bb_highscore_IntHighscore::mark(){
 	bb_highscore_Highscore::mark();
 }
+String bb_highscore_IntHighscore::debug(){
+	String t="(IntHighscore)\n";
+	t=bb_highscore_Highscore::debug()+t;
+	return t;
+}
 bb_gamehighscore_GameHighscore::bb_gamehighscore_GameHighscore(){
 }
-Array<String > bb_gamehighscore_GameHighscore::g_names;
 Array<int > bb_gamehighscore_GameHighscore::g_scores;
 void bb_gamehighscore_GameHighscore::m_LoadNamesAndScores(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<31>";
-	String t_[]={String(L"Michael"),String(L"Sena"),String(L"Joe"),String(L"Mouser"),String(L"Tinnet"),String(L"Horas-Ra"),String(L"Chris"),String(L"Mike"),String(L"Bono"),String(L"Oli")};
-	gc_assign(g_names,Array<String >(t_,10));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<32>";
-	int t_2[]={1000,900,800,700,600,500,400,300,200,100};
-	gc_assign(g_scores,Array<int >(t_2,10));
-	popErr();
+	DBG_ENTER("GameHighscore.LoadNamesAndScores")
+	bb_gamehighscore_GameHighscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<32>");
+	int t_[]={1000,900,800,700,600,500,400,300,200,100};
+	gc_assign(g_scores,Array<int >(t_,10));
 }
+Array<String > bb_gamehighscore_GameHighscore::g_names;
 void bb_gamehighscore_GameHighscore::m_PrefillMissing(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<36>";
+	DBG_ENTER("GameHighscore.PrefillMissing")
+	bb_gamehighscore_GameHighscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<36>");
 	if(m_Count()>=m_maxCount()){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<37>");
 	for(int t_i=0;t_i<m_maxCount();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<38>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<38>");
 		m_Add5(String(L"easy ")+g_names.At(t_i),g_scores.At(t_i));
 	}
-	popErr();
 }
 bb_gamehighscore_GameHighscore* bb_gamehighscore_GameHighscore::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<18>";
+	DBG_ENTER("GameHighscore.new")
+	bb_gamehighscore_GameHighscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<18>");
 	bb_highscore_IntHighscore::g_new(10);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<19>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<19>");
 	m_LoadNamesAndScores();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<20>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<20>");
 	m_PrefillMissing();
-	popErr();
 	return this;
 }
 void bb_gamehighscore_GameHighscore::m_FromString(String t_input){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<24>";
+	DBG_ENTER("GameHighscore.FromString")
+	bb_gamehighscore_GameHighscore *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_input,"input")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<24>");
 	bb_highscore_Highscore::m_FromString(t_input);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<25>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/gamehighscore.monkey<25>");
 	m_PrefillMissing();
-	popErr();
 }
 void bb_gamehighscore_GameHighscore::mark(){
 	bb_highscore_IntHighscore::mark();
+}
+String bb_gamehighscore_GameHighscore::debug(){
+	String t="(GameHighscore)\n";
+	t=bb_highscore_IntHighscore::debug()+t;
+	t+=dbg_decl("names",&bb_gamehighscore_GameHighscore::g_names);
+	t+=dbg_decl("scores",&bb_gamehighscore_GameHighscore::g_scores);
+	return t;
 }
 bb_score_Score::bb_score_Score(){
 	f_key=String();
 	f_value=0;
 }
 bb_score_Score* bb_score_Score::g_new(String t_key,int t_value){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/score.monkey<8>";
+	DBG_ENTER("Score.new")
+	bb_score_Score *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/score.monkey<8>");
 	this->f_key=t_key;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/score.monkey<9>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/score.monkey<9>");
 	this->f_value=t_value;
-	popErr();
 	return this;
 }
 bb_score_Score* bb_score_Score::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/score.monkey<3>";
-	popErr();
+	DBG_ENTER("Score.new")
+	bb_score_Score *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/score.monkey<3>");
 	return this;
 }
 void bb_score_Score::mark(){
 	Object::mark();
 }
+String bb_score_Score::debug(){
+	String t="(Score)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	return t;
+}
 bb_list_List3::bb_list_List3(){
 	f__head=((new bb_list_HeadNode3)->g_new());
 }
 bb_list_List3* bb_list_List3::g_new(){
-	pushErr();
-	popErr();
+	DBG_ENTER("List.new")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
 	return this;
 }
 bb_list_Node3* bb_list_List3::m_AddLast3(bb_score_Score* t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<120>";
+	DBG_ENTER("List.AddLast")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<120>");
 	bb_list_Node3* t_=(new bb_list_Node3)->g_new(f__head,f__head->f__pred,t_data);
-	popErr();
 	return t_;
 }
 bb_list_List3* bb_list_List3::g_new2(Array<bb_score_Score* > t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+	DBG_ENTER("List.new")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<13>");
 	Array<bb_score_Score* > t_=t_data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	int t_2=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	while(t_2<t_.Length()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+		DBG_BLOCK();
 		bb_score_Score* t_t=t_.At(t_2);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 		t_2=t_2+1;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<14>";
+		DBG_LOCAL(t_t,"t")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<14>");
 		m_AddLast3(t_t);
 	}
-	popErr();
 	return this;
 }
 int bb_list_List3::m_Count(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
+	DBG_ENTER("List.Count")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<41>");
 	int t_n=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
 	bb_list_Node3* t_node=f__head->f__succ;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<42>";
+	DBG_LOCAL(t_n,"n")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<42>");
 	while(t_node!=f__head){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<43>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<43>");
 		t_node=t_node->f__succ;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<44>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<44>");
 		t_n+=1;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<46>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<46>");
 	return t_n;
 }
 bool bb_list_List3::m_IsEmpty(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<50>";
+	DBG_ENTER("List.IsEmpty")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<50>");
 	bool t_=f__head->f__succ==f__head;
-	popErr();
 	return t_;
 }
 bb_score_Score* bb_list_List3::m_First(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<71>";
+	DBG_ENTER("List.First")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<71>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<71>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<73>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<73>");
 	bb_score_Score* t_=f__head->m_NextNode()->f__data;
-	popErr();
 	return t_;
 }
 bb_list_Enumerator2* bb_list_List3::m_ObjectEnumerator(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<124>";
+	DBG_ENTER("List.ObjectEnumerator")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<124>");
 	bb_list_Enumerator2* t_=(new bb_list_Enumerator2)->g_new(this);
-	popErr();
 	return t_;
 }
 bb_list_Node3* bb_list_List3::m_AddFirst(bb_score_Score* t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<116>";
+	DBG_ENTER("List.AddFirst")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<116>");
 	bb_list_Node3* t_=(new bb_list_Node3)->g_new(f__head->f__succ,f__head,t_data);
-	popErr();
 	return t_;
 }
 bool bb_list_List3::m_Equals3(bb_score_Score* t_lhs,bb_score_Score* t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<28>";
+	DBG_ENTER("List.Equals")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<28>");
 	bool t_=t_lhs==t_rhs;
-	popErr();
 	return t_;
 }
 int bb_list_List3::m_RemoveEach2(bb_score_Score* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<107>";
+	DBG_ENTER("List.RemoveEach")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<107>");
 	bb_list_Node3* t_node=f__head->f__succ;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<108>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<108>");
 	while(t_node!=f__head){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<109>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<109>");
 		bb_list_Node3* t_succ=t_node->f__succ;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<110>";
+		DBG_LOCAL(t_succ,"succ")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<110>");
 		if(m_Equals3(t_node->f__data,t_value)){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<110>";
+			DBG_BLOCK();
 			t_node->m_Remove2();
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<111>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<111>");
 		t_node=t_succ;
 	}
-	popErr();
 	return 0;
 }
 int bb_list_List3::m_Remove3(bb_score_Score* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<103>";
+	DBG_ENTER("List.Remove")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<103>");
 	m_RemoveEach2(t_value);
-	popErr();
 	return 0;
 }
 int bb_list_List3::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<36>";
+	DBG_ENTER("List.Clear")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<36>");
 	gc_assign(f__head->f__succ,f__head);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<37>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<37>");
 	gc_assign(f__head->f__pred,f__head);
-	popErr();
 	return 0;
 }
 bb_score_Score* bb_list_List3::m_RemoveLast(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<94>";
+	DBG_ENTER("List.RemoveLast")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<94>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<94>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<96>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<96>");
 	bb_score_Score* t_data=f__head->m_PrevNode()->f__data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<97>";
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<97>");
 	f__head->f__pred->m_Remove2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<98>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<98>");
 	return t_data;
 }
 bb_score_Score* bb_list_List3::m_Last(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<78>";
+	DBG_ENTER("List.Last")
+	bb_list_List3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<78>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<78>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<80>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<80>");
 	bb_score_Score* t_=f__head->m_PrevNode()->f__data;
-	popErr();
 	return t_;
 }
 void bb_list_List3::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
+}
+String bb_list_List3::debug(){
+	String t="(List)\n";
+	t+=dbg_decl("_head",&f__head);
+	return t;
 }
 bb_list_Node3::bb_list_Node3(){
 	f__succ=0;
@@ -9887,68 +11592,77 @@ bb_list_Node3::bb_list_Node3(){
 	f__data=0;
 }
 bb_list_Node3* bb_list_Node3::g_new(bb_list_Node3* t_succ,bb_list_Node3* t_pred,bb_score_Score* t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<199>";
+	DBG_ENTER("Node.new")
+	bb_list_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_succ,"succ")
+	DBG_LOCAL(t_pred,"pred")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<199>");
 	gc_assign(f__succ,t_succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<200>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<200>");
 	gc_assign(f__pred,t_pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<201>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<201>");
 	gc_assign(f__succ->f__pred,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<202>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<202>");
 	gc_assign(f__pred->f__succ,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<203>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<203>");
 	gc_assign(f__data,t_data);
-	popErr();
 	return this;
 }
 bb_list_Node3* bb_list_Node3::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<196>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_list_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<196>");
 	return this;
 }
 bb_list_Node3* bb_list_Node3::m_GetNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<239>";
-	popErr();
+	DBG_ENTER("Node.GetNode")
+	bb_list_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<239>");
 	return this;
 }
 bb_list_Node3* bb_list_Node3::m_NextNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<220>";
+	DBG_ENTER("Node.NextNode")
+	bb_list_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<220>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<220>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<222>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<222>");
 	bb_list_Node3* t_=f__succ->m_GetNode();
-	popErr();
 	return t_;
 }
 int bb_list_Node3::m_Remove2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+	DBG_ENTER("Node.Remove")
+	bb_list_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<212>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<214>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<214>");
 	gc_assign(f__succ->f__pred,f__pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<215>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<215>");
 	gc_assign(f__pred->f__succ,f__succ);
-	popErr();
 	return 0;
 }
 bb_list_Node3* bb_list_Node3::m_PrevNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<227>";
+	DBG_ENTER("Node.PrevNode")
+	bb_list_Node3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<227>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<227>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<229>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<229>");
 	bb_list_Node3* t_=f__pred->m_GetNode();
-	popErr();
 	return t_;
 }
 void bb_list_Node3::mark(){
@@ -9957,67 +11671,88 @@ void bb_list_Node3::mark(){
 	gc_mark_q(f__pred);
 	gc_mark_q(f__data);
 }
+String bb_list_Node3::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("_succ",&f__succ);
+	t+=dbg_decl("_pred",&f__pred);
+	t+=dbg_decl("_data",&f__data);
+	return t;
+}
 bb_list_HeadNode3::bb_list_HeadNode3(){
 }
 bb_list_HeadNode3* bb_list_HeadNode3::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<248>";
+	DBG_ENTER("HeadNode.new")
+	bb_list_HeadNode3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<248>");
 	bb_list_Node3::g_new2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<249>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<249>");
 	gc_assign(f__succ,(this));
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<250>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<250>");
 	gc_assign(f__pred,(this));
-	popErr();
 	return this;
 }
 bb_list_Node3* bb_list_HeadNode3::m_GetNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<254>";
-	popErr();
+	DBG_ENTER("HeadNode.GetNode")
+	bb_list_HeadNode3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<254>");
 	return 0;
 }
 void bb_list_HeadNode3::mark(){
 	bb_list_Node3::mark();
+}
+String bb_list_HeadNode3::debug(){
+	String t="(HeadNode)\n";
+	t=bb_list_Node3::debug()+t;
+	return t;
 }
 bb_list_Enumerator2::bb_list_Enumerator2(){
 	f__list=0;
 	f__curr=0;
 }
 bb_list_Enumerator2* bb_list_Enumerator2::g_new(bb_list_List3* t_list){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<264>";
+	DBG_ENTER("Enumerator.new")
+	bb_list_Enumerator2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_list,"list")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<264>");
 	gc_assign(f__list,t_list);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<265>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<265>");
 	gc_assign(f__curr,t_list->f__head->f__succ);
-	popErr();
 	return this;
 }
 bb_list_Enumerator2* bb_list_Enumerator2::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<261>";
-	popErr();
+	DBG_ENTER("Enumerator.new")
+	bb_list_Enumerator2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<261>");
 	return this;
 }
 bool bb_list_Enumerator2::m_HasNext(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<269>";
+	DBG_ENTER("Enumerator.HasNext")
+	bb_list_Enumerator2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<269>");
 	while(f__curr->f__succ->f__pred!=f__curr){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<270>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<270>");
 		gc_assign(f__curr,f__curr->f__succ);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<272>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<272>");
 	bool t_=f__curr!=f__list->f__head;
-	popErr();
 	return t_;
 }
 bb_score_Score* bb_list_Enumerator2::m_NextObject(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<276>";
+	DBG_ENTER("Enumerator.NextObject")
+	bb_list_Enumerator2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<276>");
 	bb_score_Score* t_data=f__curr->f__data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<277>";
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<277>");
 	gc_assign(f__curr,f__curr->f__succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<278>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<278>");
 	return t_data;
 }
 void bb_list_Enumerator2::mark(){
@@ -10025,28 +11760,37 @@ void bb_list_Enumerator2::mark(){
 	gc_mark_q(f__list);
 	gc_mark_q(f__curr);
 }
+String bb_list_Enumerator2::debug(){
+	String t="(Enumerator)\n";
+	t+=dbg_decl("_list",&f__list);
+	t+=dbg_decl("_curr",&f__curr);
+	return t;
+}
 bb_statestore_StateStore::bb_statestore_StateStore(){
 }
 void bb_statestore_StateStore::g_Load(bb_persistable_Persistable* t_obj){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/statestore.monkey<19>";
+	DBG_ENTER("StateStore.Load")
+	DBG_LOCAL(t_obj,"obj")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/statestore.monkey<19>");
 	t_obj->m_FromString(bb_app_LoadState());
-	popErr();
 }
 void bb_statestore_StateStore::g_Save(bb_persistable_Persistable* t_obj){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/statestore.monkey<23>";
+	DBG_ENTER("StateStore.Save")
+	DBG_LOCAL(t_obj,"obj")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/statestore.monkey<23>");
 	bb_app_SaveState(t_obj->m_ToString());
-	popErr();
 }
 void bb_statestore_StateStore::mark(){
 	Object::mark();
 }
+String bb_statestore_StateStore::debug(){
+	String t="(StateStore)\n";
+	return t;
+}
 String bb_app_LoadState(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<129>";
+	DBG_ENTER("LoadState")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<129>");
 	String t_=bb_app_device->LoadState();
-	popErr();
 	return t_;
 }
 bb_chute_Chute::bb_chute_Chute(){
@@ -10057,73 +11801,84 @@ bb_chute_Chute::bb_chute_Chute(){
 	f_severity=0;
 }
 bb_chute_Chute* bb_chute_Chute::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<11>";
+	DBG_ENTER("Chute.new")
+	bb_chute_Chute *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<11>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<11>";
-	popErr();
 	return this;
 }
 void bb_chute_Chute::m_Restart(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<33>";
+	DBG_ENTER("Chute.Restart")
+	bb_chute_Chute *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<33>");
 	f_height=75;
-	popErr();
 }
 void bb_chute_Chute::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<24>";
+	DBG_ENTER("Chute.OnCreate")
+	bb_chute_Chute *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<24>");
 	gc_assign(f_bg,bb_graphics_LoadImage(String(L"chute-bg.png"),1,bb_graphics_Image::g_DefaultFlags));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<25>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<25>");
 	f_width=f_bg->m_Width()+4;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<26>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<26>");
 	gc_assign(f_bottom,bb_graphics_LoadImage(String(L"chute-bottom.png"),1,bb_graphics_Image::g_DefaultFlags));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<27>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<27>");
 	gc_assign(f_severity,bb_severity_CurrentSeverity());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<28>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<28>");
 	m_Restart();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<29>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<29>");
 	bb_partial_Partial::m_OnCreate(t_director);
-	popErr();
 }
 void bb_chute_Chute::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<41>";
+	DBG_ENTER("Chute.OnUpdate")
+	bb_chute_Chute *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<41>");
 	if(f_severity->m_ChuteShouldAdvance()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<42>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<42>");
 		f_height+=f_severity->m_ChuteAdvanceHeight();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<43>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<43>");
 		f_severity->m_ChuteMarkAsAdvanced();
 	}
-	popErr();
 }
 void bb_chute_Chute::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<48>";
+	DBG_ENTER("Chute.OnRender")
+	bb_chute_Chute *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<48>");
 	for(Float t_posY=FLOAT(0.0);t_posY<=Float(f_height);t_posY=t_posY+FLOAT(6.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<49>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_posY,"posY")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<49>");
 		bb_graphics_DrawImage(f_bg,Float(44+f_width*0),t_posY,0);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<50>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<50>");
 		bb_graphics_DrawImage(f_bg,Float(44+f_width*1),t_posY,0);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<51>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<51>");
 		bb_graphics_DrawImage(f_bg,Float(44+f_width*2),t_posY,0);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<52>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<52>");
 		bb_graphics_DrawImage(f_bg,Float(44+f_width*3),t_posY,0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<57>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<57>");
 	bb_graphics_DrawImage(f_bottom,Float(42+f_width*0),Float(f_height),0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<58>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<58>");
 	bb_graphics_DrawImage(f_bottom,Float(42+f_width*1),Float(f_height),0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<59>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<59>");
 	bb_graphics_DrawImage(f_bottom,Float(42+f_width*2),Float(f_height),0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<60>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<60>");
 	bb_graphics_DrawImage(f_bottom,Float(42+f_width*3),Float(f_height),0);
-	popErr();
 }
 int bb_chute_Chute::m_Height(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<37>";
-	popErr();
+	DBG_ENTER("Chute.Height")
+	bb_chute_Chute *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/chute.monkey<37>");
 	return f_height;
 }
 void bb_chute_Chute::mark(){
@@ -10131,6 +11886,16 @@ void bb_chute_Chute::mark(){
 	gc_mark_q(f_bg);
 	gc_mark_q(f_bottom);
 	gc_mark_q(f_severity);
+}
+String bb_chute_Chute::debug(){
+	String t="(Chute)\n";
+	t=bb_baseobject_BaseObject::debug()+t;
+	t+=dbg_decl("bottom",&f_bottom);
+	t+=dbg_decl("severity",&f_severity);
+	t+=dbg_decl("width",&f_width);
+	t+=dbg_decl("height",&f_height);
+	t+=dbg_decl("bg",&f_bg);
+	return t;
 }
 bb_severity_Severity::bb_severity_Severity(){
 	f_nextChuteAdvanceTime=0;
@@ -10148,296 +11913,360 @@ bb_severity_Severity::bb_severity_Severity(){
 	f_laneTimes=Array<int >(t_2,4);
 }
 bb_severity_Severity* bb_severity_Severity::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<24>";
-	popErr();
+	DBG_ENTER("Severity.new")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<24>");
 	return this;
 }
 void bb_severity_Severity::m_WarpTime(int t_diff){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<79>";
+	DBG_ENTER("Severity.WarpTime")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_diff,"diff")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<79>");
 	f_nextChuteAdvanceTime+=t_diff;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<80>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<80>");
 	f_nextShapeDropTime+=t_diff;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<81>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<81>");
 	f_lastTime+=t_diff;
-	popErr();
 }
 void bb_severity_Severity::m_ChuteMarkAsAdvanced(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<101>";
+	DBG_ENTER("Severity.ChuteMarkAsAdvanced")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<101>");
 	f_nextChuteAdvanceTime=int(bb_random_Rnd2(FLOAT(2000.0),FLOAT(4000.0)));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<103>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<103>");
 	int t_2=f_level;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<104>";
+	DBG_LOCAL(t_2,"2")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<104>");
 	if(t_2==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<105>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<105>");
 		f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(5000.0)*f_progress);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<106>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<106>");
 		if(t_2==1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<107>";
-			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4750.0)*f_progress);
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<107>");
+			f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(5000.0)*f_progress);
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<108>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<108>");
 			if(t_2==2){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<109>";
-				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(4500.0)*f_progress);
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<109>");
+				f_nextChuteAdvanceTime=int(Float(f_nextChuteAdvanceTime)+FLOAT(5000.0)*f_progress);
 			}
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<112>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<112>");
 	f_nextChuteAdvanceTime*=2;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<113>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<113>");
 	f_nextChuteAdvanceTime+=f_lastTime;
-	popErr();
 }
 void bb_severity_Severity::m_ShapeDropped(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<121>";
+	DBG_ENTER("Severity.ShapeDropped")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<121>");
 	int t_3=f_level;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<122>";
+	DBG_LOCAL(t_3,"3")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<122>");
 	if(t_3==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<123>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<123>");
 		f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(450.0),FLOAT(1800.0)+FLOAT(2500.0)*f_progress));
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<124>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<124>");
 		if(t_3==1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<125>";
-			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(375.0),FLOAT(1750.0)+FLOAT(2300.0)*f_progress));
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<125>");
+			f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(375.0),FLOAT(1800.0)+FLOAT(2500.0)*f_progress));
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<126>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<126>");
 			if(t_3==2){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<127>";
-				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(300.0),FLOAT(1700.0)+FLOAT(1000.0)*f_progress));
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<127>");
+				f_nextShapeDropTime=int(Float(f_lastTime)+bb_random_Rnd2(FLOAT(300.0),FLOAT(1800.0)+FLOAT(2500.0)*f_progress));
 			}
 		}
 	}
-	popErr();
 }
 void bb_severity_Severity::m_RandomizeShapeTypes(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<200>";
+	DBG_ENTER("Severity.RandomizeShapeTypes")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<200>");
 	int t_swapIndex=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<201>";
+	DBG_LOCAL(t_swapIndex,"swapIndex")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<201>");
 	int t_tmpType=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<203>";
+	DBG_LOCAL(t_tmpType,"tmpType")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<203>");
 	for(int t_i=0;t_i<f_shapeTypes.Length();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<206>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<206>");
 		do{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<205>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<205>");
 			t_swapIndex=int(bb_random_Rnd2(FLOAT(0.0),Float(f_shapeTypes.Length())));
 		}while(!(t_swapIndex!=t_i));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<208>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<208>");
 		t_tmpType=f_shapeTypes.At(t_i);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<209>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<209>");
 		f_shapeTypes.At(t_i)=f_shapeTypes.At(t_swapIndex);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<210>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<210>");
 		f_shapeTypes.At(t_swapIndex)=t_tmpType;
 	}
-	popErr();
 }
 void bb_severity_Severity::m_Restart(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<58>";
+	DBG_ENTER("Severity.Restart")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<58>");
 	int t_1=f_level;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<59>";
+	DBG_LOCAL(t_1,"1")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<59>");
 	if(t_1==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<60>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<60>");
 		f_activatedShapes=2;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<61>";
-		f_slowDownDuration=120000;
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<61>");
+		f_slowDownDuration=160000;
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<62>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<62>");
 		if(t_1==1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<63>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<63>");
 			f_activatedShapes=3;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<64>";
-			f_slowDownDuration=100000;
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<64>");
+			f_slowDownDuration=140000;
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<65>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<65>");
 			if(t_1==2){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<66>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<66>");
 				f_activatedShapes=4;
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<67>";
-				f_slowDownDuration=80000;
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<67>");
+				f_slowDownDuration=120000;
 			}
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<70>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<70>");
 	f_lastTypes->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<71>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<71>");
 	m_ChuteMarkAsAdvanced();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<72>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<72>");
 	m_ShapeDropped();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<73>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<73>");
 	m_RandomizeShapeTypes();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<74>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<74>");
 	f_progress=FLOAT(1.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<75>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<75>");
 	f_startTime=bb_app_Millisecs();
-	popErr();
 }
 int bb_severity_Severity::m_MinSliderTypes(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<132>";
+	DBG_ENTER("Severity.MinSliderTypes")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<132>");
 	if(f_level==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<133>";
-		popErr();
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<133>");
 		return 2;
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<134>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<134>");
 		if(f_level==1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<135>";
-			popErr();
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<135>");
 			return 3;
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<137>";
-			popErr();
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<137>");
 			return 4;
 		}
 	}
 }
 void bb_severity_Severity::m_ConfigureSlider(bb_list_IntList* t_config){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<164>";
+	DBG_ENTER("Severity.ConfigureSlider")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_config,"config")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<164>");
 	bb_set_IntSet* t_usedTypes=(new bb_set_IntSet)->g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<165>";
+	DBG_LOCAL(t_usedTypes,"usedTypes")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<165>");
 	t_config->m_Clear();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<167>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<167>");
 	for(int t_i=0;t_i<m_MinSliderTypes();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<168>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<168>");
 		t_usedTypes->m_Insert4(f_shapeTypes.At(t_i));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<169>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<169>");
 		t_config->m_AddLast4(f_shapeTypes.At(t_i));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<172>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<172>");
 	while(t_config->m_Count()<4){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<173>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<173>");
 		if(t_usedTypes->m_Count()>=f_activatedShapes || bb_random_Rnd()<FLOAT(0.5)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<174>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<174>");
 			t_config->m_AddLast4(f_shapeTypes.At(int(bb_random_Rnd2(FLOAT(0.0),Float(t_usedTypes->m_Count())))));
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<176>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<176>");
 			t_config->m_AddLast4(f_shapeTypes.At(t_usedTypes->m_Count()));
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<177>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<177>");
 			t_usedTypes->m_Insert4(f_shapeTypes.At(t_usedTypes->m_Count()));
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<181>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<181>");
 	f_activatedShapes=t_usedTypes->m_Count();
-	popErr();
 }
 bool bb_severity_Severity::m_ChuteShouldAdvance(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<93>";
+	DBG_ENTER("Severity.ChuteShouldAdvance")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<93>");
 	bool t_=f_lastTime>=f_nextChuteAdvanceTime;
-	popErr();
 	return t_;
 }
 int bb_severity_Severity::m_ChuteAdvanceHeight(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<97>";
-	popErr();
+	DBG_ENTER("Severity.ChuteAdvanceHeight")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<97>");
 	return 40;
 }
 void bb_severity_Severity::m_Set5(int t_level){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<43>";
+	DBG_ENTER("Severity.Set")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_level,"level")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<43>");
 	this->f_level=t_level;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<44>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<44>");
 	m_Restart();
-	popErr();
 }
 void bb_severity_Severity::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<85>";
+	DBG_ENTER("Severity.OnUpdate")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<85>");
 	f_lastTime=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<86>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<86>");
 	if(f_progress>FLOAT(0.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<87>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<87>");
 		f_progress=FLOAT(1.0)-FLOAT(1.0)/Float(f_slowDownDuration)*Float(f_lastTime-f_startTime);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<88>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<88>");
 		f_progress=bb_math_Max2(FLOAT(0.0),f_progress);
 	}
-	popErr();
 }
 bool bb_severity_Severity::m_ShapeShouldBeDropped(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<117>";
+	DBG_ENTER("Severity.ShapeShouldBeDropped")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<117>");
 	bool t_=f_lastTime>=f_nextShapeDropTime;
-	popErr();
 	return t_;
 }
 int bb_severity_Severity::m_RandomType(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<142>";
+	DBG_ENTER("Severity.RandomType")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<142>");
 	int t_newType=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<143>";
+	DBG_LOCAL(t_newType,"newType")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<143>");
 	bool t_finished=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<156>";
+	DBG_LOCAL(t_finished,"finished")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<156>");
 	do{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<146>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<146>");
 		t_finished=true;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<147>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<147>");
 		t_newType=int(bb_random_Rnd2(FLOAT(0.0),Float(f_activatedShapes)));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<149>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<149>");
 		if(f_lastTypes->m_Length()>=2){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<150>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<150>");
 			if(f_lastTypes->m_Get2(0)==t_newType){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<151>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<151>");
 				if(f_lastTypes->m_Get2(1)==t_newType){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<152>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<152>");
 					t_finished=false;
 				}
 			}
 		}
 	}while(!(t_finished==true));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<158>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<158>");
 	if(f_lastTypes->m_Length()>=2){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<158>";
+		DBG_BLOCK();
 		f_lastTypes->m_Remove4(0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<159>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<159>");
 	f_lastTypes->m_Push(t_newType);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<160>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<160>");
 	int t_=f_shapeTypes.At(t_newType);
-	popErr();
 	return t_;
 }
 int bb_severity_Severity::m_RandomLane(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<185>";
+	DBG_ENTER("Severity.RandomLane")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<185>");
 	int t_newLane=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<186>";
+	DBG_LOCAL(t_newLane,"newLane")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<186>");
 	int t_now=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<190>";
+	DBG_LOCAL(t_now,"now")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<190>");
 	do{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<189>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<189>");
 		t_newLane=int(bb_random_Rnd2(FLOAT(0.0),FLOAT(4.0)));
 	}while(!(f_laneTimes.At(t_newLane)<t_now));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<192>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<192>");
 	f_laneTimes.At(t_newLane)=t_now+1400;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<194>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<194>");
 	return t_newLane;
 }
 String bb_severity_Severity::m_ToString(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<48>";
+	DBG_ENTER("Severity.ToString")
+	bb_severity_Severity *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<48>");
 	if(f_level==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<49>";
-		popErr();
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<49>");
 		return String(L"easy");
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<50>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<50>");
 		if(f_level==1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<51>";
-			popErr();
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<51>");
 			return String(L"norm");
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<53>";
-			popErr();
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<53>");
 			return String(L"adv.");
 		}
 	}
@@ -10448,16 +12277,30 @@ void bb_severity_Severity::mark(){
 	gc_mark_q(f_shapeTypes);
 	gc_mark_q(f_laneTimes);
 }
+String bb_severity_Severity::debug(){
+	String t="(Severity)\n";
+	t+=dbg_decl("level",&f_level);
+	t+=dbg_decl("nextChuteAdvanceTime",&f_nextChuteAdvanceTime);
+	t+=dbg_decl("nextShapeDropTime",&f_nextShapeDropTime);
+	t+=dbg_decl("lastTime",&f_lastTime);
+	t+=dbg_decl("shapeTypes",&f_shapeTypes);
+	t+=dbg_decl("laneTimes",&f_laneTimes);
+	t+=dbg_decl("lastTypes",&f_lastTypes);
+	t+=dbg_decl("activatedShapes",&f_activatedShapes);
+	t+=dbg_decl("startTime",&f_startTime);
+	t+=dbg_decl("slowDownDuration",&f_slowDownDuration);
+	t+=dbg_decl("progress",&f_progress);
+	return t;
+}
 bb_severity_Severity* bb_severity_globalSeverityInstance;
 bb_severity_Severity* bb_severity_CurrentSeverity(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<12>";
+	DBG_ENTER("CurrentSeverity")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<12>");
 	if(!((bb_severity_globalSeverityInstance)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<12>";
+		DBG_BLOCK();
 		gc_assign(bb_severity_globalSeverityInstance,(new bb_severity_Severity)->g_new());
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<13>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/severity.monkey<13>");
 	return bb_severity_globalSeverityInstance;
 }
 bb_slider_Slider::bb_slider_Slider(){
@@ -10472,211 +12315,232 @@ bb_slider_Slider::bb_slider_Slider(){
 	f_direction=0;
 }
 bb_slider_Slider* bb_slider_Slider::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<17>";
+	DBG_ENTER("Slider.new")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<17>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<17>";
-	popErr();
 	return this;
 }
 void bb_slider_Slider::m_InitializeConfig(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<147>";
+	DBG_ENTER("Slider.InitializeConfig")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<147>");
 	bb_severity_CurrentSeverity()->m_ConfigureSlider(f_config);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<148>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<148>");
 	gc_assign(f_configArray,f_config->m_ToArray());
-	popErr();
 }
 void bb_slider_Slider::m_Restart(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<53>";
+	DBG_ENTER("Slider.Restart")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<53>");
 	m_InitializeConfig();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<54>");
 	f_movementActive=false;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<55>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<55>");
 	f_movementStart=0;
-	popErr();
 }
 void bb_slider_Slider::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<37>";
+	DBG_ENTER("Slider.OnCreate")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<37>");
 	bb_graphics_Image* t_[]={bb_graphics_LoadImage(String(L"circle_outside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"plus_outside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"star_outside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"tire_outside.png"),1,bb_graphics_Image::g_DefaultFlags)};
 	gc_assign(f_images,Array<bb_graphics_Image* >(t_,4));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<39>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<39>");
 	gc_assign(f_arrowLeft,(new bb_sprite_Sprite)->g_new(String(L"arrow_ingame.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<40>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<40>");
 	f_arrowLeft->m_pos()->f_y=t_director->m_size()->f_y-f_arrowLeft->m_size()->f_y;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<41>");
 	bb_vector2d_Vector2D* t_2=f_arrowLeft->m_pos();
 	t_2->f_x=t_2->f_x-FLOAT(4.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<43>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<43>");
 	gc_assign(f_arrowRight,(new bb_sprite_Sprite)->g_new(String(L"arrow_ingame2.png"),0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<44>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<44>");
 	f_arrowRight->m_pos2(t_director->m_size()->m_Copy()->m_Sub(f_arrowRight->m_size()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<45>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<45>");
 	bb_vector2d_Vector2D* t_3=f_arrowRight->m_pos();
 	t_3->f_x=t_3->f_x+FLOAT(4.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<47>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<47>");
 	bb_partial_Partial::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<49>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<49>");
 	f_posY=t_director->m_size()->f_y-Float(f_images.At(0)->m_Height())-FLOAT(60.0);
-	popErr();
 }
 bb_vector2d_Vector2D* bb_slider_Slider::m_pos(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<73>";
+	DBG_ENTER("Slider.pos")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<73>");
 	bb_vector2d_Vector2D* t_=f_arrowLeft->m_pos();
-	popErr();
 	return t_;
 }
 Float bb_slider_Slider::m_GetMovementOffset(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<107>";
+	DBG_ENTER("Slider.GetMovementOffset")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<107>");
 	if(!f_movementActive){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<107>";
-		popErr();
+		DBG_BLOCK();
 		return FLOAT(0.0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<109>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<109>");
 	int t_now=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<110>";
+	DBG_LOCAL(t_now,"now")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<110>");
 	Float t_percent=FLOAT(100.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<111>";
+	DBG_LOCAL(t_percent,"percent")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<111>");
 	Float t_movementOffset=FLOAT(0.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<113>";
+	DBG_LOCAL(t_movementOffset,"movementOffset")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<113>");
 	if(f_movementStart+300>=t_now){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<114>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<114>");
 		t_percent=(Float)ceil(FLOAT(0.33333333333333331)*Float(t_now-f_movementStart));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<115>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<115>");
 		t_movementOffset=(Float)ceil(Float(f_images.At(0)->m_Width())/FLOAT(100.0)*t_percent);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<118>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<118>");
 	if(f_direction==1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<119>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<119>");
 		t_movementOffset=t_movementOffset*FLOAT(-1.0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<122>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<122>");
 	if(f_movementStart+300<t_now){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<123>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<123>");
 		f_movementActive=false;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<124>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<124>");
 		if(f_direction==1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<125>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<125>");
 			int t_tmpType=f_config->m_First();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<126>";
+			DBG_LOCAL(t_tmpType,"tmpType")
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<126>");
 			f_config->m_RemoveFirst();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<127>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<127>");
 			f_config->m_AddLast4(t_tmpType);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<128>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<128>");
 			gc_assign(f_configArray,f_config->m_ToArray());
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<130>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<130>");
 			int t_tmpType2=f_config->m_Last();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<131>";
+			DBG_LOCAL(t_tmpType2,"tmpType")
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<131>");
 			f_config->m_RemoveLast();
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<132>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<132>");
 			f_config->m_AddFirst2(t_tmpType2);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<133>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<133>");
 			gc_assign(f_configArray,f_config->m_ToArray());
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<137>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<137>");
 	return t_movementOffset;
 }
 void bb_slider_Slider::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<77>";
+	DBG_ENTER("Slider.OnRender")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<77>");
 	Float t_posX=FLOAT(44.0)+m_GetMovementOffset();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<78>";
+	DBG_LOCAL(t_posX,"posX")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<78>");
 	bb_graphics_Image* t_img=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<80>";
+	DBG_LOCAL(t_img,"img")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<80>");
 	bb_graphics_PushMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<81>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<81>");
 	bb_graphics_SetColor(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<82>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<82>");
 	bb_graphics_DrawRect(FLOAT(0.0),f_posY+Float(f_images.At(f_config->m_First())->m_Height()),m_director()->m_size()->f_x,m_director()->m_size()->f_y);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<83>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<83>");
 	bb_graphics_PopMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<85>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<85>");
 	if(t_posX>FLOAT(44.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<86>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<86>");
 		t_img=f_images.At(f_config->m_Last());
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<87>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<87>");
 		bb_graphics_DrawImage(t_img,Float(t_img->m_Width()*-1)+t_posX,f_posY,0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<90>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<90>");
 	if(t_posX<FLOAT(44.0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<91>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<91>");
 		t_img=f_images.At(f_config->m_First());
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<92>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<92>");
 		bb_graphics_DrawImage(t_img,Float(t_img->m_Width()*4)+t_posX,f_posY,0);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<95>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<95>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<95>");
 	bb_list_Enumerator3* t_=f_config->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<95>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<95>";
+		DBG_BLOCK();
 		int t_type=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<96>";
+		DBG_LOCAL(t_type,"type")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<96>");
 		bb_graphics_DrawImage(f_images.At(t_type),t_posX,f_posY,0);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<97>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<97>");
 		t_posX=t_posX+Float(f_images.At(t_type)->m_Width());
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<100>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<100>");
 	f_arrowRight->m_OnRender();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<101>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<101>");
 	f_arrowLeft->m_OnRender();
-	popErr();
 }
 bool bb_slider_Slider::m_Match(bb_shape_Shape* t_shape){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<141>";
+	DBG_ENTER("Slider.Match")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_shape,"shape")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<141>");
 	if(f_movementActive){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<141>";
-		popErr();
+		DBG_BLOCK();
 		return false;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<142>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<142>");
 	if(t_shape->f_type==f_configArray.At(t_shape->f_lane)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<142>";
-		popErr();
+		DBG_BLOCK();
 		return true;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<143>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<143>");
 	return false;
 }
 void bb_slider_Slider::m_SlideLeft(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<59>";
+	DBG_ENTER("Slider.SlideLeft")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<59>");
 	if(f_movementActive){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<60>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<60>");
 	f_direction=1;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<61>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<61>");
 	f_movementStart=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<62>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<62>");
 	f_movementActive=true;
-	popErr();
 }
 void bb_slider_Slider::m_SlideRight(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<66>";
+	DBG_ENTER("Slider.SlideRight")
+	bb_slider_Slider *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<66>");
 	if(f_movementActive){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<67>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<67>");
 	f_direction=2;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<68>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<68>");
 	f_movementStart=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<69>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/slider.monkey<69>");
 	f_movementActive=true;
-	popErr();
 }
 void bb_slider_Slider::mark(){
 	bb_baseobject_BaseObject::mark();
@@ -10685,6 +12549,20 @@ void bb_slider_Slider::mark(){
 	gc_mark_q(f_configArray);
 	gc_mark_q(f_arrowLeft);
 	gc_mark_q(f_arrowRight);
+}
+String bb_slider_Slider::debug(){
+	String t="(Slider)\n";
+	t=bb_baseobject_BaseObject::debug()+t;
+	t+=dbg_decl("config",&f_config);
+	t+=dbg_decl("configArray",&f_configArray);
+	t+=dbg_decl("direction",&f_direction);
+	t+=dbg_decl("movementStart",&f_movementStart);
+	t+=dbg_decl("movementActive",&f_movementActive);
+	t+=dbg_decl("posY",&f_posY);
+	t+=dbg_decl("arrowLeft",&f_arrowLeft);
+	t+=dbg_decl("arrowRight",&f_arrowRight);
+	t+=dbg_decl("images",&f_images);
+	return t;
 }
 bb_font_Font::bb_font_Font(){
 	f_name=String();
@@ -10695,121 +12573,152 @@ bb_font_Font::bb_font_Font(){
 	f_recalculateSize=false;
 }
 bb_font_Font* bb_font_Font::g_new(String t_fontName,bb_vector2d_Vector2D* t_pos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<30>";
+	DBG_ENTER("Font.new")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_fontName,"fontName")
+	DBG_LOCAL(t_pos,"pos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<30>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<31>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<31>");
 	if(t_pos==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<31>";
+		DBG_BLOCK();
 		t_pos=(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(0.0));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<33>");
 	this->f_name=t_fontName;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<34>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<34>");
 	this->m_pos2(t_pos);
-	popErr();
 	return this;
 }
 bb_font_Font* bb_font_Font::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<14>";
+	DBG_ENTER("Font.new")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<14>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<14>";
-	popErr();
 	return this;
 }
 void bb_font_Font::m_align(int t_newAlign){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<82>";
+	DBG_ENTER("Font.align")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_newAlign,"newAlign")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<82>");
 	int t_1=t_newAlign;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<83>";
+	DBG_LOCAL(t_1,"1")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<83>");
 	if(t_1==0 || t_1==1 || t_1==2){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<84>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<84>");
 		f__align=t_newAlign;
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<86>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<86>");
 		Error(String(L"Invalid align value specified."));
 	}
-	popErr();
 }
 int bb_font_Font::m_align2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<91>";
-	popErr();
+	DBG_ENTER("Font.align")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<91>");
 	return f__align;
 }
 bb_angelfont_AngelFont* bb_font_Font::m_font(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<97>";
+	DBG_ENTER("Font.font")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<97>");
 	bb_angelfont_AngelFont* t_=f_fontStore->m_Get(f_name);
-	popErr();
 	return t_;
 }
 void bb_font_Font::m_text(String t_newText){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<66>";
+	DBG_ENTER("Font.text")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_newText,"newText")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<66>");
 	f__text=t_newText;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<67>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<67>");
 	if(!((m_font())!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<68>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<68>");
 		f_recalculateSize=true;
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<72>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<72>");
 	Float t_width=Float(m_font()->m_TextWidth(t_newText));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<73>";
+	DBG_LOCAL(t_width,"width")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<73>");
 	Float t_height=Float(m_font()->m_TextHeight(t_newText));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<74>";
+	DBG_LOCAL(t_height,"height")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<74>");
 	m_size2((new bb_vector2d_Vector2D)->g_new(t_width,t_height));
-	popErr();
 }
 String bb_font_Font::m_text2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<78>";
-	popErr();
+	DBG_ENTER("Font.text")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<78>");
 	return f__text;
 }
 void bb_font_Font::m_OnCreate(bb_director_Director* t_director){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<38>";
+	DBG_ENTER("Font.OnCreate")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_director,"director")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<38>");
 	bb_partial_Partial::m_OnCreate(t_director);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<40>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<40>");
 	if(!f_fontStore->m_Contains(f_name)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<41>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<41>");
 		f_fontStore->m_Set7(f_name,(new bb_angelfont_AngelFont)->g_new(String()));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<42>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<42>");
 		f_fontStore->m_Get(f_name)->m_LoadFont(f_name);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<45>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<45>");
 	if(f_recalculateSize){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<46>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<46>");
 		f_recalculateSize=false;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<47>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<47>");
 		m_text(f__text);
 	}
-	popErr();
 }
 void bb_font_Font::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<52>";
+	DBG_ENTER("Font.OnRender")
+	bb_font_Font *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<52>");
 	if((f_color)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<52>";
+		DBG_BLOCK();
 		f_color->m_Activate();
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<53>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<53>");
 	m_font()->m_DrawText2(f__text,int(m_pos()->f_x),int(m_pos()->f_y),f__align);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<54>");
 	if((f_color)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/font.monkey<54>";
+		DBG_BLOCK();
 		f_color->m_Deactivate();
 	}
-	popErr();
 }
 void bb_font_Font::mark(){
 	bb_baseobject_BaseObject::mark();
 	gc_mark_q(f_color);
 	gc_mark_q(f_fontStore);
+}
+String bb_font_Font::debug(){
+	String t="(Font)\n";
+	t=bb_baseobject_BaseObject::debug()+t;
+	t+=dbg_decl("_align",&f__align);
+	t+=dbg_decl("_text",&f__text);
+	t+=dbg_decl("fontStore",&f_fontStore);
+	t+=dbg_decl("name",&f_name);
+	t+=dbg_decl("recalculateSize",&f_recalculateSize);
+	t+=dbg_decl("color",&f_color);
+	return t;
 }
 bb_angelfont_AngelFont::bb_angelfont_AngelFont(){
 	f_chars=Array<bb_char_Char* >(256);
@@ -10823,217 +12732,290 @@ bb_angelfont_AngelFont::bb_angelfont_AngelFont(){
 	f_xOffset=0;
 }
 int bb_angelfont_AngelFont::m_TextWidth(String t_txt){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<250>";
+	DBG_ENTER("AngelFont.TextWidth")
+	bb_angelfont_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_txt,"txt")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<250>");
 	String t_prevChar=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<251>";
+	DBG_LOCAL(t_prevChar,"prevChar")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<251>");
 	int t_width=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<252>";
+	DBG_LOCAL(t_width,"width")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<252>");
 	for(int t_i=0;t_i<t_txt.Length();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<253>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<253>");
 		int t_asc=(int)t_txt[t_i];
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<254>";
+		DBG_LOCAL(t_asc,"asc")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<254>");
 		bb_char_Char* t_ac=f_chars.At(t_asc);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<255>";
+		DBG_LOCAL(t_ac,"ac")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<255>");
 		String t_thisChar=String((Char)(t_asc),1);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<256>";
+		DBG_LOCAL(t_thisChar,"thisChar")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<256>");
 		if(t_ac!=0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<257>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<257>");
 			if(f_useKerning){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<258>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<258>");
 				String t_key=t_prevChar+String(L"_")+t_thisChar;
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<259>";
+				DBG_LOCAL(t_key,"key")
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<259>");
 				if(f_kernPairs->m_Contains(t_key)){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<261>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<261>");
 					t_width+=f_kernPairs->m_Get(t_key)->f_amount;
 				}
 			}
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<265>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<265>");
 			t_width+=t_ac->f_xAdvance;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<266>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<266>");
 			t_prevChar=t_thisChar;
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<269>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<269>");
 	return t_width;
 }
 int bb_angelfont_AngelFont::m_TextHeight(String t_txt){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<273>";
+	DBG_ENTER("AngelFont.TextHeight")
+	bb_angelfont_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_txt,"txt")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<273>");
 	int t_h=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<274>";
+	DBG_LOCAL(t_h,"h")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<274>");
 	for(int t_i=0;t_i<t_txt.Length();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<275>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<275>");
 		int t_asc=(int)t_txt[t_i];
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<276>";
+		DBG_LOCAL(t_asc,"asc")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<276>");
 		bb_char_Char* t_ac=f_chars.At(t_asc);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<277>";
+		DBG_LOCAL(t_ac,"ac")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<277>");
 		if(t_ac->f_height>t_h){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<277>";
+			DBG_BLOCK();
 			t_h=t_ac->f_height;
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<279>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<279>");
 	return t_h;
 }
 String bb_angelfont_AngelFont::g_error;
 bb_angelfont_AngelFont* bb_angelfont_AngelFont::g_current;
 void bb_angelfont_AngelFont::m_LoadFont(String t_url){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<61>";
+	DBG_ENTER("AngelFont.LoadFont")
+	bb_angelfont_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_url,"url")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<61>");
 	g_error=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<62>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<62>");
 	gc_assign(g_current,this);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<63>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<63>");
 	f_iniText=bb_app_LoadString(t_url+String(L".txt"));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<64>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<64>");
 	Array<String > t_lines=f_iniText.Split(String((Char)(10),1));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<65>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<65>";
+	DBG_LOCAL(t_lines,"lines")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<65>");
 	Array<String > t_=t_lines;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<65>";
 	int t_2=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<65>";
 	while(t_2<t_.Length()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<65>";
+		DBG_BLOCK();
 		String t_line=t_.At(t_2);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<65>";
 		t_2=t_2+1;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<67>";
+		DBG_LOCAL(t_line,"line")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<67>");
 		t_line=t_line.Trim();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<69>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<69>");
 		if(t_line.StartsWith(String(L"id,")) || t_line==String()){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<69>";
+			DBG_BLOCK();
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<70>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<70>");
 		if(t_line.StartsWith(String(L"first,"))){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<72>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<72>");
 			continue;
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<74>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<74>");
 		Array<String > t_data=t_line.Split(String(L","));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<76>";
+		DBG_LOCAL(t_data,"data")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<76>");
 		for(int t_i=0;t_i<t_data.Length();t_i=t_i+1){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<77>";
+			DBG_BLOCK();
+			DBG_LOCAL(t_i,"i")
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<77>");
 			t_data.At(t_i)=t_data.At(t_i).Trim();
 		}
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<80>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<80>");
 		g_error=g_error+(String(t_data.Length())+String(L","));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<81>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<81>");
 		if(t_data.Length()>0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<82>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<82>");
 			if(t_data.Length()==3){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<84>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<84>");
 				f_kernPairs->m_Insert(String((Char)((t_data.At(0)).ToInt()),1)+String(L"_")+String((Char)((t_data.At(1)).ToInt()),1),(new bb_kernpair_KernPair)->g_new((t_data.At(0)).ToInt(),(t_data.At(1)).ToInt(),(t_data.At(2)).ToInt()));
 			}else{
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<86>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<86>");
 				if(t_data.Length()>=8){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<87>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<87>");
 					gc_assign(f_chars.At((t_data.At(0)).ToInt()),(new bb_char_Char)->g_new((t_data.At(1)).ToInt(),(t_data.At(2)).ToInt(),(t_data.At(3)).ToInt(),(t_data.At(4)).ToInt(),(t_data.At(5)).ToInt(),(t_data.At(6)).ToInt(),(t_data.At(7)).ToInt()));
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<88>";
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<88>");
 					bb_char_Char* t_ch=f_chars.At((t_data.At(0)).ToInt());
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<89>";
+					DBG_LOCAL(t_ch,"ch")
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<89>");
 					if(t_ch->f_height>this->f_height){
-						errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<89>";
+						DBG_BLOCK();
 						this->f_height=t_ch->f_height;
 					}
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<90>";
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<90>");
 					if(t_ch->f_yOffset<this->f_heightOffset){
-						errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<90>";
+						DBG_BLOCK();
 						this->f_heightOffset=t_ch->f_yOffset;
 					}
 				}
 			}
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<97>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<97>");
 	gc_assign(f_image,bb_graphics_LoadImage(t_url+String(L".png"),1,bb_graphics_Image::g_DefaultFlags));
-	popErr();
 }
 bb_map_StringMap5* bb_angelfont_AngelFont::g__list;
 bb_angelfont_AngelFont* bb_angelfont_AngelFont::g_new(String t_url){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<48>";
+	DBG_ENTER("AngelFont.new")
+	bb_angelfont_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_url,"url")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<48>");
 	if(t_url!=String()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<49>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<49>");
 		this->m_LoadFont(t_url);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<50>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<50>");
 		this->f_name=t_url;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<51>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<51>");
 		g__list->m_Insert3(t_url,this);
 	}
-	popErr();
 	return this;
 }
 void bb_angelfont_AngelFont::m_DrawText(String t_txt,int t_x,int t_y){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<134>";
+	DBG_ENTER("AngelFont.DrawText")
+	bb_angelfont_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_txt,"txt")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<134>");
 	String t_prevChar=String();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<135>";
+	DBG_LOCAL(t_prevChar,"prevChar")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<135>");
 	f_xOffset=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<137>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<137>");
 	for(int t_i=0;t_i<t_txt.Length();t_i=t_i+1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<138>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<138>");
 		int t_asc=(int)t_txt[t_i];
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<139>";
+		DBG_LOCAL(t_asc,"asc")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<139>");
 		bb_char_Char* t_ac=f_chars.At(t_asc);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<140>";
+		DBG_LOCAL(t_ac,"ac")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<140>");
 		String t_thisChar=String((Char)(t_asc),1);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<141>";
+		DBG_LOCAL(t_thisChar,"thisChar")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<141>");
 		if(t_ac!=0){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<142>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<142>");
 			if(f_useKerning){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<143>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<143>");
 				String t_key=t_prevChar+String(L"_")+t_thisChar;
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<144>";
+				DBG_LOCAL(t_key,"key")
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<144>");
 				if(f_kernPairs->m_Contains(t_key)){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<145>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<145>");
 					f_xOffset+=f_kernPairs->m_Get(t_key)->f_amount;
 				}
 			}
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<148>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<148>");
 			t_ac->m_Draw(f_image,t_x+f_xOffset,t_y);
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<149>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<149>");
 			f_xOffset+=t_ac->f_xAdvance;
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<150>";
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<150>");
 			t_prevChar=t_thisChar;
 		}
 	}
-	popErr();
 }
 void bb_angelfont_AngelFont::m_DrawText2(String t_txt,int t_x,int t_y,int t_align){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<156>";
+	DBG_ENTER("AngelFont.DrawText")
+	bb_angelfont_AngelFont *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_txt,"txt")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_align,"align")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<156>");
 	f_xOffset=0;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<157>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<157>");
 	int t_1=t_align;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<158>";
+	DBG_LOCAL(t_1,"1")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<158>");
 	if(t_1==1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<159>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<159>");
 		m_DrawText(t_txt,t_x-m_TextWidth(t_txt)/2,t_y);
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<160>");
 		if(t_1==2){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<161>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<161>");
 			m_DrawText(t_txt,t_x-m_TextWidth(t_txt),t_y);
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<162>");
 			if(t_1==0){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/vendor/angelfont/angelfont.monkey<164>");
 				m_DrawText(t_txt,t_x,t_y);
 			}
 		}
 	}
-	popErr();
 }
 void bb_angelfont_AngelFont::mark(){
 	Object::mark();
 	gc_mark_q(f_chars);
 	gc_mark_q(f_kernPairs);
 	gc_mark_q(f_image);
+}
+String bb_angelfont_AngelFont::debug(){
+	String t="(AngelFont)\n";
+	t+=dbg_decl("_list",&bb_angelfont_AngelFont::g__list);
+	t+=dbg_decl("image",&f_image);
+	t+=dbg_decl("chars",&f_chars);
+	t+=dbg_decl("kernPairs",&f_kernPairs);
+	t+=dbg_decl("iniText",&f_iniText);
+	t+=dbg_decl("xOffset",&f_xOffset);
+	t+=dbg_decl("current",&bb_angelfont_AngelFont::g_current);
+	t+=dbg_decl("error",&bb_angelfont_AngelFont::g_error);
+	t+=dbg_decl("name",&f_name);
+	t+=dbg_decl("useKerning",&f_useKerning);
+	t+=dbg_decl("height",&f_height);
+	t+=dbg_decl("heightOffset",&f_heightOffset);
+	return t;
 }
 bb_color_Color::bb_color_Color(){
 	f_red=FLOAT(.0);
@@ -11043,343 +13025,434 @@ bb_color_Color::bb_color_Color(){
 	f_oldColor=0;
 }
 bb_color_Color* bb_color_Color::g_new(Float t_red,Float t_green,Float t_blue,Float t_alpha){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<22>";
+	DBG_ENTER("Color.new")
+	bb_color_Color *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_red,"red")
+	DBG_LOCAL(t_green,"green")
+	DBG_LOCAL(t_blue,"blue")
+	DBG_LOCAL(t_alpha,"alpha")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<22>");
 	this->f_red=t_red;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<23>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<23>");
 	this->f_green=t_green;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<24>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<24>");
 	this->f_blue=t_blue;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<25>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<25>");
 	this->f_alpha=t_alpha;
-	popErr();
 	return this;
 }
 bb_color_Color* bb_color_Color::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<9>";
-	popErr();
+	DBG_ENTER("Color.new")
+	bb_color_Color *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<9>");
 	return this;
 }
 void bb_color_Color::m_Set6(bb_color_Color* t_color){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<47>";
+	DBG_ENTER("Color.Set")
+	bb_color_Color *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_color,"color")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<47>");
 	bb_graphics_SetColor(t_color->f_red,t_color->f_green,t_color->f_blue);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<48>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<48>");
 	bb_graphics_SetAlpha(t_color->f_alpha);
-	popErr();
 }
 void bb_color_Color::m_Activate(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<29>";
+	DBG_ENTER("Color.Activate")
+	bb_color_Color *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<29>");
 	if(!((f_oldColor)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<29>";
+		DBG_BLOCK();
 		gc_assign(f_oldColor,(new bb_color_Color)->g_new(FLOAT(0.0),FLOAT(0.0),FLOAT(0.0),FLOAT(0.0)));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<31>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<31>");
 	Array<Float > t_colorStack=bb_graphics_GetColor();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<32>";
+	DBG_LOCAL(t_colorStack,"colorStack")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<32>");
 	f_oldColor->f_red=t_colorStack.At(0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<33>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<33>");
 	f_oldColor->f_green=t_colorStack.At(1);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<34>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<34>");
 	f_oldColor->f_blue=t_colorStack.At(2);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<35>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<35>");
 	f_oldColor->f_alpha=bb_graphics_GetAlpha();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<37>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<37>");
 	m_Set6(this);
-	popErr();
 }
 void bb_color_Color::m_Deactivate(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<41>";
+	DBG_ENTER("Color.Deactivate")
+	bb_color_Color *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<41>");
 	if((f_oldColor)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/color.monkey<41>";
+		DBG_BLOCK();
 		m_Set6(f_oldColor);
 	}
-	popErr();
 }
 void bb_color_Color::mark(){
 	Object::mark();
 	gc_mark_q(f_oldColor);
 }
+String bb_color_Color::debug(){
+	String t="(Color)\n";
+	t+=dbg_decl("oldColor",&f_oldColor);
+	t+=dbg_decl("red",&f_red);
+	t+=dbg_decl("green",&f_green);
+	t+=dbg_decl("blue",&f_blue);
+	t+=dbg_decl("alpha",&f_alpha);
+	return t;
+}
 bb_map_Map5::bb_map_Map5(){
 	f_root=0;
 }
 bb_map_Map5* bb_map_Map5::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<7>";
-	popErr();
+	DBG_ENTER("Map.new")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<7>");
 	return this;
 }
 bb_map_Node5* bb_map_Map5::m_FindNode(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<157>";
+	DBG_ENTER("Map.FindNode")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<157>");
 	bb_map_Node5* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<159>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<159>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<160>");
 		int t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<161>";
+		DBG_LOCAL(t_cmp,"cmp")
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<161>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<162>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<163>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<163>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<164>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<166>";
-				popErr();
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<166>");
 				return t_node;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<169>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<169>");
 	return t_node;
 }
 bb_angelfont_AngelFont* bb_map_Map5::m_Get(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<101>";
+	DBG_ENTER("Map.Get")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<101>");
 	bb_map_Node5* t_node=m_FindNode(t_key);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<102>");
 	if((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<102>";
-		popErr();
+		DBG_BLOCK();
 		return t_node->f_value;
 	}
-	popErr();
 	return 0;
 }
 bool bb_map_Map5::m_Contains(String t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<25>";
+	DBG_ENTER("Map.Contains")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<25>");
 	bool t_=m_FindNode(t_key)!=0;
-	popErr();
 	return t_;
 }
 int bb_map_Map5::m_RotateLeft5(bb_map_Node5* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<251>";
+	DBG_ENTER("Map.RotateLeft")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<251>");
 	bb_map_Node5* t_child=t_node->f_right;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<252>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<252>");
 	gc_assign(t_node->f_right,t_child->f_left);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<253>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<253>");
 	if((t_child->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<254>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<254>");
 		gc_assign(t_child->f_left->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<256>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<257>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<258>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<258>");
 		if(t_node==t_node->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<259>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<259>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<261>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<261>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<264>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<264>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<266>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<266>");
 	gc_assign(t_child->f_left,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<267>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<267>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map5::m_RotateRight5(bb_map_Node5* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<271>";
+	DBG_ENTER("Map.RotateRight")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<271>");
 	bb_map_Node5* t_child=t_node->f_left;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<272>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<272>");
 	gc_assign(t_node->f_left,t_child->f_right);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<273>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<273>");
 	if((t_child->f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<274>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<274>");
 		gc_assign(t_child->f_right->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<276>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<276>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<277>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<277>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<278>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<278>");
 		if(t_node==t_node->f_parent->f_right){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<279>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<279>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<281>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<281>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<284>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<284>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<286>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<286>");
 	gc_assign(t_child->f_right,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<287>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map5::m_InsertFixup5(bb_map_Node5* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<212>";
+	DBG_ENTER("Map.InsertFixup")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<212>");
 	while(((t_node->f_parent)!=0) && t_node->f_parent->f_color==-1 && ((t_node->f_parent->f_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<213>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<213>");
 		if(t_node->f_parent==t_node->f_parent->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<214>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<214>");
 			bb_map_Node5* t_uncle=t_node->f_parent->f_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<215>";
+			DBG_LOCAL(t_uncle,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<215>");
 			if(((t_uncle)!=0) && t_uncle->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<216>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<216>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<217>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<217>");
 				t_uncle->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<218>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<218>");
 				t_uncle->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<219>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<219>");
 				t_node=t_uncle->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<221>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<221>");
 				if(t_node==t_node->f_parent->f_right){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<222>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<222>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<223>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<223>");
 					m_RotateLeft5(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<225>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<225>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<226>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<226>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<227>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<227>");
 				m_RotateRight5(t_node->f_parent->f_parent);
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<230>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<230>");
 			bb_map_Node5* t_uncle2=t_node->f_parent->f_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<231>";
+			DBG_LOCAL(t_uncle2,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<231>");
 			if(((t_uncle2)!=0) && t_uncle2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<232>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<232>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<233>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<233>");
 				t_uncle2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<234>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<234>");
 				t_uncle2->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<235>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<235>");
 				t_node=t_uncle2->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<237>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<237>");
 				if(t_node==t_node->f_parent->f_left){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<238>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<238>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<239>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<239>");
 					m_RotateRight5(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<241>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<241>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<242>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<242>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<243>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<243>");
 				m_RotateLeft5(t_node->f_parent->f_parent);
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<247>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<247>");
 	f_root->f_color=1;
-	popErr();
 	return 0;
 }
 bool bb_map_Map5::m_Set7(String t_key,bb_angelfont_AngelFont* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
+	DBG_ENTER("Map.Set")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<29>");
 	bb_map_Node5* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<30>");
 	bb_map_Node5* t_parent=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
 	int t_cmp=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<32>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_LOCAL(t_cmp,"cmp")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<32>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<33>");
 		t_parent=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<34>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<34>");
 		t_cmp=m_Compare(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<35>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<35>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<36>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<36>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<37>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<37>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<38>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<38>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<40>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<40>");
 				gc_assign(t_node->f_value,t_value);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<41>";
-				popErr();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<41>");
 				return false;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<45>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<45>");
 	t_node=(new bb_map_Node5)->g_new(t_key,t_value,-1,t_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<47>");
 	if((t_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<48>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<48>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<49>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<49>");
 			gc_assign(t_parent->f_right,t_node);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<51>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<51>");
 			gc_assign(t_parent->f_left,t_node);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<53>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<53>");
 		m_InsertFixup5(t_node);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<55>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<55>");
 		gc_assign(f_root,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<57>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<57>");
 	return true;
 }
 bool bb_map_Map5::m_Insert3(String t_key,bb_angelfont_AngelFont* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<126>";
+	DBG_ENTER("Map.Insert")
+	bb_map_Map5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<126>");
 	bool t_=m_Set7(t_key,t_value);
-	popErr();
 	return t_;
 }
 void bb_map_Map5::mark(){
 	Object::mark();
 	gc_mark_q(f_root);
 }
+String bb_map_Map5::debug(){
+	String t="(Map)\n";
+	t+=dbg_decl("root",&f_root);
+	return t;
+}
 bb_map_StringMap5::bb_map_StringMap5(){
 }
 bb_map_StringMap5* bb_map_StringMap5::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
+	DBG_ENTER("StringMap.new")
+	bb_map_StringMap5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<551>");
 	bb_map_Map5::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<551>";
-	popErr();
 	return this;
 }
 int bb_map_StringMap5::m_Compare(String t_lhs,String t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<554>";
+	DBG_ENTER("StringMap.Compare")
+	bb_map_StringMap5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<554>");
 	int t_=t_lhs.Compare(t_rhs);
-	popErr();
 	return t_;
 }
 void bb_map_StringMap5::mark(){
 	bb_map_Map5::mark();
+}
+String bb_map_StringMap5::debug(){
+	String t="(StringMap)\n";
+	t=bb_map_Map5::debug()+t;
+	return t;
 }
 bb_map_Node5::bb_map_Node5(){
 	f_key=String();
@@ -11390,22 +13463,28 @@ bb_map_Node5::bb_map_Node5(){
 	f_parent=0;
 }
 bb_map_Node5* bb_map_Node5::g_new(String t_key,bb_angelfont_AngelFont* t_value,int t_color,bb_map_Node5* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<364>";
+	DBG_ENTER("Node.new")
+	bb_map_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_color,"color")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<364>");
 	this->f_key=t_key;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<365>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<365>");
 	gc_assign(this->f_value,t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<366>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<366>");
 	this->f_color=t_color;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<367>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<367>");
 	gc_assign(this->f_parent,t_parent);
-	popErr();
 	return this;
 }
 bb_map_Node5* bb_map_Node5::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<361>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_map_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<361>");
 	return this;
 }
 void bb_map_Node5::mark(){
@@ -11414,6 +13493,16 @@ void bb_map_Node5::mark(){
 	gc_mark_q(f_left);
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
+}
+String bb_map_Node5::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	t+=dbg_decl("color",&f_color);
+	t+=dbg_decl("parent",&f_parent);
+	t+=dbg_decl("left",&f_left);
+	t+=dbg_decl("right",&f_right);
+	return t;
 }
 bb_animation_Animation::bb_animation_Animation(){
 	f_startValue=FLOAT(.0);
@@ -11426,117 +13515,144 @@ bb_animation_Animation::bb_animation_Animation(){
 	f__value=FLOAT(.0);
 }
 bb_animation_Animation* bb_animation_Animation::g_new(Float t_startValue,Float t_endValue,Float t_duration){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<27>";
+	DBG_ENTER("Animation.new")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_startValue,"startValue")
+	DBG_LOCAL(t_endValue,"endValue")
+	DBG_LOCAL(t_duration,"duration")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<27>");
 	bb_fanout_FanOut::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<28>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<28>");
 	this->f_startValue=t_startValue;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<29>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<29>");
 	this->f_endValue=t_endValue;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<30>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<30>");
 	this->f_duration=t_duration;
-	popErr();
 	return this;
 }
 bb_animation_Animation* bb_animation_Animation::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<12>";
+	DBG_ENTER("Animation.new")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<12>");
 	bb_fanout_FanOut::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<12>";
-	popErr();
 	return this;
 }
 void bb_animation_Animation::m_Pause(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<34>";
+	DBG_ENTER("Animation.Pause")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<34>");
 	f_finished=true;
-	popErr();
 }
 void bb_animation_Animation::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<51>";
+	DBG_ENTER("Animation.OnUpdate")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<51>");
 	bb_fanout_FanOut::m_OnUpdate(t_delta,t_frameTime);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<53>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<53>");
 	if(f_finished){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<54>");
 	f_animationTime+=t_frameTime;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<56>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<56>");
 	Float t_progress=bb_math_Min2(FLOAT(1.0),f_animationTime/f_duration);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<57>";
+	DBG_LOCAL(t_progress,"progress")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<57>");
 	Float t_t=f_transition->m_Calculate(t_progress);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<58>";
+	DBG_LOCAL(t_t,"t")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<58>");
 	f__value=f_startValue*(FLOAT(1.0)-t_t)+f_endValue*t_t;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<60>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<60>");
 	if(f_animationTime>=f_duration){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<61>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<61>");
 		f_animationTime=f_duration;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<62>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<62>");
 		f_finished=true;
 	}
-	popErr();
 }
 void bb_animation_Animation::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<67>";
+	DBG_ENTER("Animation.OnRender")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<67>");
 	if(!((f_effect)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<68>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<68>");
 		bb_fanout_FanOut::m_OnRender();
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<72>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<72>");
 	if(m_Count()==0){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<73>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<73>");
 	f_effect->m_PreRender(f__value);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<75>";
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<75>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<75>");
 	bb_list_Enumerator* t_=this->m_ObjectEnumerator();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<75>";
 	while(t_->m_HasNext()){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<75>";
+		DBG_BLOCK();
 		bb_directorevents_DirectorEvents* t_obj=t_->m_NextObject();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<76>";
+		DBG_LOCAL(t_obj,"obj")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<76>");
 		f_effect->m_PreNode(f__value,t_obj);
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<77>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<77>");
 		t_obj->m_OnRender();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<78>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<78>");
 		f_effect->m_PostNode(f__value,t_obj);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<81>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<81>");
 	f_effect->m_PostRender(f__value);
-	popErr();
 }
 void bb_animation_Animation::m_Play(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<38>";
+	DBG_ENTER("Animation.Play")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<38>");
 	f_finished=false;
-	popErr();
 }
 void bb_animation_Animation::m_Restart(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<42>";
+	DBG_ENTER("Animation.Restart")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<42>");
 	f_animationTime=FLOAT(0.0);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<43>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<43>");
 	m_Play();
-	popErr();
 }
 bool bb_animation_Animation::m_IsPlaying(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<47>";
+	DBG_ENTER("Animation.IsPlaying")
+	bb_animation_Animation *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/animation.monkey<47>");
 	bool t_=!f_finished;
-	popErr();
 	return t_;
 }
 void bb_animation_Animation::mark(){
 	bb_fanout_FanOut::mark();
 	gc_mark_q(f_effect);
 	gc_mark_q(f_transition);
+}
+String bb_animation_Animation::debug(){
+	String t="(Animation)\n";
+	t=bb_fanout_FanOut::debug()+t;
+	t+=dbg_decl("startValue",&f_startValue);
+	t+=dbg_decl("endValue",&f_endValue);
+	t+=dbg_decl("duration",&f_duration);
+	t+=dbg_decl("animationTime",&f_animationTime);
+	t+=dbg_decl("finished",&f_finished);
+	t+=dbg_decl("_value",&f__value);
+	t+=dbg_decl("transition",&f_transition);
+	t+=dbg_decl("effect",&f_effect);
+	return t;
 }
 bb_fader_FaderScale::bb_fader_FaderScale(){
 	f_sizeNode=0;
@@ -11545,110 +13661,142 @@ bb_fader_FaderScale::bb_fader_FaderScale(){
 	f_posNode=0;
 }
 bb_fader_FaderScale* bb_fader_FaderScale::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<36>";
-	popErr();
+	DBG_ENTER("FaderScale.new")
+	bb_fader_FaderScale *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<36>");
 	return this;
 }
 void bb_fader_FaderScale::m_PreRender(Float t_value){
-	pushErr();
-	popErr();
+	DBG_ENTER("FaderScale.PreRender")
+	bb_fader_FaderScale *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_fader_FaderScale::m_PostRender(Float t_value){
-	pushErr();
-	popErr();
+	DBG_ENTER("FaderScale.PostRender")
+	bb_fader_FaderScale *self=this;
+	DBG_LOCAL(self,"Self")
 }
 void bb_fader_FaderScale::m_PreNode(Float t_value,bb_directorevents_DirectorEvents* t_node){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<53>";
+	DBG_ENTER("FaderScale.PreNode")
+	bb_fader_FaderScale *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<53>");
 	if(t_value==FLOAT(1.0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<54>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<54>");
 	bb_graphics_PushMatrix();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<56>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<56>");
 	gc_assign(f_sizeNode,dynamic_cast<bb_sizeable_Sizeable*>(t_node));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<57>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<57>");
 	if((f_sizeNode)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<58>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<58>");
 		f_offsetX=f_sizeNode->m_center()->f_x*(t_value-FLOAT(1.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<59>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<59>");
 		f_offsetY=f_sizeNode->m_center()->f_y*(t_value-FLOAT(1.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<60>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<60>");
 		bb_graphics_Translate(-f_offsetX,-f_offsetY);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<63>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<63>");
 	gc_assign(f_posNode,dynamic_cast<bb_positionable_Positionable*>(t_node));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<64>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<64>");
 	if((f_posNode)!=0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<65>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<65>");
 		f_offsetX=f_posNode->m_pos()->f_x*(t_value-FLOAT(1.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<66>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<66>");
 		f_offsetY=f_posNode->m_pos()->f_y*(t_value-FLOAT(1.0));
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<67>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<67>");
 		bb_graphics_Translate(-f_offsetX,-f_offsetY);
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<70>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<70>");
 	bb_graphics_Scale(t_value,t_value);
-	popErr();
 }
 void bb_fader_FaderScale::m_PostNode(Float t_value,bb_directorevents_DirectorEvents* t_node){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<74>";
+	DBG_ENTER("FaderScale.PostNode")
+	bb_fader_FaderScale *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<74>");
 	if(t_value==FLOAT(1.0)){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<75>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/fader.monkey<75>");
 	bb_graphics_PopMatrix();
-	popErr();
 }
 void bb_fader_FaderScale::mark(){
 	Object::mark();
 	gc_mark_q(f_sizeNode);
 	gc_mark_q(f_posNode);
 }
+String bb_fader_FaderScale::debug(){
+	String t="(FaderScale)\n";
+	t+=dbg_decl("offsetX",&f_offsetX);
+	t+=dbg_decl("offsetY",&f_offsetY);
+	t+=dbg_decl("sizeNode",&f_sizeNode);
+	t+=dbg_decl("posNode",&f_posNode);
+	return t;
+}
 bb_transition_TransitionInCubic::bb_transition_TransitionInCubic(){
 }
 bb_transition_TransitionInCubic* bb_transition_TransitionInCubic::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<38>";
-	popErr();
+	DBG_ENTER("TransitionInCubic.new")
+	bb_transition_TransitionInCubic *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<38>");
 	return this;
 }
 Float bb_transition_TransitionInCubic::m_Calculate(Float t_progress){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<40>";
+	DBG_ENTER("TransitionInCubic.Calculate")
+	bb_transition_TransitionInCubic *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_progress,"progress")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<40>");
 	Float t_=(Float)pow(t_progress,FLOAT(3.0));
-	popErr();
 	return t_;
 }
 void bb_transition_TransitionInCubic::mark(){
 	Object::mark();
 }
+String bb_transition_TransitionInCubic::debug(){
+	String t="(TransitionInCubic)\n";
+	return t;
+}
 bb_transition_TransitionLinear::bb_transition_TransitionLinear(){
 }
 bb_transition_TransitionLinear* bb_transition_TransitionLinear::g_new(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<10>";
-	popErr();
+	DBG_ENTER("TransitionLinear.new")
+	bb_transition_TransitionLinear *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<10>");
 	return this;
 }
 Float bb_transition_TransitionLinear::m_Calculate(Float t_progress){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<12>";
-	popErr();
+	DBG_ENTER("TransitionLinear.Calculate")
+	bb_transition_TransitionLinear *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_progress,"progress")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/transition.monkey<12>");
 	return t_progress;
 }
 void bb_transition_TransitionLinear::mark(){
 	Object::mark();
 }
+String bb_transition_TransitionLinear::debug(){
+	String t="(TransitionLinear)\n";
+	return t;
+}
 int bb_app_Millisecs(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<149>";
+	DBG_ENTER("Millisecs")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<149>");
 	int t_=bb_app_device->MilliSecs();
-	popErr();
 	return t_;
 }
 bb_stack_Stack::bb_stack_Stack(){
@@ -11656,279 +13804,331 @@ bb_stack_Stack::bb_stack_Stack(){
 	f_length=0;
 }
 bb_stack_Stack* bb_stack_Stack::g_new(){
-	pushErr();
-	popErr();
+	DBG_ENTER("Stack.new")
+	bb_stack_Stack *self=this;
+	DBG_LOCAL(self,"Self")
 	return this;
 }
 bb_stack_Stack* bb_stack_Stack::g_new2(Array<int > t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<13>";
+	DBG_ENTER("Stack.new")
+	bb_stack_Stack *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<13>");
 	gc_assign(this->f_data,t_data.Slice(0));
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<14>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<14>");
 	this->f_length=t_data.Length();
-	popErr();
 	return this;
 }
 int bb_stack_Stack::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<34>";
+	DBG_ENTER("Stack.Clear")
+	bb_stack_Stack *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<34>");
 	f_length=0;
-	popErr();
 	return 0;
 }
 int bb_stack_Stack::m_Length(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<38>";
-	popErr();
+	DBG_ENTER("Stack.Length")
+	bb_stack_Stack *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<38>");
 	return f_length;
 }
 int bb_stack_Stack::m_Get2(int t_index){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<73>";
+	DBG_ENTER("Stack.Get")
+	bb_stack_Stack *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_index,"index")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<73>");
 	int t_=f_data.At(t_index);
-	popErr();
 	return t_;
 }
 int bb_stack_Stack::m_Remove4(int t_index){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<88>";
+	DBG_ENTER("Stack.Remove")
+	bb_stack_Stack *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_index,"index")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<88>");
 	for(int t_i=t_index;t_i<f_length-1;t_i=t_i+1){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<89>";
+		DBG_BLOCK();
+		DBG_LOCAL(t_i,"i")
+		DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<89>");
 		f_data.At(t_i)=f_data.At(t_i+1);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<91>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<91>");
 	f_length-=1;
-	popErr();
 	return 0;
 }
 int bb_stack_Stack::m_Push(int t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<52>";
+	DBG_ENTER("Stack.Push")
+	bb_stack_Stack *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<52>");
 	if(f_length==f_data.Length()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<53>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<53>");
 		gc_assign(f_data,f_data.Resize(f_length*2+10));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<55>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<55>");
 	f_data.At(f_length)=t_value;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<56>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<56>");
 	f_length+=1;
-	popErr();
 	return 0;
 }
 void bb_stack_Stack::mark(){
 	Object::mark();
 	gc_mark_q(f_data);
 }
+String bb_stack_Stack::debug(){
+	String t="(Stack)\n";
+	t+=dbg_decl("data",&f_data);
+	t+=dbg_decl("length",&f_length);
+	return t;
+}
 bb_stack_IntStack::bb_stack_IntStack(){
 }
 bb_stack_IntStack* bb_stack_IntStack::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<193>";
+	DBG_ENTER("IntStack.new")
+	bb_stack_IntStack *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<193>");
 	bb_stack_Stack::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<193>";
-	popErr();
 	return this;
 }
 void bb_stack_IntStack::mark(){
 	bb_stack_Stack::mark();
 }
+String bb_stack_IntStack::debug(){
+	String t="(IntStack)\n";
+	t=bb_stack_Stack::debug()+t;
+	return t;
+}
 int bb_random_Seed;
 Float bb_random_Rnd(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/random.monkey<21>";
+	DBG_ENTER("Rnd")
+	DBG_INFO("/Applications/Monkey/modules/monkey/random.monkey<21>");
 	bb_random_Seed=bb_random_Seed*1664525+1013904223|0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/random.monkey<22>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/random.monkey<22>");
 	Float t_=Float(bb_random_Seed>>8&16777215)/FLOAT(16777216.0);
-	popErr();
 	return t_;
 }
 Float bb_random_Rnd2(Float t_low,Float t_high){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/random.monkey<30>";
+	DBG_ENTER("Rnd")
+	DBG_LOCAL(t_low,"low")
+	DBG_LOCAL(t_high,"high")
+	DBG_INFO("/Applications/Monkey/modules/monkey/random.monkey<30>");
 	Float t_=bb_random_Rnd3(t_high-t_low)+t_low;
-	popErr();
 	return t_;
 }
 Float bb_random_Rnd3(Float t_range){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/random.monkey<26>";
+	DBG_ENTER("Rnd")
+	DBG_LOCAL(t_range,"range")
+	DBG_INFO("/Applications/Monkey/modules/monkey/random.monkey<26>");
 	Float t_=bb_random_Rnd()*t_range;
-	popErr();
 	return t_;
 }
 bb_list_List4::bb_list_List4(){
 	f__head=((new bb_list_HeadNode4)->g_new());
 }
 bb_list_List4* bb_list_List4::g_new(){
-	pushErr();
-	popErr();
+	DBG_ENTER("List.new")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
 	return this;
 }
 bb_list_Node4* bb_list_List4::m_AddLast4(int t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<120>";
+	DBG_ENTER("List.AddLast")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<120>");
 	bb_list_Node4* t_=(new bb_list_Node4)->g_new(f__head,f__head->f__pred,t_data);
-	popErr();
 	return t_;
 }
 bb_list_List4* bb_list_List4::g_new2(Array<int > t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+	DBG_ENTER("List.new")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<13>");
 	Array<int > t_=t_data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	int t_2=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	while(t_2<t_.Length()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+		DBG_BLOCK();
 		int t_t=t_.At(t_2);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 		t_2=t_2+1;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<14>";
+		DBG_LOCAL(t_t,"t")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<14>");
 		m_AddLast4(t_t);
 	}
-	popErr();
 	return this;
 }
 int bb_list_List4::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<36>";
+	DBG_ENTER("List.Clear")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<36>");
 	gc_assign(f__head->f__succ,f__head);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<37>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<37>");
 	gc_assign(f__head->f__pred,f__head);
-	popErr();
 	return 0;
 }
 int bb_list_List4::m_Count(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
+	DBG_ENTER("List.Count")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<41>");
 	int t_n=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
 	bb_list_Node4* t_node=f__head->f__succ;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<42>";
+	DBG_LOCAL(t_n,"n")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<42>");
 	while(t_node!=f__head){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<43>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<43>");
 		t_node=t_node->f__succ;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<44>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<44>");
 		t_n+=1;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<46>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<46>");
 	return t_n;
 }
 bb_list_Enumerator3* bb_list_List4::m_ObjectEnumerator(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<124>";
+	DBG_ENTER("List.ObjectEnumerator")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<124>");
 	bb_list_Enumerator3* t_=(new bb_list_Enumerator3)->g_new(this);
-	popErr();
 	return t_;
 }
 Array<int > bb_list_List4::m_ToArray(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<19>";
+	DBG_ENTER("List.ToArray")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<19>");
 	Array<int > t_arr=Array<int >(m_Count());
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<19>";
 	int t_i=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<20>";
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<20>";
+	DBG_LOCAL(t_arr,"arr")
+	DBG_LOCAL(t_i,"i")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<20>");
 	bb_list_Enumerator3* t_=this->m_ObjectEnumerator();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<20>";
 	while(t_->m_HasNext()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<20>";
+		DBG_BLOCK();
 		int t_t=t_->m_NextObject();
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<21>";
+		DBG_LOCAL(t_t,"t")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<21>");
 		t_arr.At(t_i)=t_t;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<22>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<22>");
 		t_i+=1;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<24>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<24>");
 	return t_arr;
 }
 bool bb_list_List4::m_IsEmpty(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<50>";
+	DBG_ENTER("List.IsEmpty")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<50>");
 	bool t_=f__head->f__succ==f__head;
-	popErr();
 	return t_;
 }
 int bb_list_List4::m_First(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<71>";
+	DBG_ENTER("List.First")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<71>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<71>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<73>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<73>");
 	int t_=f__head->m_NextNode()->f__data;
-	popErr();
 	return t_;
 }
 int bb_list_List4::m_RemoveFirst(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<85>";
+	DBG_ENTER("List.RemoveFirst")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<85>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<85>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<87>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<87>");
 	int t_data=f__head->m_NextNode()->f__data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<88>";
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<88>");
 	f__head->f__succ->m_Remove2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<89>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<89>");
 	return t_data;
 }
 int bb_list_List4::m_Last(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<78>";
+	DBG_ENTER("List.Last")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<78>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<78>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<80>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<80>");
 	int t_=f__head->m_PrevNode()->f__data;
-	popErr();
 	return t_;
 }
 int bb_list_List4::m_RemoveLast(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<94>";
+	DBG_ENTER("List.RemoveLast")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<94>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<94>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<96>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<96>");
 	int t_data=f__head->m_PrevNode()->f__data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<97>";
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<97>");
 	f__head->f__pred->m_Remove2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<98>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<98>");
 	return t_data;
 }
 bb_list_Node4* bb_list_List4::m_AddFirst2(int t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<116>";
+	DBG_ENTER("List.AddFirst")
+	bb_list_List4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<116>");
 	bb_list_Node4* t_=(new bb_list_Node4)->g_new(f__head->f__succ,f__head,t_data);
-	popErr();
 	return t_;
 }
 void bb_list_List4::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
 }
+String bb_list_List4::debug(){
+	String t="(List)\n";
+	t+=dbg_decl("_head",&f__head);
+	return t;
+}
 bb_list_IntList::bb_list_IntList(){
 }
 bb_list_IntList* bb_list_IntList::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<333>";
+	DBG_ENTER("IntList.new")
+	bb_list_IntList *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<333>");
 	bb_list_List4::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<333>";
-	popErr();
 	return this;
 }
 void bb_list_IntList::mark(){
 	bb_list_List4::mark();
+}
+String bb_list_IntList::debug(){
+	String t="(IntList)\n";
+	t=bb_list_List4::debug()+t;
+	return t;
 }
 bb_list_Node4::bb_list_Node4(){
 	f__succ=0;
@@ -11936,68 +14136,77 @@ bb_list_Node4::bb_list_Node4(){
 	f__data=0;
 }
 bb_list_Node4* bb_list_Node4::g_new(bb_list_Node4* t_succ,bb_list_Node4* t_pred,int t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<199>";
+	DBG_ENTER("Node.new")
+	bb_list_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_succ,"succ")
+	DBG_LOCAL(t_pred,"pred")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<199>");
 	gc_assign(f__succ,t_succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<200>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<200>");
 	gc_assign(f__pred,t_pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<201>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<201>");
 	gc_assign(f__succ->f__pred,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<202>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<202>");
 	gc_assign(f__pred->f__succ,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<203>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<203>");
 	f__data=t_data;
-	popErr();
 	return this;
 }
 bb_list_Node4* bb_list_Node4::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<196>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_list_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<196>");
 	return this;
 }
 bb_list_Node4* bb_list_Node4::m_GetNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<239>";
-	popErr();
+	DBG_ENTER("Node.GetNode")
+	bb_list_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<239>");
 	return this;
 }
 bb_list_Node4* bb_list_Node4::m_NextNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<220>";
+	DBG_ENTER("Node.NextNode")
+	bb_list_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<220>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<220>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<222>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<222>");
 	bb_list_Node4* t_=f__succ->m_GetNode();
-	popErr();
 	return t_;
 }
 int bb_list_Node4::m_Remove2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+	DBG_ENTER("Node.Remove")
+	bb_list_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<212>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<214>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<214>");
 	gc_assign(f__succ->f__pred,f__pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<215>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<215>");
 	gc_assign(f__pred->f__succ,f__succ);
-	popErr();
 	return 0;
 }
 bb_list_Node4* bb_list_Node4::m_PrevNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<227>";
+	DBG_ENTER("Node.PrevNode")
+	bb_list_Node4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<227>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<227>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<229>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<229>");
 	bb_list_Node4* t_=f__pred->m_GetNode();
-	popErr();
 	return t_;
 }
 void bb_list_Node4::mark(){
@@ -12005,565 +14214,701 @@ void bb_list_Node4::mark(){
 	gc_mark_q(f__succ);
 	gc_mark_q(f__pred);
 }
+String bb_list_Node4::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("_succ",&f__succ);
+	t+=dbg_decl("_pred",&f__pred);
+	t+=dbg_decl("_data",&f__data);
+	return t;
+}
 bb_list_HeadNode4::bb_list_HeadNode4(){
 }
 bb_list_HeadNode4* bb_list_HeadNode4::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<248>";
+	DBG_ENTER("HeadNode.new")
+	bb_list_HeadNode4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<248>");
 	bb_list_Node4::g_new2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<249>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<249>");
 	gc_assign(f__succ,(this));
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<250>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<250>");
 	gc_assign(f__pred,(this));
-	popErr();
 	return this;
 }
 bb_list_Node4* bb_list_HeadNode4::m_GetNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<254>";
-	popErr();
+	DBG_ENTER("HeadNode.GetNode")
+	bb_list_HeadNode4 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<254>");
 	return 0;
 }
 void bb_list_HeadNode4::mark(){
 	bb_list_Node4::mark();
 }
+String bb_list_HeadNode4::debug(){
+	String t="(HeadNode)\n";
+	t=bb_list_Node4::debug()+t;
+	return t;
+}
 bb_set_Set::bb_set_Set(){
 	f_map=0;
 }
 bb_set_Set* bb_set_Set::g_new(bb_map_Map6* t_map){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<16>";
+	DBG_ENTER("Set.new")
+	bb_set_Set *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_map,"map")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<16>");
 	gc_assign(this->f_map,t_map);
-	popErr();
 	return this;
 }
 bb_set_Set* bb_set_Set::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<13>";
-	popErr();
+	DBG_ENTER("Set.new")
+	bb_set_Set *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<13>");
 	return this;
 }
 int bb_set_Set::m_Insert4(int t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<36>";
+	DBG_ENTER("Set.Insert")
+	bb_set_Set *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<36>");
 	f_map->m_Insert5(t_value,0);
-	popErr();
 	return 0;
 }
 int bb_set_Set::m_Count(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<24>";
+	DBG_ENTER("Set.Count")
+	bb_set_Set *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<24>");
 	int t_=f_map->m_Count();
-	popErr();
 	return t_;
 }
 int bb_set_Set::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<20>";
+	DBG_ENTER("Set.Clear")
+	bb_set_Set *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<20>");
 	f_map->m_Clear();
-	popErr();
 	return 0;
 }
 int bb_set_Set::m_Remove4(int t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<40>";
+	DBG_ENTER("Set.Remove")
+	bb_set_Set *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<40>");
 	f_map->m_Remove4(t_value);
-	popErr();
 	return 0;
 }
 bool bb_set_Set::m_Contains2(int t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<32>";
+	DBG_ENTER("Set.Contains")
+	bb_set_Set *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<32>");
 	bool t_=f_map->m_Contains2(t_value);
-	popErr();
 	return t_;
 }
 void bb_set_Set::mark(){
 	Object::mark();
 	gc_mark_q(f_map);
 }
+String bb_set_Set::debug(){
+	String t="(Set)\n";
+	t+=dbg_decl("map",&f_map);
+	return t;
+}
 bb_set_IntSet::bb_set_IntSet(){
 }
 bb_set_IntSet* bb_set_IntSet::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/set.monkey<57>";
+	DBG_ENTER("IntSet.new")
+	bb_set_IntSet *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/set.monkey<57>");
 	bb_set_Set::g_new((new bb_map_IntMap)->g_new());
-	popErr();
 	return this;
 }
 void bb_set_IntSet::mark(){
 	bb_set_Set::mark();
 }
+String bb_set_IntSet::debug(){
+	String t="(IntSet)\n";
+	t=bb_set_Set::debug()+t;
+	return t;
+}
 bb_map_Map6::bb_map_Map6(){
 	f_root=0;
 }
 bb_map_Map6* bb_map_Map6::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<7>";
-	popErr();
+	DBG_ENTER("Map.new")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<7>");
 	return this;
 }
 int bb_map_Map6::m_RotateLeft6(bb_map_Node6* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<251>";
+	DBG_ENTER("Map.RotateLeft")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<251>");
 	bb_map_Node6* t_child=t_node->f_right;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<252>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<252>");
 	gc_assign(t_node->f_right,t_child->f_left);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<253>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<253>");
 	if((t_child->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<254>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<254>");
 		gc_assign(t_child->f_left->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<256>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<257>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<258>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<258>");
 		if(t_node==t_node->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<259>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<259>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<261>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<261>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<264>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<264>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<266>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<266>");
 	gc_assign(t_child->f_left,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<267>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<267>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map6::m_RotateRight6(bb_map_Node6* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<271>";
+	DBG_ENTER("Map.RotateRight")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<271>");
 	bb_map_Node6* t_child=t_node->f_left;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<272>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<272>");
 	gc_assign(t_node->f_left,t_child->f_right);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<273>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<273>");
 	if((t_child->f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<274>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<274>");
 		gc_assign(t_child->f_right->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<276>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<276>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<277>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<277>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<278>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<278>");
 		if(t_node==t_node->f_parent->f_right){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<279>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<279>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<281>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<281>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<284>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<284>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<286>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<286>");
 	gc_assign(t_child->f_right,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<287>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map6::m_InsertFixup6(bb_map_Node6* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<212>";
+	DBG_ENTER("Map.InsertFixup")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<212>");
 	while(((t_node->f_parent)!=0) && t_node->f_parent->f_color==-1 && ((t_node->f_parent->f_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<213>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<213>");
 		if(t_node->f_parent==t_node->f_parent->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<214>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<214>");
 			bb_map_Node6* t_uncle=t_node->f_parent->f_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<215>";
+			DBG_LOCAL(t_uncle,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<215>");
 			if(((t_uncle)!=0) && t_uncle->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<216>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<216>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<217>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<217>");
 				t_uncle->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<218>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<218>");
 				t_uncle->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<219>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<219>");
 				t_node=t_uncle->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<221>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<221>");
 				if(t_node==t_node->f_parent->f_right){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<222>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<222>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<223>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<223>");
 					m_RotateLeft6(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<225>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<225>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<226>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<226>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<227>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<227>");
 				m_RotateRight6(t_node->f_parent->f_parent);
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<230>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<230>");
 			bb_map_Node6* t_uncle2=t_node->f_parent->f_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<231>";
+			DBG_LOCAL(t_uncle2,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<231>");
 			if(((t_uncle2)!=0) && t_uncle2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<232>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<232>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<233>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<233>");
 				t_uncle2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<234>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<234>");
 				t_uncle2->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<235>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<235>");
 				t_node=t_uncle2->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<237>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<237>");
 				if(t_node==t_node->f_parent->f_left){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<238>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<238>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<239>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<239>");
 					m_RotateRight6(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<241>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<241>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<242>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<242>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<243>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<243>");
 				m_RotateLeft6(t_node->f_parent->f_parent);
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<247>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<247>");
 	f_root->f_color=1;
-	popErr();
 	return 0;
 }
 bool bb_map_Map6::m_Set8(int t_key,Object* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<29>";
+	DBG_ENTER("Map.Set")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<29>");
 	bb_map_Node6* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<30>");
 	bb_map_Node6* t_parent=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<30>";
 	int t_cmp=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<32>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_LOCAL(t_cmp,"cmp")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<32>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<33>");
 		t_parent=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<34>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<34>");
 		t_cmp=m_Compare2(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<35>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<35>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<36>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<36>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<37>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<37>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<38>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<38>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<40>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<40>");
 				gc_assign(t_node->f_value,t_value);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<41>";
-				popErr();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<41>");
 				return false;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<45>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<45>");
 	t_node=(new bb_map_Node6)->g_new(t_key,t_value,-1,t_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<47>");
 	if((t_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<48>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<48>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<49>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<49>");
 			gc_assign(t_parent->f_right,t_node);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<51>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<51>");
 			gc_assign(t_parent->f_left,t_node);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<53>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<53>");
 		m_InsertFixup6(t_node);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<55>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<55>");
 		gc_assign(f_root,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<57>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<57>");
 	return true;
 }
 bool bb_map_Map6::m_Insert5(int t_key,Object* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<126>";
+	DBG_ENTER("Map.Insert")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<126>");
 	bool t_=m_Set8(t_key,t_value);
-	popErr();
 	return t_;
 }
 int bb_map_Map6::m_Count(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<17>";
+	DBG_ENTER("Map.Count")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<17>");
 	if((f_root)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<17>";
+		DBG_BLOCK();
 		int t_=f_root->m_Count2(0);
-		popErr();
 		return t_;
 	}
-	popErr();
 	return 0;
 }
 int bb_map_Map6::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<13>";
+	DBG_ENTER("Map.Clear")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<13>");
 	f_root=0;
-	popErr();
 	return 0;
 }
 bb_map_Node6* bb_map_Map6::m_FindNode2(int t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<157>";
+	DBG_ENTER("Map.FindNode")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<157>");
 	bb_map_Node6* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<159>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<159>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<160>");
 		int t_cmp=m_Compare2(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<161>";
+		DBG_LOCAL(t_cmp,"cmp")
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<161>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<162>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<163>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<163>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<164>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<166>";
-				popErr();
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<166>");
 				return t_node;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<169>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<169>");
 	return t_node;
 }
 int bb_map_Map6::m_DeleteFixup(bb_map_Node6* t_node,bb_map_Node6* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<292>";
+	DBG_ENTER("Map.DeleteFixup")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<292>");
 	while(t_node!=f_root && (!((t_node)!=0) || t_node->f_color==1)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<294>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<294>");
 		if(t_node==t_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<296>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<296>");
 			bb_map_Node6* t_sib=t_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<298>";
+			DBG_LOCAL(t_sib,"sib")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<298>");
 			if(t_sib->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<299>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<299>");
 				t_sib->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<300>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<300>");
 				t_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<301>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<301>");
 				m_RotateLeft6(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<302>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<302>");
 				t_sib=t_parent->f_right;
 			}
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<305>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<305>");
 			if((!((t_sib->f_left)!=0) || t_sib->f_left->f_color==1) && (!((t_sib->f_right)!=0) || t_sib->f_right->f_color==1)){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<306>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<306>");
 				t_sib->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<307>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<307>");
 				t_node=t_parent;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<308>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<308>");
 				t_parent=t_parent->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<310>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<310>");
 				if(!((t_sib->f_right)!=0) || t_sib->f_right->f_color==1){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<311>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<311>");
 					t_sib->f_left->f_color=1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<312>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<312>");
 					t_sib->f_color=-1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<313>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<313>");
 					m_RotateRight6(t_sib);
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<314>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<314>");
 					t_sib=t_parent->f_right;
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<316>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<316>");
 				t_sib->f_color=t_parent->f_color;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<317>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<317>");
 				t_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<318>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<318>");
 				t_sib->f_right->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<319>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<319>");
 				m_RotateLeft6(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<320>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<320>");
 				t_node=f_root;
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<323>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<323>");
 			bb_map_Node6* t_sib2=t_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<325>";
+			DBG_LOCAL(t_sib2,"sib")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<325>");
 			if(t_sib2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<326>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<326>");
 				t_sib2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<327>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<327>");
 				t_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<328>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<328>");
 				m_RotateRight6(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<329>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<329>");
 				t_sib2=t_parent->f_left;
 			}
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<332>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<332>");
 			if((!((t_sib2->f_right)!=0) || t_sib2->f_right->f_color==1) && (!((t_sib2->f_left)!=0) || t_sib2->f_left->f_color==1)){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<333>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<333>");
 				t_sib2->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<334>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<334>");
 				t_node=t_parent;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<335>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<335>");
 				t_parent=t_parent->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<337>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<337>");
 				if(!((t_sib2->f_left)!=0) || t_sib2->f_left->f_color==1){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<338>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<338>");
 					t_sib2->f_right->f_color=1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<339>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<339>");
 					t_sib2->f_color=-1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<340>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<340>");
 					m_RotateLeft6(t_sib2);
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<341>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<341>");
 					t_sib2=t_parent->f_left;
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<343>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<343>");
 				t_sib2->f_color=t_parent->f_color;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<344>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<344>");
 				t_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<345>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<345>");
 				t_sib2->f_left->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<346>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<346>");
 				m_RotateRight6(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<347>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<347>");
 				t_node=f_root;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<351>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<351>");
 	if((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<351>";
+		DBG_BLOCK();
 		t_node->f_color=1;
 	}
-	popErr();
 	return 0;
 }
 int bb_map_Map6::m_RemoveNode(bb_map_Node6* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<173>";
+	DBG_ENTER("Map.RemoveNode")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<173>");
 	bb_map_Node6* t_splice=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<173>";
 	bb_map_Node6* t_child=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<175>";
+	DBG_LOCAL(t_splice,"splice")
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<175>");
 	if(!((t_node->f_left)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<176>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<176>");
 		t_splice=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<177>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<177>");
 		t_child=t_node->f_right;
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<178>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<178>");
 		if(!((t_node->f_right)!=0)){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<179>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<179>");
 			t_splice=t_node;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<180>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<180>");
 			t_child=t_node->f_left;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<182>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<182>");
 			t_splice=t_node->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<183>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<183>");
 			while((t_splice->f_right)!=0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<184>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<184>");
 				t_splice=t_splice->f_right;
 			}
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<186>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<186>");
 			t_child=t_splice->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<187>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<187>");
 			t_node->f_key=t_splice->f_key;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<188>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<188>");
 			gc_assign(t_node->f_value,t_splice->f_value);
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<191>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<191>");
 	bb_map_Node6* t_parent=t_splice->f_parent;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<193>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<193>");
 	if((t_child)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<194>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<194>");
 		gc_assign(t_child->f_parent,t_parent);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<197>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<197>");
 	if(!((t_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<198>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<198>");
 		gc_assign(f_root,t_child);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<199>";
-		popErr();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<199>");
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<202>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<202>");
 	if(t_splice==t_parent->f_left){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<203>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<203>");
 		gc_assign(t_parent->f_left,t_child);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<205>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<205>");
 		gc_assign(t_parent->f_right,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<208>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<208>");
 	if(t_splice->f_color==1){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<208>";
+		DBG_BLOCK();
 		m_DeleteFixup(t_child,t_parent);
 	}
-	popErr();
 	return 0;
 }
 int bb_map_Map6::m_Remove4(int t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<106>";
+	DBG_ENTER("Map.Remove")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<106>");
 	bb_map_Node6* t_node=m_FindNode2(t_key);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<107>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<107>");
 	if(!((t_node)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<107>";
-		popErr();
+		DBG_BLOCK();
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<108>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<108>");
 	m_RemoveNode(t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<109>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<109>");
 	return 1;
 }
 bool bb_map_Map6::m_Contains2(int t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<25>";
+	DBG_ENTER("Map.Contains")
+	bb_map_Map6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<25>");
 	bool t_=m_FindNode2(t_key)!=0;
-	popErr();
 	return t_;
 }
 void bb_map_Map6::mark(){
 	Object::mark();
 	gc_mark_q(f_root);
 }
+String bb_map_Map6::debug(){
+	String t="(Map)\n";
+	t+=dbg_decl("root",&f_root);
+	return t;
+}
 bb_map_IntMap::bb_map_IntMap(){
 }
 bb_map_IntMap* bb_map_IntMap::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<534>";
+	DBG_ENTER("IntMap.new")
+	bb_map_IntMap *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<534>");
 	bb_map_Map6::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<534>";
-	popErr();
 	return this;
 }
 int bb_map_IntMap::m_Compare2(int t_lhs,int t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<537>";
+	DBG_ENTER("IntMap.Compare")
+	bb_map_IntMap *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<537>");
 	int t_=t_lhs-t_rhs;
-	popErr();
 	return t_;
 }
 void bb_map_IntMap::mark(){
 	bb_map_Map6::mark();
+}
+String bb_map_IntMap::debug(){
+	String t="(IntMap)\n";
+	t=bb_map_Map6::debug()+t;
+	return t;
 }
 bb_map_Node6::bb_map_Node6(){
 	f_key=0;
@@ -12574,39 +14919,47 @@ bb_map_Node6::bb_map_Node6(){
 	f_parent=0;
 }
 bb_map_Node6* bb_map_Node6::g_new(int t_key,Object* t_value,int t_color,bb_map_Node6* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<364>";
+	DBG_ENTER("Node.new")
+	bb_map_Node6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_color,"color")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<364>");
 	this->f_key=t_key;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<365>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<365>");
 	gc_assign(this->f_value,t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<366>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<366>");
 	this->f_color=t_color;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<367>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<367>");
 	gc_assign(this->f_parent,t_parent);
-	popErr();
 	return this;
 }
 bb_map_Node6* bb_map_Node6::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<361>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_map_Node6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<361>");
 	return this;
 }
 int bb_map_Node6::m_Count2(int t_n){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<371>";
+	DBG_ENTER("Node.Count")
+	bb_map_Node6 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_n,"n")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<371>");
 	if((f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<371>";
+		DBG_BLOCK();
 		t_n=f_left->m_Count2(t_n);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<372>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<372>");
 	if((f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<372>";
+		DBG_BLOCK();
 		t_n=f_right->m_Count2(t_n);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<373>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<373>");
 	int t_=t_n+1;
-	popErr();
 	return t_;
 }
 void bb_map_Node6::mark(){
@@ -12616,45 +14969,62 @@ void bb_map_Node6::mark(){
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
 }
+String bb_map_Node6::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	t+=dbg_decl("color",&f_color);
+	t+=dbg_decl("parent",&f_parent);
+	t+=dbg_decl("left",&f_left);
+	t+=dbg_decl("right",&f_right);
+	return t;
+}
 bb_list_Enumerator3::bb_list_Enumerator3(){
 	f__list=0;
 	f__curr=0;
 }
 bb_list_Enumerator3* bb_list_Enumerator3::g_new(bb_list_List4* t_list){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<264>";
+	DBG_ENTER("Enumerator.new")
+	bb_list_Enumerator3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_list,"list")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<264>");
 	gc_assign(f__list,t_list);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<265>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<265>");
 	gc_assign(f__curr,t_list->f__head->f__succ);
-	popErr();
 	return this;
 }
 bb_list_Enumerator3* bb_list_Enumerator3::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<261>";
-	popErr();
+	DBG_ENTER("Enumerator.new")
+	bb_list_Enumerator3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<261>");
 	return this;
 }
 bool bb_list_Enumerator3::m_HasNext(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<269>";
+	DBG_ENTER("Enumerator.HasNext")
+	bb_list_Enumerator3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<269>");
 	while(f__curr->f__succ->f__pred!=f__curr){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<270>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<270>");
 		gc_assign(f__curr,f__curr->f__succ);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<272>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<272>");
 	bool t_=f__curr!=f__list->f__head;
-	popErr();
 	return t_;
 }
 int bb_list_Enumerator3::m_NextObject(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<276>";
+	DBG_ENTER("Enumerator.NextObject")
+	bb_list_Enumerator3 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<276>");
 	int t_data=f__curr->f__data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<277>";
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<277>");
 	gc_assign(f__curr,f__curr->f__succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<278>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<278>");
 	return t_data;
 }
 void bb_list_Enumerator3::mark(){
@@ -12662,239 +15032,277 @@ void bb_list_Enumerator3::mark(){
 	gc_mark_q(f__list);
 	gc_mark_q(f__curr);
 }
+String bb_list_Enumerator3::debug(){
+	String t="(Enumerator)\n";
+	t+=dbg_decl("_list",&f__list);
+	t+=dbg_decl("_curr",&f__curr);
+	return t;
+}
 bb_textinput_TextInput::bb_textinput_TextInput(){
 	f_cursorPos=0;
 }
 bb_textinput_TextInput* bb_textinput_TextInput::g_new(String t_fontName,bb_vector2d_Vector2D* t_pos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<20>";
+	DBG_ENTER("TextInput.new")
+	bb_textinput_TextInput *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_fontName,"fontName")
+	DBG_LOCAL(t_pos,"pos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<20>");
 	bb_font_Font::g_new(t_fontName,t_pos);
-	popErr();
 	return this;
 }
 bb_textinput_TextInput* bb_textinput_TextInput::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<12>";
+	DBG_ENTER("TextInput.new")
+	bb_textinput_TextInput *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<12>");
 	bb_font_Font::g_new2();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<12>";
-	popErr();
 	return this;
 }
 void bb_textinput_TextInput::m_MoveCursorRight(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<46>";
+	DBG_ENTER("TextInput.MoveCursorRight")
+	bb_textinput_TextInput *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<46>");
 	if(f_cursorPos>=m_text2().Length()){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<47>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<47>");
 	f_cursorPos+=1;
-	popErr();
 }
 void bb_textinput_TextInput::m_InsertChar(String t_char){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<51>";
+	DBG_ENTER("TextInput.InsertChar")
+	bb_textinput_TextInput *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_char,"char")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<51>");
 	m_text(m_text2().Slice(0,f_cursorPos)+t_char+m_text2().Slice(f_cursorPos,m_text2().Length()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<52>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<52>");
 	m_MoveCursorRight();
-	popErr();
 }
 void bb_textinput_TextInput::m_MoveCursorLeft(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<41>";
+	DBG_ENTER("TextInput.MoveCursorLeft")
+	bb_textinput_TextInput *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<41>");
 	if(f_cursorPos<=0){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<42>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<42>");
 	f_cursorPos-=1;
-	popErr();
 }
 void bb_textinput_TextInput::m_RemoveChar(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<56>";
+	DBG_ENTER("TextInput.RemoveChar")
+	bb_textinput_TextInput *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<56>");
 	if(m_text2().Length()==0 || f_cursorPos==0){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<58>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<58>");
 	m_text(m_text2().Slice(0,f_cursorPos-1)+m_text2().Slice(f_cursorPos,m_text2().Length()));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<59>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<59>");
 	m_MoveCursorLeft();
-	popErr();
 }
 void bb_textinput_TextInput::m_OnKeyUp(bb_keyevent_KeyEvent* t_event){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<24>";
+	DBG_ENTER("TextInput.OnKeyUp")
+	bb_textinput_TextInput *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_event,"event")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<24>");
 	if(t_event->m_code()>31 && t_event->m_code()<127){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<25>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<25>");
 		m_InsertChar(t_event->m_char());
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<27>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<27>");
 		int t_1=t_event->m_code();
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<28>";
+		DBG_LOCAL(t_1,"1")
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<28>");
 		if(t_1==8){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<29>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<29>");
 			m_RemoveChar();
 		}else{
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<30>";
+			DBG_BLOCK();
+			DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<30>");
 			if(t_1==65573){
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<31>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<31>");
 				m_MoveCursorLeft();
 			}else{
-				errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<32>";
+				DBG_BLOCK();
+				DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<32>");
 				if(t_1==65575){
-					errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<33>";
+					DBG_BLOCK();
+					DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/textinput.monkey<33>");
 					m_MoveCursorRight();
 				}
 			}
 		}
 	}
-	popErr();
 }
 void bb_textinput_TextInput::mark(){
 	bb_font_Font::mark();
 }
+String bb_textinput_TextInput::debug(){
+	String t="(TextInput)\n";
+	t=bb_font_Font::debug()+t;
+	t+=dbg_decl("cursorPos",&f_cursorPos);
+	return t;
+}
 int bb_graphics_SetFont(bb_graphics_Image* t_font,int t_firstChar){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<552>";
+	DBG_ENTER("SetFont")
+	DBG_LOCAL(t_font,"font")
+	DBG_LOCAL(t_firstChar,"firstChar")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<552>");
 	if(!((t_font)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<553>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<553>");
 		if(!((bb_graphics_context->f_defaultFont)!=0)){
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<554>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<554>");
 			gc_assign(bb_graphics_context->f_defaultFont,bb_graphics_LoadImage(String(L"mojo_font.png"),96,2));
 		}
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<556>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<556>");
 		t_font=bb_graphics_context->f_defaultFont;
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<557>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<557>");
 		t_firstChar=32;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<559>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<559>");
 	gc_assign(bb_graphics_context->f_font,t_font);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<560>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<560>");
 	bb_graphics_context->f_firstChar=t_firstChar;
-	popErr();
 	return 0;
 }
 gxtkGraphics* bb_graphics_renderDevice;
 int bb_graphics_SetMatrix(Float t_ix,Float t_iy,Float t_jx,Float t_jy,Float t_tx,Float t_ty){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<331>";
+	DBG_ENTER("SetMatrix")
+	DBG_LOCAL(t_ix,"ix")
+	DBG_LOCAL(t_iy,"iy")
+	DBG_LOCAL(t_jx,"jx")
+	DBG_LOCAL(t_jy,"jy")
+	DBG_LOCAL(t_tx,"tx")
+	DBG_LOCAL(t_ty,"ty")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<331>");
 	bb_graphics_context->f_ix=t_ix;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<332>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<332>");
 	bb_graphics_context->f_iy=t_iy;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<333>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<333>");
 	bb_graphics_context->f_jx=t_jx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<334>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<334>");
 	bb_graphics_context->f_jy=t_jy;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<335>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<335>");
 	bb_graphics_context->f_tx=t_tx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<336>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<336>");
 	bb_graphics_context->f_ty=t_ty;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<337>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<337>");
 	bb_graphics_context->f_tformed=((t_ix!=FLOAT(1.0) || t_iy!=FLOAT(0.0) || t_jx!=FLOAT(0.0) || t_jy!=FLOAT(1.0) || t_tx!=FLOAT(0.0) || t_ty!=FLOAT(0.0))?1:0);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<338>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<338>");
 	bb_graphics_context->f_matDirty=1;
-	popErr();
 	return 0;
 }
 int bb_graphics_SetMatrix2(Array<Float > t_m){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<327>";
+	DBG_ENTER("SetMatrix")
+	DBG_LOCAL(t_m,"m")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<327>");
 	bb_graphics_SetMatrix(t_m.At(0),t_m.At(1),t_m.At(2),t_m.At(3),t_m.At(4),t_m.At(5));
-	popErr();
 	return 0;
 }
 int bb_graphics_SetColor(Float t_r,Float t_g,Float t_b){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<286>";
+	DBG_ENTER("SetColor")
+	DBG_LOCAL(t_r,"r")
+	DBG_LOCAL(t_g,"g")
+	DBG_LOCAL(t_b,"b")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<286>");
 	bb_graphics_context->f_color_r=t_r;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<287>");
 	bb_graphics_context->f_color_g=t_g;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<288>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<288>");
 	bb_graphics_context->f_color_b=t_b;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<289>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<289>");
 	bb_graphics_context->f_device->SetColor(t_r,t_g,t_b);
-	popErr();
 	return 0;
 }
 int bb_graphics_SetAlpha(Float t_alpha){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<297>";
+	DBG_ENTER("SetAlpha")
+	DBG_LOCAL(t_alpha,"alpha")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<297>");
 	bb_graphics_context->f_alpha=t_alpha;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<298>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<298>");
 	bb_graphics_context->f_device->SetAlpha(t_alpha);
-	popErr();
 	return 0;
 }
 int bb_graphics_SetBlend(int t_blend){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<306>";
+	DBG_ENTER("SetBlend")
+	DBG_LOCAL(t_blend,"blend")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<306>");
 	bb_graphics_context->f_blend=t_blend;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<307>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<307>");
 	bb_graphics_context->f_device->SetBlend(t_blend);
-	popErr();
 	return 0;
 }
 int bb_graphics_DeviceWidth(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<269>";
+	DBG_ENTER("DeviceWidth")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<269>");
 	int t_=bb_graphics_context->f_device->Width();
-	popErr();
 	return t_;
 }
 int bb_graphics_DeviceHeight(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<273>";
+	DBG_ENTER("DeviceHeight")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<273>");
 	int t_=bb_graphics_context->f_device->Height();
-	popErr();
 	return t_;
 }
 int bb_graphics_SetScissor(Float t_x,Float t_y,Float t_width,Float t_height){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<315>";
+	DBG_ENTER("SetScissor")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_width,"width")
+	DBG_LOCAL(t_height,"height")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<315>");
 	bb_graphics_context->f_scissor_x=t_x;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<316>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<316>");
 	bb_graphics_context->f_scissor_y=t_y;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<317>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<317>");
 	bb_graphics_context->f_scissor_width=t_width;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<318>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<318>");
 	bb_graphics_context->f_scissor_height=t_height;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<319>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<319>");
 	bb_graphics_context->f_device->SetScissor(int(t_x),int(t_y),int(t_width),int(t_height));
-	popErr();
 	return 0;
 }
 int bb_graphics_BeginRender(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<254>";
+	DBG_ENTER("BeginRender")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<254>");
 	if(!((bb_graphics_context->f_device->Mode())!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<254>";
-		popErr();
+		DBG_BLOCK();
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<255>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<255>");
 	gc_assign(bb_graphics_renderDevice,bb_graphics_context->f_device);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<256>");
 	bb_graphics_context->f_matrixSp=0;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<257>");
 	bb_graphics_SetMatrix(FLOAT(1.0),FLOAT(0.0),FLOAT(0.0),FLOAT(1.0),FLOAT(0.0),FLOAT(0.0));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<258>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<258>");
 	bb_graphics_SetColor(FLOAT(255.0),FLOAT(255.0),FLOAT(255.0));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<259>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<259>");
 	bb_graphics_SetAlpha(FLOAT(1.0));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<260>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<260>");
 	bb_graphics_SetBlend(0);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<261>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<261>");
 	bb_graphics_SetScissor(FLOAT(0.0),FLOAT(0.0),Float(bb_graphics_DeviceWidth()),Float(bb_graphics_DeviceHeight()));
-	popErr();
 	return 0;
 }
 int bb_graphics_EndRender(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<265>";
+	DBG_ENTER("EndRender")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<265>");
 	bb_graphics_renderDevice=0;
-	popErr();
 	return 0;
 }
 bb_deltatimer_DeltaTimer::bb_deltatimer_DeltaTimer(){
@@ -12905,59 +15313,74 @@ bb_deltatimer_DeltaTimer::bb_deltatimer_DeltaTimer(){
 	f__delta=FLOAT(.0);
 }
 bb_deltatimer_DeltaTimer* bb_deltatimer_DeltaTimer::g_new(Float t_fps){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<21>";
+	DBG_ENTER("DeltaTimer.new")
+	bb_deltatimer_DeltaTimer *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_fps,"fps")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<21>");
 	f_targetFps=t_fps;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<22>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<22>");
 	f_lastTicks=Float(bb_app_Millisecs());
-	popErr();
 	return this;
 }
 bb_deltatimer_DeltaTimer* bb_deltatimer_DeltaTimer::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<9>";
-	popErr();
+	DBG_ENTER("DeltaTimer.new")
+	bb_deltatimer_DeltaTimer *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<9>");
 	return this;
 }
 Float bb_deltatimer_DeltaTimer::m_frameTime(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<37>";
-	popErr();
+	DBG_ENTER("DeltaTimer.frameTime")
+	bb_deltatimer_DeltaTimer *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<37>");
 	return f__frameTime;
 }
 void bb_deltatimer_DeltaTimer::m_OnUpdate2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<26>";
+	DBG_ENTER("DeltaTimer.OnUpdate")
+	bb_deltatimer_DeltaTimer *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<26>");
 	f_currentTicks=Float(bb_app_Millisecs());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<27>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<27>");
 	f__frameTime=f_currentTicks-f_lastTicks;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<28>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<28>");
 	f__delta=m_frameTime()/(FLOAT(1000.0)/f_targetFps);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<29>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<29>");
 	f_lastTicks=f_currentTicks;
-	popErr();
 }
 Float bb_deltatimer_DeltaTimer::m_delta(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<33>";
-	popErr();
+	DBG_ENTER("DeltaTimer.delta")
+	bb_deltatimer_DeltaTimer *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/deltatimer.monkey<33>");
 	return f__delta;
 }
 void bb_deltatimer_DeltaTimer::mark(){
 	Object::mark();
 }
+String bb_deltatimer_DeltaTimer::debug(){
+	String t="(DeltaTimer)\n";
+	t+=dbg_decl("_delta",&f__delta);
+	t+=dbg_decl("_frameTime",&f__frameTime);
+	t+=dbg_decl("currentTicks",&f_currentTicks);
+	t+=dbg_decl("lastTicks",&f_lastTicks);
+	t+=dbg_decl("targetFps",&f_targetFps);
+	return t;
+}
 int bb_app_SetUpdateRate(int t_hertz){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<141>";
+	DBG_ENTER("SetUpdateRate")
+	DBG_LOCAL(t_hertz,"hertz")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<141>");
 	int t_=bb_app_device->SetUpdateRate(t_hertz);
-	popErr();
 	return t_;
 }
 int bb_input_TouchDown(int t_index){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/input.monkey<117>";
+	DBG_ENTER("TouchDown")
+	DBG_LOCAL(t_index,"index")
+	DBG_INFO("/Applications/Monkey/modules/mojo/input.monkey<117>");
 	int t_=bb_input_device->KeyDown(384+t_index);
-	popErr();
 	return t_;
 }
 bb_touchevent_TouchEvent::bb_touchevent_TouchEvent(){
@@ -12967,249 +15390,284 @@ bb_touchevent_TouchEvent::bb_touchevent_TouchEvent(){
 	f__endTime=0;
 }
 bb_touchevent_TouchEvent* bb_touchevent_TouchEvent::g_new(int t_finger){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<22>";
+	DBG_ENTER("TouchEvent.new")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_finger,"finger")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<22>");
 	f__finger=t_finger;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<23>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<23>");
 	f__startTime=bb_app_Millisecs();
-	popErr();
 	return this;
 }
 bb_touchevent_TouchEvent* bb_touchevent_TouchEvent::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<10>";
-	popErr();
+	DBG_ENTER("TouchEvent.new")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<10>");
 	return this;
 }
 bb_vector2d_Vector2D* bb_touchevent_TouchEvent::m_startPos(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<70>";
+	DBG_ENTER("TouchEvent.startPos")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<70>");
 	if(f_positions->m_Count()==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<70>";
+		DBG_BLOCK();
 		bb_vector2d_Vector2D* t_=(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(0.0));
-		popErr();
 		return t_;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<71>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<71>");
 	bb_vector2d_Vector2D* t_2=f_positions->m_First();
-	popErr();
 	return t_2;
 }
 bb_vector2d_Vector2D* bb_touchevent_TouchEvent::m_prevPos(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<76>";
+	DBG_ENTER("TouchEvent.prevPos")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<76>");
 	if(f_positions->m_Count()==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<76>";
+		DBG_BLOCK();
 		bb_vector2d_Vector2D* t_=(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(0.0));
-		popErr();
 		return t_;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<77>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<77>");
 	if(f_positions->m_Count()==1){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<77>";
+		DBG_BLOCK();
 		bb_vector2d_Vector2D* t_2=m_startPos();
-		popErr();
 		return t_2;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<78>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<78>");
 	bb_vector2d_Vector2D* t_3=f_positions->m_LastNode()->m_PrevNode()->m_Value();
-	popErr();
 	return t_3;
 }
 void bb_touchevent_TouchEvent::m_Add2(bb_vector2d_Vector2D* t_pos){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<38>";
+	DBG_ENTER("TouchEvent.Add")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_pos,"pos")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<38>");
 	f__endTime=bb_app_Millisecs();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<39>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<39>");
 	if(m_prevPos()->f_x==t_pos->f_x && m_prevPos()->f_y==t_pos->f_y){
-		popErr();
+		DBG_BLOCK();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<40>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<40>");
 	f_positions->m_AddLast5(t_pos);
-	popErr();
 }
 void bb_touchevent_TouchEvent::m_Trim(int t_size){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<27>";
+	DBG_ENTER("TouchEvent.Trim")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_size,"size")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<27>");
 	if(t_size==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<28>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<28>");
 		f_positions->m_Clear();
-		popErr();
 		return;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<32>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<32>");
 	while(f_positions->m_Count()>t_size){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<33>");
 		f_positions->m_RemoveFirst();
 	}
-	popErr();
 }
 bb_vector2d_Vector2D* bb_touchevent_TouchEvent::m_pos(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<64>";
+	DBG_ENTER("TouchEvent.pos")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<64>");
 	if(f_positions->m_Count()==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<64>";
+		DBG_BLOCK();
 		bb_vector2d_Vector2D* t_=(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(0.0));
-		popErr();
 		return t_;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<65>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<65>");
 	bb_vector2d_Vector2D* t_2=f_positions->m_Last();
-	popErr();
 	return t_2;
 }
 bb_touchevent_TouchEvent* bb_touchevent_TouchEvent::m_Copy(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<44>";
+	DBG_ENTER("TouchEvent.Copy")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<44>");
 	bb_touchevent_TouchEvent* t_obj=(new bb_touchevent_TouchEvent)->g_new(f__finger);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<46>";
+	DBG_LOCAL(t_obj,"obj")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<46>");
 	t_obj->m_Add2(m_pos());
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<47>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<47>");
 	return t_obj;
 }
 bb_vector2d_Vector2D* bb_touchevent_TouchEvent::m_startDelta(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<82>";
+	DBG_ENTER("TouchEvent.startDelta")
+	bb_touchevent_TouchEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/touchevent.monkey<82>");
 	bb_vector2d_Vector2D* t_=m_pos()->m_Copy()->m_Sub(m_startPos());
-	popErr();
 	return t_;
 }
 void bb_touchevent_TouchEvent::mark(){
 	Object::mark();
 	gc_mark_q(f_positions);
 }
+String bb_touchevent_TouchEvent::debug(){
+	String t="(TouchEvent)\n";
+	t+=dbg_decl("_finger",&f__finger);
+	t+=dbg_decl("_startTime",&f__startTime);
+	t+=dbg_decl("_endTime",&f__endTime);
+	t+=dbg_decl("positions",&f_positions);
+	return t;
+}
 Float bb_input_TouchX(int t_index){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/input.monkey<109>";
+	DBG_ENTER("TouchX")
+	DBG_LOCAL(t_index,"index")
+	DBG_INFO("/Applications/Monkey/modules/mojo/input.monkey<109>");
 	Float t_=bb_input_device->TouchX(t_index);
-	popErr();
 	return t_;
 }
 Float bb_input_TouchY(int t_index){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/input.monkey<113>";
+	DBG_ENTER("TouchY")
+	DBG_LOCAL(t_index,"index")
+	DBG_INFO("/Applications/Monkey/modules/mojo/input.monkey<113>");
 	Float t_=bb_input_device->TouchY(t_index);
-	popErr();
 	return t_;
 }
 bb_list_List5::bb_list_List5(){
 	f__head=((new bb_list_HeadNode5)->g_new());
 }
 bb_list_List5* bb_list_List5::g_new(){
-	pushErr();
-	popErr();
+	DBG_ENTER("List.new")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
 	return this;
 }
 bb_list_Node5* bb_list_List5::m_AddLast5(bb_vector2d_Vector2D* t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<120>";
+	DBG_ENTER("List.AddLast")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<120>");
 	bb_list_Node5* t_=(new bb_list_Node5)->g_new(f__head,f__head->f__pred,t_data);
-	popErr();
 	return t_;
 }
 bb_list_List5* bb_list_List5::g_new2(Array<bb_vector2d_Vector2D* > t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+	DBG_ENTER("List.new")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<13>");
 	Array<bb_vector2d_Vector2D* > t_=t_data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	int t_2=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 	while(t_2<t_.Length()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
+		DBG_BLOCK();
 		bb_vector2d_Vector2D* t_t=t_.At(t_2);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<13>";
 		t_2=t_2+1;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<14>";
+		DBG_LOCAL(t_t,"t")
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<14>");
 		m_AddLast5(t_t);
 	}
-	popErr();
 	return this;
 }
 int bb_list_List5::m_Count(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
+	DBG_ENTER("List.Count")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<41>");
 	int t_n=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<41>";
 	bb_list_Node5* t_node=f__head->f__succ;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<42>";
+	DBG_LOCAL(t_n,"n")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<42>");
 	while(t_node!=f__head){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<43>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<43>");
 		t_node=t_node->f__succ;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<44>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<44>");
 		t_n+=1;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<46>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<46>");
 	return t_n;
 }
 bool bb_list_List5::m_IsEmpty(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<50>";
+	DBG_ENTER("List.IsEmpty")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<50>");
 	bool t_=f__head->f__succ==f__head;
-	popErr();
 	return t_;
 }
 bb_vector2d_Vector2D* bb_list_List5::m_First(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<71>";
+	DBG_ENTER("List.First")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<71>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<71>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<73>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<73>");
 	bb_vector2d_Vector2D* t_=f__head->m_NextNode()->f__data;
-	popErr();
 	return t_;
 }
 bb_list_Node5* bb_list_List5::m_LastNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<66>";
+	DBG_ENTER("List.LastNode")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<66>");
 	bb_list_Node5* t_=f__head->m_PrevNode();
-	popErr();
 	return t_;
 }
 int bb_list_List5::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<36>";
+	DBG_ENTER("List.Clear")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<36>");
 	gc_assign(f__head->f__succ,f__head);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<37>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<37>");
 	gc_assign(f__head->f__pred,f__head);
-	popErr();
 	return 0;
 }
 bb_vector2d_Vector2D* bb_list_List5::m_RemoveFirst(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<85>";
+	DBG_ENTER("List.RemoveFirst")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<85>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<85>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<87>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<87>");
 	bb_vector2d_Vector2D* t_data=f__head->m_NextNode()->f__data;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<88>";
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<88>");
 	f__head->f__succ->m_Remove2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<89>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<89>");
 	return t_data;
 }
 bb_vector2d_Vector2D* bb_list_List5::m_Last(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<78>";
+	DBG_ENTER("List.Last")
+	bb_list_List5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<78>");
 	if(m_IsEmpty()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<78>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on empty list"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<80>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<80>");
 	bb_vector2d_Vector2D* t_=f__head->m_PrevNode()->f__data;
-	popErr();
 	return t_;
 }
 void bb_list_List5::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
+}
+String bb_list_List5::debug(){
+	String t="(List)\n";
+	t+=dbg_decl("_head",&f__head);
+	return t;
 }
 bb_list_Node5::bb_list_Node5(){
 	f__succ=0;
@@ -13217,74 +15675,84 @@ bb_list_Node5::bb_list_Node5(){
 	f__data=0;
 }
 bb_list_Node5* bb_list_Node5::g_new(bb_list_Node5* t_succ,bb_list_Node5* t_pred,bb_vector2d_Vector2D* t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<199>";
+	DBG_ENTER("Node.new")
+	bb_list_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_succ,"succ")
+	DBG_LOCAL(t_pred,"pred")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<199>");
 	gc_assign(f__succ,t_succ);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<200>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<200>");
 	gc_assign(f__pred,t_pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<201>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<201>");
 	gc_assign(f__succ->f__pred,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<202>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<202>");
 	gc_assign(f__pred->f__succ,this);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<203>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<203>");
 	gc_assign(f__data,t_data);
-	popErr();
 	return this;
 }
 bb_list_Node5* bb_list_Node5::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<196>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_list_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<196>");
 	return this;
 }
 bb_list_Node5* bb_list_Node5::m_GetNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<239>";
-	popErr();
+	DBG_ENTER("Node.GetNode")
+	bb_list_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<239>");
 	return this;
 }
 bb_list_Node5* bb_list_Node5::m_NextNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<220>";
+	DBG_ENTER("Node.NextNode")
+	bb_list_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<220>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<220>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<222>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<222>");
 	bb_list_Node5* t_=f__succ->m_GetNode();
-	popErr();
 	return t_;
 }
 bb_list_Node5* bb_list_Node5::m_PrevNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<227>";
+	DBG_ENTER("Node.PrevNode")
+	bb_list_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<227>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<227>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<229>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<229>");
 	bb_list_Node5* t_=f__pred->m_GetNode();
-	popErr();
 	return t_;
 }
 bb_vector2d_Vector2D* bb_list_Node5::m_Value(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<207>";
-	popErr();
+	DBG_ENTER("Node.Value")
+	bb_list_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<207>");
 	return f__data;
 }
 int bb_list_Node5::m_Remove2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+	DBG_ENTER("Node.Remove")
+	bb_list_Node5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<212>");
 	if(f__succ->f__pred!=this){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<212>";
+		DBG_BLOCK();
 		Error(String(L"Illegal operation on removed node"));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<214>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<214>");
 	gc_assign(f__succ->f__pred,f__pred);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<215>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<215>");
 	gc_assign(f__pred->f__succ,f__succ);
-	popErr();
 	return 0;
 }
 void bb_list_Node5::mark(){
@@ -13293,40 +15761,52 @@ void bb_list_Node5::mark(){
 	gc_mark_q(f__pred);
 	gc_mark_q(f__data);
 }
+String bb_list_Node5::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("_succ",&f__succ);
+	t+=dbg_decl("_pred",&f__pred);
+	t+=dbg_decl("_data",&f__data);
+	return t;
+}
 bb_list_HeadNode5::bb_list_HeadNode5(){
 }
 bb_list_HeadNode5* bb_list_HeadNode5::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<248>";
+	DBG_ENTER("HeadNode.new")
+	bb_list_HeadNode5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<248>");
 	bb_list_Node5::g_new2();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<249>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<249>");
 	gc_assign(f__succ,(this));
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<250>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<250>");
 	gc_assign(f__pred,(this));
-	popErr();
 	return this;
 }
 bb_list_Node5* bb_list_HeadNode5::m_GetNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/list.monkey<254>";
-	popErr();
+	DBG_ENTER("HeadNode.GetNode")
+	bb_list_HeadNode5 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/list.monkey<254>");
 	return 0;
 }
 void bb_list_HeadNode5::mark(){
 	bb_list_Node5::mark();
 }
+String bb_list_HeadNode5::debug(){
+	String t="(HeadNode)\n";
+	t=bb_list_Node5::debug()+t;
+	return t;
+}
 int bb_input_EnableKeyboard(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/input.monkey<65>";
+	DBG_ENTER("EnableKeyboard")
+	DBG_INFO("/Applications/Monkey/modules/mojo/input.monkey<65>");
 	int t_=bb_input_device->SetKeyboardEnabled(1);
-	popErr();
 	return t_;
 }
 int bb_input_GetChar(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/input.monkey<81>";
+	DBG_ENTER("GetChar")
+	DBG_INFO("/Applications/Monkey/modules/mojo/input.monkey<81>");
 	int t_=bb_input_device->GetChar();
-	popErr();
 	return t_;
 }
 bb_keyevent_KeyEvent::bb_keyevent_KeyEvent(){
@@ -13334,510 +15814,621 @@ bb_keyevent_KeyEvent::bb_keyevent_KeyEvent(){
 	f__char=String();
 }
 bb_keyevent_KeyEvent* bb_keyevent_KeyEvent::g_new(int t_code){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<12>";
+	DBG_ENTER("KeyEvent.new")
+	bb_keyevent_KeyEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_code,"code")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<12>");
 	f__code=t_code;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<13>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<13>");
 	f__char=String((Char)(f__code),1);
-	popErr();
 	return this;
 }
 bb_keyevent_KeyEvent* bb_keyevent_KeyEvent::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<3>";
-	popErr();
+	DBG_ENTER("KeyEvent.new")
+	bb_keyevent_KeyEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<3>");
 	return this;
 }
 int bb_keyevent_KeyEvent::m_code(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<17>";
-	popErr();
+	DBG_ENTER("KeyEvent.code")
+	bb_keyevent_KeyEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<17>");
 	return f__code;
 }
 String bb_keyevent_KeyEvent::m_char(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<21>";
-	popErr();
+	DBG_ENTER("KeyEvent.char")
+	bb_keyevent_KeyEvent *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/bono/bono/keyevent.monkey<21>");
 	return f__char;
 }
 void bb_keyevent_KeyEvent::mark(){
 	Object::mark();
 }
+String bb_keyevent_KeyEvent::debug(){
+	String t="(KeyEvent)\n";
+	t+=dbg_decl("_code",&f__code);
+	t+=dbg_decl("_char",&f__char);
+	return t;
+}
 bb_map_Map7::bb_map_Map7(){
 	f_root=0;
 }
 bb_map_Map7* bb_map_Map7::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<7>";
-	popErr();
+	DBG_ENTER("Map.new")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<7>");
 	return this;
 }
 bb_map_Node7* bb_map_Map7::m_FindNode2(int t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<157>";
+	DBG_ENTER("Map.FindNode")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<157>");
 	bb_map_Node7* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<159>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<159>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<160>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<160>");
 		int t_cmp=m_Compare2(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<161>";
+		DBG_LOCAL(t_cmp,"cmp")
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<161>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<162>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<162>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<163>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<163>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<164>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<164>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<166>";
-				popErr();
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<166>");
 				return t_node;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<169>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<169>");
 	return t_node;
 }
 bool bb_map_Map7::m_Contains2(int t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<25>";
+	DBG_ENTER("Map.Contains")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<25>");
 	bool t_=m_FindNode2(t_key)!=0;
-	popErr();
 	return t_;
 }
 int bb_map_Map7::m_RotateLeft7(bb_map_Node7* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<251>";
+	DBG_ENTER("Map.RotateLeft")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<251>");
 	bb_map_Node7* t_child=t_node->f_right;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<252>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<252>");
 	gc_assign(t_node->f_right,t_child->f_left);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<253>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<253>");
 	if((t_child->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<254>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<254>");
 		gc_assign(t_child->f_left->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<256>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<256>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<257>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<257>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<258>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<258>");
 		if(t_node==t_node->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<259>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<259>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<261>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<261>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<264>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<264>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<266>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<266>");
 	gc_assign(t_child->f_left,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<267>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<267>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map7::m_RotateRight7(bb_map_Node7* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<271>";
+	DBG_ENTER("Map.RotateRight")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<271>");
 	bb_map_Node7* t_child=t_node->f_left;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<272>";
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<272>");
 	gc_assign(t_node->f_left,t_child->f_right);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<273>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<273>");
 	if((t_child->f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<274>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<274>");
 		gc_assign(t_child->f_right->f_parent,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<276>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<276>");
 	gc_assign(t_child->f_parent,t_node->f_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<277>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<277>");
 	if((t_node->f_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<278>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<278>");
 		if(t_node==t_node->f_parent->f_right){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<279>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<279>");
 			gc_assign(t_node->f_parent->f_right,t_child);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<281>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<281>");
 			gc_assign(t_node->f_parent->f_left,t_child);
 		}
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<284>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<284>");
 		gc_assign(f_root,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<286>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<286>");
 	gc_assign(t_child->f_right,t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<287>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<287>");
 	gc_assign(t_node->f_parent,t_child);
-	popErr();
 	return 0;
 }
 int bb_map_Map7::m_InsertFixup7(bb_map_Node7* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<212>";
+	DBG_ENTER("Map.InsertFixup")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<212>");
 	while(((t_node->f_parent)!=0) && t_node->f_parent->f_color==-1 && ((t_node->f_parent->f_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<213>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<213>");
 		if(t_node->f_parent==t_node->f_parent->f_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<214>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<214>");
 			bb_map_Node7* t_uncle=t_node->f_parent->f_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<215>";
+			DBG_LOCAL(t_uncle,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<215>");
 			if(((t_uncle)!=0) && t_uncle->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<216>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<216>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<217>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<217>");
 				t_uncle->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<218>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<218>");
 				t_uncle->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<219>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<219>");
 				t_node=t_uncle->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<221>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<221>");
 				if(t_node==t_node->f_parent->f_right){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<222>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<222>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<223>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<223>");
 					m_RotateLeft7(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<225>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<225>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<226>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<226>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<227>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<227>");
 				m_RotateRight7(t_node->f_parent->f_parent);
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<230>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<230>");
 			bb_map_Node7* t_uncle2=t_node->f_parent->f_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<231>";
+			DBG_LOCAL(t_uncle2,"uncle")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<231>");
 			if(((t_uncle2)!=0) && t_uncle2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<232>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<232>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<233>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<233>");
 				t_uncle2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<234>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<234>");
 				t_uncle2->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<235>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<235>");
 				t_node=t_uncle2->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<237>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<237>");
 				if(t_node==t_node->f_parent->f_left){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<238>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<238>");
 					t_node=t_node->f_parent;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<239>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<239>");
 					m_RotateRight7(t_node);
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<241>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<241>");
 				t_node->f_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<242>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<242>");
 				t_node->f_parent->f_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<243>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<243>");
 				m_RotateLeft7(t_node->f_parent->f_parent);
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<247>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<247>");
 	f_root->f_color=1;
-	popErr();
 	return 0;
 }
 bool bb_map_Map7::m_Add6(int t_key,bb_keyevent_KeyEvent* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<61>";
+	DBG_ENTER("Map.Add")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<61>");
 	bb_map_Node7* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<62>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<62>");
 	bb_map_Node7* t_parent=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<62>";
 	int t_cmp=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<64>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_LOCAL(t_cmp,"cmp")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<64>");
 	while((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<65>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<65>");
 		t_parent=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<66>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<66>");
 		t_cmp=m_Compare2(t_key,t_node->f_key);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<67>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<67>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<68>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<68>");
 			t_node=t_node->f_right;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<69>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<69>");
 			if(t_cmp<0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<70>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<70>");
 				t_node=t_node->f_left;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<72>";
-				popErr();
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<72>");
 				return false;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<76>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<76>");
 	t_node=(new bb_map_Node7)->g_new(t_key,t_value,-1,t_parent);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<78>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<78>");
 	if((t_parent)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<79>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<79>");
 		if(t_cmp>0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<80>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<80>");
 			gc_assign(t_parent->f_right,t_node);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<82>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<82>");
 			gc_assign(t_parent->f_left,t_node);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<84>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<84>");
 		m_InsertFixup7(t_node);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<86>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<86>");
 		gc_assign(f_root,t_node);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<88>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<88>");
 	return true;
 }
 bb_map_MapValues* bb_map_Map7::m_Values(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<117>";
+	DBG_ENTER("Map.Values")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<117>");
 	bb_map_MapValues* t_=(new bb_map_MapValues)->g_new(this);
-	popErr();
 	return t_;
 }
 bb_map_Node7* bb_map_Map7::m_FirstNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<137>";
+	DBG_ENTER("Map.FirstNode")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<137>");
 	if(!((f_root)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<137>";
-		popErr();
+		DBG_BLOCK();
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<139>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<139>");
 	bb_map_Node7* t_node=f_root;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<140>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<140>");
 	while((t_node->f_left)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<141>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<141>");
 		t_node=t_node->f_left;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<143>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<143>");
 	return t_node;
 }
 int bb_map_Map7::m_DeleteFixup2(bb_map_Node7* t_node,bb_map_Node7* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<292>";
+	DBG_ENTER("Map.DeleteFixup")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<292>");
 	while(t_node!=f_root && (!((t_node)!=0) || t_node->f_color==1)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<294>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<294>");
 		if(t_node==t_parent->f_left){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<296>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<296>");
 			bb_map_Node7* t_sib=t_parent->f_right;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<298>";
+			DBG_LOCAL(t_sib,"sib")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<298>");
 			if(t_sib->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<299>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<299>");
 				t_sib->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<300>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<300>");
 				t_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<301>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<301>");
 				m_RotateLeft7(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<302>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<302>");
 				t_sib=t_parent->f_right;
 			}
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<305>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<305>");
 			if((!((t_sib->f_left)!=0) || t_sib->f_left->f_color==1) && (!((t_sib->f_right)!=0) || t_sib->f_right->f_color==1)){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<306>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<306>");
 				t_sib->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<307>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<307>");
 				t_node=t_parent;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<308>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<308>");
 				t_parent=t_parent->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<310>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<310>");
 				if(!((t_sib->f_right)!=0) || t_sib->f_right->f_color==1){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<311>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<311>");
 					t_sib->f_left->f_color=1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<312>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<312>");
 					t_sib->f_color=-1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<313>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<313>");
 					m_RotateRight7(t_sib);
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<314>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<314>");
 					t_sib=t_parent->f_right;
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<316>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<316>");
 				t_sib->f_color=t_parent->f_color;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<317>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<317>");
 				t_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<318>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<318>");
 				t_sib->f_right->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<319>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<319>");
 				m_RotateLeft7(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<320>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<320>");
 				t_node=f_root;
 			}
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<323>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<323>");
 			bb_map_Node7* t_sib2=t_parent->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<325>";
+			DBG_LOCAL(t_sib2,"sib")
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<325>");
 			if(t_sib2->f_color==-1){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<326>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<326>");
 				t_sib2->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<327>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<327>");
 				t_parent->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<328>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<328>");
 				m_RotateRight7(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<329>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<329>");
 				t_sib2=t_parent->f_left;
 			}
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<332>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<332>");
 			if((!((t_sib2->f_right)!=0) || t_sib2->f_right->f_color==1) && (!((t_sib2->f_left)!=0) || t_sib2->f_left->f_color==1)){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<333>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<333>");
 				t_sib2->f_color=-1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<334>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<334>");
 				t_node=t_parent;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<335>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<335>");
 				t_parent=t_parent->f_parent;
 			}else{
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<337>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<337>");
 				if(!((t_sib2->f_left)!=0) || t_sib2->f_left->f_color==1){
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<338>";
+					DBG_BLOCK();
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<338>");
 					t_sib2->f_right->f_color=1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<339>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<339>");
 					t_sib2->f_color=-1;
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<340>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<340>");
 					m_RotateLeft7(t_sib2);
-					errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<341>";
+					DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<341>");
 					t_sib2=t_parent->f_left;
 				}
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<343>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<343>");
 				t_sib2->f_color=t_parent->f_color;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<344>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<344>");
 				t_parent->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<345>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<345>");
 				t_sib2->f_left->f_color=1;
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<346>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<346>");
 				m_RotateRight7(t_parent);
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<347>";
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<347>");
 				t_node=f_root;
 			}
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<351>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<351>");
 	if((t_node)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<351>";
+		DBG_BLOCK();
 		t_node->f_color=1;
 	}
-	popErr();
 	return 0;
 }
 int bb_map_Map7::m_RemoveNode2(bb_map_Node7* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<173>";
+	DBG_ENTER("Map.RemoveNode")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<173>");
 	bb_map_Node7* t_splice=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<173>";
 	bb_map_Node7* t_child=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<175>";
+	DBG_LOCAL(t_splice,"splice")
+	DBG_LOCAL(t_child,"child")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<175>");
 	if(!((t_node->f_left)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<176>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<176>");
 		t_splice=t_node;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<177>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<177>");
 		t_child=t_node->f_right;
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<178>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<178>");
 		if(!((t_node->f_right)!=0)){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<179>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<179>");
 			t_splice=t_node;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<180>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<180>");
 			t_child=t_node->f_left;
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<182>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<182>");
 			t_splice=t_node->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<183>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<183>");
 			while((t_splice->f_right)!=0){
-				errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<184>";
+				DBG_BLOCK();
+				DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<184>");
 				t_splice=t_splice->f_right;
 			}
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<186>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<186>");
 			t_child=t_splice->f_left;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<187>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<187>");
 			t_node->f_key=t_splice->f_key;
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<188>";
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<188>");
 			gc_assign(t_node->f_value,t_splice->f_value);
 		}
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<191>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<191>");
 	bb_map_Node7* t_parent=t_splice->f_parent;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<193>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<193>");
 	if((t_child)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<194>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<194>");
 		gc_assign(t_child->f_parent,t_parent);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<197>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<197>");
 	if(!((t_parent)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<198>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<198>");
 		gc_assign(f_root,t_child);
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<199>";
-		popErr();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<199>");
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<202>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<202>");
 	if(t_splice==t_parent->f_left){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<203>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<203>");
 		gc_assign(t_parent->f_left,t_child);
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<205>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<205>");
 		gc_assign(t_parent->f_right,t_child);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<208>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<208>");
 	if(t_splice->f_color==1){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<208>";
+		DBG_BLOCK();
 		m_DeleteFixup2(t_child,t_parent);
 	}
-	popErr();
 	return 0;
 }
 int bb_map_Map7::m_Remove4(int t_key){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<106>";
+	DBG_ENTER("Map.Remove")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<106>");
 	bb_map_Node7* t_node=m_FindNode2(t_key);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<107>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<107>");
 	if(!((t_node)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<107>";
-		popErr();
+		DBG_BLOCK();
 		return 0;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<108>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<108>");
 	m_RemoveNode2(t_node);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<109>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<109>");
 	return 1;
 }
 int bb_map_Map7::m_Clear(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<13>";
+	DBG_ENTER("Map.Clear")
+	bb_map_Map7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<13>");
 	f_root=0;
-	popErr();
 	return 0;
 }
 void bb_map_Map7::mark(){
 	Object::mark();
 	gc_mark_q(f_root);
 }
+String bb_map_Map7::debug(){
+	String t="(Map)\n";
+	t+=dbg_decl("root",&f_root);
+	return t;
+}
 bb_map_IntMap2::bb_map_IntMap2(){
 }
 bb_map_IntMap2* bb_map_IntMap2::g_new(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<534>";
+	DBG_ENTER("IntMap.new")
+	bb_map_IntMap2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<534>");
 	bb_map_Map7::g_new();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<534>";
-	popErr();
 	return this;
 }
 int bb_map_IntMap2::m_Compare2(int t_lhs,int t_rhs){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<537>";
+	DBG_ENTER("IntMap.Compare")
+	bb_map_IntMap2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_lhs,"lhs")
+	DBG_LOCAL(t_rhs,"rhs")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<537>");
 	int t_=t_lhs-t_rhs;
-	popErr();
 	return t_;
 }
 void bb_map_IntMap2::mark(){
 	bb_map_Map7::mark();
+}
+String bb_map_IntMap2::debug(){
+	String t="(IntMap)\n";
+	t=bb_map_Map7::debug()+t;
+	return t;
 }
 bb_map_Node7::bb_map_Node7(){
 	f_key=0;
@@ -13848,54 +16439,65 @@ bb_map_Node7::bb_map_Node7(){
 	f_parent=0;
 }
 bb_map_Node7* bb_map_Node7::g_new(int t_key,bb_keyevent_KeyEvent* t_value,int t_color,bb_map_Node7* t_parent){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<364>";
+	DBG_ENTER("Node.new")
+	bb_map_Node7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_key,"key")
+	DBG_LOCAL(t_value,"value")
+	DBG_LOCAL(t_color,"color")
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<364>");
 	this->f_key=t_key;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<365>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<365>");
 	gc_assign(this->f_value,t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<366>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<366>");
 	this->f_color=t_color;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<367>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<367>");
 	gc_assign(this->f_parent,t_parent);
-	popErr();
 	return this;
 }
 bb_map_Node7* bb_map_Node7::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<361>";
-	popErr();
+	DBG_ENTER("Node.new")
+	bb_map_Node7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<361>");
 	return this;
 }
 bb_map_Node7* bb_map_Node7::m_NextNode(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<385>";
+	DBG_ENTER("Node.NextNode")
+	bb_map_Node7 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<385>");
 	bb_map_Node7* t_node=0;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<386>";
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<386>");
 	if((f_right)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<387>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<387>");
 		t_node=f_right;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<388>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<388>");
 		while((t_node->f_left)!=0){
-			errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<389>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<389>");
 			t_node=t_node->f_left;
 		}
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<391>";
-		popErr();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<391>");
 		return t_node;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<393>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<393>");
 	t_node=this;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<394>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<394>");
 	bb_map_Node7* t_parent=this->f_parent;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<395>";
+	DBG_LOCAL(t_parent,"parent")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<395>");
 	while(((t_parent)!=0) && t_node==t_parent->f_right){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<396>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<396>");
 		t_node=t_parent;
-		errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<397>";
+		DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<397>");
 		t_parent=t_parent->f_parent;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<399>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<399>");
 	return t_parent;
 }
 void bb_map_Node7::mark(){
@@ -13905,382 +16507,466 @@ void bb_map_Node7::mark(){
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
 }
+String bb_map_Node7::debug(){
+	String t="(Node)\n";
+	t+=dbg_decl("key",&f_key);
+	t+=dbg_decl("value",&f_value);
+	t+=dbg_decl("color",&f_color);
+	t+=dbg_decl("parent",&f_parent);
+	t+=dbg_decl("left",&f_left);
+	t+=dbg_decl("right",&f_right);
+	return t;
+}
 bb_map_MapValues::bb_map_MapValues(){
 	f_map=0;
 }
 bb_map_MapValues* bb_map_MapValues::g_new(bb_map_Map7* t_map){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<519>";
+	DBG_ENTER("MapValues.new")
+	bb_map_MapValues *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_map,"map")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<519>");
 	gc_assign(this->f_map,t_map);
-	popErr();
 	return this;
 }
 bb_map_MapValues* bb_map_MapValues::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<516>";
-	popErr();
+	DBG_ENTER("MapValues.new")
+	bb_map_MapValues *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<516>");
 	return this;
 }
 bb_map_ValueEnumerator* bb_map_MapValues::m_ObjectEnumerator(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<523>";
+	DBG_ENTER("MapValues.ObjectEnumerator")
+	bb_map_MapValues *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<523>");
 	bb_map_ValueEnumerator* t_=(new bb_map_ValueEnumerator)->g_new(f_map->m_FirstNode());
-	popErr();
 	return t_;
 }
 void bb_map_MapValues::mark(){
 	Object::mark();
 	gc_mark_q(f_map);
 }
+String bb_map_MapValues::debug(){
+	String t="(MapValues)\n";
+	t+=dbg_decl("map",&f_map);
+	return t;
+}
 bb_map_ValueEnumerator::bb_map_ValueEnumerator(){
 	f_node=0;
 }
 bb_map_ValueEnumerator* bb_map_ValueEnumerator::g_new(bb_map_Node7* t_node){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<481>";
+	DBG_ENTER("ValueEnumerator.new")
+	bb_map_ValueEnumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_node,"node")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<481>");
 	gc_assign(this->f_node,t_node);
-	popErr();
 	return this;
 }
 bb_map_ValueEnumerator* bb_map_ValueEnumerator::g_new2(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<478>";
-	popErr();
+	DBG_ENTER("ValueEnumerator.new")
+	bb_map_ValueEnumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<478>");
 	return this;
 }
 bool bb_map_ValueEnumerator::m_HasNext(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<485>";
+	DBG_ENTER("ValueEnumerator.HasNext")
+	bb_map_ValueEnumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<485>");
 	bool t_=f_node!=0;
-	popErr();
 	return t_;
 }
 bb_keyevent_KeyEvent* bb_map_ValueEnumerator::m_NextObject(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<489>";
+	DBG_ENTER("ValueEnumerator.NextObject")
+	bb_map_ValueEnumerator *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<489>");
 	bb_map_Node7* t_t=f_node;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<490>";
+	DBG_LOCAL(t_t,"t")
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<490>");
 	gc_assign(f_node,f_node->m_NextNode());
-	errInfo="/Applications/MonkeyPro58/modules/monkey/map.monkey<491>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/map.monkey<491>");
 	return t_t->f_value;
 }
 void bb_map_ValueEnumerator::mark(){
 	Object::mark();
 	gc_mark_q(f_node);
 }
+String bb_map_ValueEnumerator::debug(){
+	String t="(ValueEnumerator)\n";
+	t+=dbg_decl("node",&f_node);
+	return t;
+}
 int bb_input_DisableKeyboard(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/input.monkey<69>";
+	DBG_ENTER("DisableKeyboard")
+	DBG_INFO("/Applications/Monkey/modules/mojo/input.monkey<69>");
 	int t_=bb_input_device->SetKeyboardEnabled(0);
-	popErr();
 	return t_;
 }
 int bb_graphics_PushMatrix(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<346>";
+	DBG_ENTER("PushMatrix")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<346>");
 	int t_sp=bb_graphics_context->f_matrixSp;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<347>";
+	DBG_LOCAL(t_sp,"sp")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<347>");
 	bb_graphics_context->f_matrixStack.At(t_sp+0)=bb_graphics_context->f_ix;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<348>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<348>");
 	bb_graphics_context->f_matrixStack.At(t_sp+1)=bb_graphics_context->f_iy;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<349>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<349>");
 	bb_graphics_context->f_matrixStack.At(t_sp+2)=bb_graphics_context->f_jx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<350>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<350>");
 	bb_graphics_context->f_matrixStack.At(t_sp+3)=bb_graphics_context->f_jy;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<351>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<351>");
 	bb_graphics_context->f_matrixStack.At(t_sp+4)=bb_graphics_context->f_tx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<352>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<352>");
 	bb_graphics_context->f_matrixStack.At(t_sp+5)=bb_graphics_context->f_ty;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<353>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<353>");
 	bb_graphics_context->f_matrixSp=t_sp+6;
-	popErr();
 	return 0;
 }
 int bb_graphics_Transform(Float t_ix,Float t_iy,Float t_jx,Float t_jy,Float t_tx,Float t_ty){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<367>";
+	DBG_ENTER("Transform")
+	DBG_LOCAL(t_ix,"ix")
+	DBG_LOCAL(t_iy,"iy")
+	DBG_LOCAL(t_jx,"jx")
+	DBG_LOCAL(t_jy,"jy")
+	DBG_LOCAL(t_tx,"tx")
+	DBG_LOCAL(t_ty,"ty")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<367>");
 	Float t_ix2=t_ix*bb_graphics_context->f_ix+t_iy*bb_graphics_context->f_jx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<368>";
+	DBG_LOCAL(t_ix2,"ix2")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<368>");
 	Float t_iy2=t_ix*bb_graphics_context->f_iy+t_iy*bb_graphics_context->f_jy;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<369>";
+	DBG_LOCAL(t_iy2,"iy2")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<369>");
 	Float t_jx2=t_jx*bb_graphics_context->f_ix+t_jy*bb_graphics_context->f_jx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<370>";
+	DBG_LOCAL(t_jx2,"jx2")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<370>");
 	Float t_jy2=t_jx*bb_graphics_context->f_iy+t_jy*bb_graphics_context->f_jy;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<371>";
+	DBG_LOCAL(t_jy2,"jy2")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<371>");
 	Float t_tx2=t_tx*bb_graphics_context->f_ix+t_ty*bb_graphics_context->f_jx+bb_graphics_context->f_tx;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<372>";
+	DBG_LOCAL(t_tx2,"tx2")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<372>");
 	Float t_ty2=t_tx*bb_graphics_context->f_iy+t_ty*bb_graphics_context->f_jy+bb_graphics_context->f_ty;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<373>";
+	DBG_LOCAL(t_ty2,"ty2")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<373>");
 	bb_graphics_SetMatrix(t_ix2,t_iy2,t_jx2,t_jy2,t_tx2,t_ty2);
-	popErr();
 	return 0;
 }
 int bb_graphics_Transform2(Array<Float > t_m){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<363>";
+	DBG_ENTER("Transform")
+	DBG_LOCAL(t_m,"m")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<363>");
 	bb_graphics_Transform(t_m.At(0),t_m.At(1),t_m.At(2),t_m.At(3),t_m.At(4),t_m.At(5));
-	popErr();
 	return 0;
 }
 int bb_graphics_Scale(Float t_x,Float t_y){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<381>";
+	DBG_ENTER("Scale")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<381>");
 	bb_graphics_Transform(t_x,FLOAT(0.0),FLOAT(0.0),t_y,FLOAT(0.0),FLOAT(0.0));
-	popErr();
 	return 0;
 }
 int bb_graphics_DebugRenderDevice(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<240>";
+	DBG_ENTER("DebugRenderDevice")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<240>");
 	if(!((bb_graphics_renderDevice)!=0)){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<240>";
+		DBG_BLOCK();
 		Error(String(L"Rendering operations can only be performed inside OnRender"));
 	}
-	popErr();
 	return 0;
 }
 int bb_graphics_Cls(Float t_r,Float t_g,Float t_b){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<390>";
+	DBG_ENTER("Cls")
+	DBG_LOCAL(t_r,"r")
+	DBG_LOCAL(t_g,"g")
+	DBG_LOCAL(t_b,"b")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<390>");
 	bb_graphics_DebugRenderDevice();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<392>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<392>");
 	bb_graphics_renderDevice->Cls(t_r,t_g,t_b);
-	popErr();
 	return 0;
 }
 int bb_graphics_PopMatrix(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<357>";
+	DBG_ENTER("PopMatrix")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<357>");
 	int t_sp=bb_graphics_context->f_matrixSp-6;
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<358>";
+	DBG_LOCAL(t_sp,"sp")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<358>");
 	bb_graphics_SetMatrix(bb_graphics_context->f_matrixStack.At(t_sp+0),bb_graphics_context->f_matrixStack.At(t_sp+1),bb_graphics_context->f_matrixStack.At(t_sp+2),bb_graphics_context->f_matrixStack.At(t_sp+3),bb_graphics_context->f_matrixStack.At(t_sp+4),bb_graphics_context->f_matrixStack.At(t_sp+5));
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<359>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<359>");
 	bb_graphics_context->f_matrixSp=t_sp;
-	popErr();
 	return 0;
 }
 int bb_graphics_Translate(Float t_x,Float t_y){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<377>";
+	DBG_ENTER("Translate")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<377>");
 	bb_graphics_Transform(FLOAT(1.0),FLOAT(0.0),FLOAT(0.0),FLOAT(1.0),t_x,t_y);
-	popErr();
 	return 0;
 }
 int bb_graphics_ValidateMatrix(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<233>";
+	DBG_ENTER("ValidateMatrix")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<233>");
 	if((bb_graphics_context->f_matDirty)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<234>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<234>");
 		bb_graphics_context->f_device->SetMatrix(bb_graphics_context->f_ix,bb_graphics_context->f_iy,bb_graphics_context->f_jx,bb_graphics_context->f_jy,bb_graphics_context->f_tx,bb_graphics_context->f_ty);
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<235>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<235>");
 		bb_graphics_context->f_matDirty=0;
 	}
-	popErr();
 	return 0;
 }
 int bb_graphics_DrawImage(bb_graphics_Image* t_image,Float t_x,Float t_y,int t_frame){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<453>";
+	DBG_ENTER("DrawImage")
+	DBG_LOCAL(t_image,"image")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_frame,"frame")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<453>");
 	bb_graphics_DebugRenderDevice();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<455>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<455>");
 	bb_graphics_Frame* t_f=t_image->f_frames.At(t_frame);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<457>";
+	DBG_LOCAL(t_f,"f")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<457>");
 	if((bb_graphics_context->f_tformed)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<458>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<458>");
 		bb_graphics_PushMatrix();
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<460>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<460>");
 		bb_graphics_Translate(t_x-t_image->f_tx,t_y-t_image->f_ty);
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<462>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<462>");
 		bb_graphics_ValidateMatrix();
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<464>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<464>");
 		if((t_image->f_flags&65536)!=0){
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<465>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<465>");
 			bb_graphics_context->f_device->DrawSurface(t_image->f_surface,FLOAT(0.0),FLOAT(0.0));
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<467>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<467>");
 			bb_graphics_context->f_device->DrawSurface2(t_image->f_surface,FLOAT(0.0),FLOAT(0.0),t_f->f_x,t_f->f_y,t_image->f_width,t_image->f_height);
 		}
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<470>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<470>");
 		bb_graphics_PopMatrix();
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<472>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<472>");
 		bb_graphics_ValidateMatrix();
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<474>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<474>");
 		if((t_image->f_flags&65536)!=0){
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<475>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<475>");
 			bb_graphics_context->f_device->DrawSurface(t_image->f_surface,t_x-t_image->f_tx,t_y-t_image->f_ty);
 		}else{
-			errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<477>";
+			DBG_BLOCK();
+			DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<477>");
 			bb_graphics_context->f_device->DrawSurface2(t_image->f_surface,t_x-t_image->f_tx,t_y-t_image->f_ty,t_f->f_x,t_f->f_y,t_image->f_width,t_image->f_height);
 		}
 	}
-	popErr();
 	return 0;
 }
 int bb_graphics_Rotate(Float t_angle){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<385>";
+	DBG_ENTER("Rotate")
+	DBG_LOCAL(t_angle,"angle")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<385>");
 	bb_graphics_Transform((Float)cos((t_angle)*D2R),-(Float)sin((t_angle)*D2R),(Float)sin((t_angle)*D2R),(Float)cos((t_angle)*D2R),FLOAT(0.0),FLOAT(0.0));
-	popErr();
 	return 0;
 }
 int bb_graphics_DrawImage2(bb_graphics_Image* t_image,Float t_x,Float t_y,Float t_rotation,Float t_scaleX,Float t_scaleY,int t_frame){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<484>";
+	DBG_ENTER("DrawImage")
+	DBG_LOCAL(t_image,"image")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_rotation,"rotation")
+	DBG_LOCAL(t_scaleX,"scaleX")
+	DBG_LOCAL(t_scaleY,"scaleY")
+	DBG_LOCAL(t_frame,"frame")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<484>");
 	bb_graphics_DebugRenderDevice();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<486>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<486>");
 	bb_graphics_Frame* t_f=t_image->f_frames.At(t_frame);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<488>";
+	DBG_LOCAL(t_f,"f")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<488>");
 	bb_graphics_PushMatrix();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<490>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<490>");
 	bb_graphics_Translate(t_x,t_y);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<491>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<491>");
 	bb_graphics_Rotate(t_rotation);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<492>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<492>");
 	bb_graphics_Scale(t_scaleX,t_scaleY);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<494>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<494>");
 	bb_graphics_Translate(-t_image->f_tx,-t_image->f_ty);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<496>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<496>");
 	bb_graphics_ValidateMatrix();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<498>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<498>");
 	if((t_image->f_flags&65536)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<499>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<499>");
 		bb_graphics_context->f_device->DrawSurface(t_image->f_surface,FLOAT(0.0),FLOAT(0.0));
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<501>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<501>");
 		bb_graphics_context->f_device->DrawSurface2(t_image->f_surface,FLOAT(0.0),FLOAT(0.0),t_f->f_x,t_f->f_y,t_image->f_width,t_image->f_height);
 	}
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<504>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<504>");
 	bb_graphics_PopMatrix();
-	popErr();
 	return 0;
 }
 int bb_graphics_DrawRect(Float t_x,Float t_y,Float t_w,Float t_h){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<405>";
+	DBG_ENTER("DrawRect")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_w,"w")
+	DBG_LOCAL(t_h,"h")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<405>");
 	bb_graphics_DebugRenderDevice();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<407>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<407>");
 	bb_graphics_ValidateMatrix();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<408>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<408>");
 	bb_graphics_renderDevice->DrawRect(t_x,t_y,t_w,t_h);
-	popErr();
 	return 0;
 }
 Array<Float > bb_graphics_GetColor(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<293>";
+	DBG_ENTER("GetColor")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<293>");
 	Float t_2[]={bb_graphics_context->f_color_r,bb_graphics_context->f_color_g,bb_graphics_context->f_color_b};
 	Array<Float > t_=Array<Float >(t_2,3);
-	popErr();
 	return t_;
 }
 Float bb_graphics_GetAlpha(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<302>";
-	popErr();
+	DBG_ENTER("GetAlpha")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<302>");
 	return bb_graphics_context->f_alpha;
 }
 int bb_graphics_DrawImageRect(bb_graphics_Image* t_image,Float t_x,Float t_y,int t_srcX,int t_srcY,int t_srcWidth,int t_srcHeight,int t_frame){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<509>";
+	DBG_ENTER("DrawImageRect")
+	DBG_LOCAL(t_image,"image")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_srcX,"srcX")
+	DBG_LOCAL(t_srcY,"srcY")
+	DBG_LOCAL(t_srcWidth,"srcWidth")
+	DBG_LOCAL(t_srcHeight,"srcHeight")
+	DBG_LOCAL(t_frame,"frame")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<509>");
 	bb_graphics_DebugRenderDevice();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<511>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<511>");
 	bb_graphics_Frame* t_f=t_image->f_frames.At(t_frame);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<513>";
+	DBG_LOCAL(t_f,"f")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<513>");
 	if((bb_graphics_context->f_tformed)!=0){
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<514>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<514>");
 		bb_graphics_PushMatrix();
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<517>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<517>");
 		bb_graphics_Translate(-t_image->f_tx+t_x,-t_image->f_ty+t_y);
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<519>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<519>");
 		bb_graphics_ValidateMatrix();
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<521>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<521>");
 		bb_graphics_context->f_device->DrawSurface2(t_image->f_surface,FLOAT(0.0),FLOAT(0.0),t_srcX+t_f->f_x,t_srcY+t_f->f_y,t_srcWidth,t_srcHeight);
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<523>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<523>");
 		bb_graphics_PopMatrix();
 	}else{
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<525>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<525>");
 		bb_graphics_ValidateMatrix();
-		errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<527>";
+		DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<527>");
 		bb_graphics_context->f_device->DrawSurface2(t_image->f_surface,-t_image->f_tx+t_x,-t_image->f_ty+t_y,t_srcX+t_f->f_x,t_srcY+t_f->f_y,t_srcWidth,t_srcHeight);
 	}
-	popErr();
 	return 0;
 }
 int bb_graphics_DrawImageRect2(bb_graphics_Image* t_image,Float t_x,Float t_y,int t_srcX,int t_srcY,int t_srcWidth,int t_srcHeight,Float t_rotation,Float t_scaleX,Float t_scaleY,int t_frame){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<533>";
+	DBG_ENTER("DrawImageRect")
+	DBG_LOCAL(t_image,"image")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_LOCAL(t_srcX,"srcX")
+	DBG_LOCAL(t_srcY,"srcY")
+	DBG_LOCAL(t_srcWidth,"srcWidth")
+	DBG_LOCAL(t_srcHeight,"srcHeight")
+	DBG_LOCAL(t_rotation,"rotation")
+	DBG_LOCAL(t_scaleX,"scaleX")
+	DBG_LOCAL(t_scaleY,"scaleY")
+	DBG_LOCAL(t_frame,"frame")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<533>");
 	bb_graphics_DebugRenderDevice();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<535>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<535>");
 	bb_graphics_Frame* t_f=t_image->f_frames.At(t_frame);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<537>";
+	DBG_LOCAL(t_f,"f")
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<537>");
 	bb_graphics_PushMatrix();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<539>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<539>");
 	bb_graphics_Translate(t_x,t_y);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<540>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<540>");
 	bb_graphics_Rotate(t_rotation);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<541>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<541>");
 	bb_graphics_Scale(t_scaleX,t_scaleY);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<542>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<542>");
 	bb_graphics_Translate(-t_image->f_tx,-t_image->f_ty);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<544>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<544>");
 	bb_graphics_ValidateMatrix();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<546>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<546>");
 	bb_graphics_context->f_device->DrawSurface2(t_image->f_surface,FLOAT(0.0),FLOAT(0.0),t_srcX+t_f->f_x,t_srcY+t_f->f_y,t_srcWidth,t_srcHeight);
-	errInfo="/Applications/MonkeyPro58/modules/mojo/graphics.monkey<548>";
+	DBG_INFO("/Applications/Monkey/modules/mojo/graphics.monkey<548>");
 	bb_graphics_PopMatrix();
-	popErr();
 	return 0;
 }
 int bb_math_Min(int t_x,int t_y){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<51>";
+	DBG_ENTER("Min")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<51>");
 	if(t_x<t_y){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<51>";
-		popErr();
+		DBG_BLOCK();
 		return t_x;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<52>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<52>");
 	return t_y;
 }
 Float bb_math_Min2(Float t_x,Float t_y){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<78>";
+	DBG_ENTER("Min")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<78>");
 	if(t_x<t_y){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<78>";
-		popErr();
+		DBG_BLOCK();
 		return t_x;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<79>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<79>");
 	return t_y;
 }
 bool bb_iap_iapPurchaseInProgress;
 int bb_iap_iapCount;
 int bb_iap_buyProduct(String t_product){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<40>";
+	DBG_ENTER("buyProduct")
+	DBG_LOCAL(t_product,"product")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<40>");
 	bb_iap_iapPurchaseInProgress=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<41>");
 	bb_iap_iapCount=0;
-	popErr();
 	return 0;
 }
 bool bb_iap_isPurchaseInProgress(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<55>";
+	DBG_ENTER("isPurchaseInProgress")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<55>");
 	bb_iap_iapPurchaseInProgress=true;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<56>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<56>");
 	bb_iap_iapCount=bb_iap_iapCount+1;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<58>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<58>");
 	if(bb_iap_iapCount>500){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<59>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<59>");
 		bb_iap_iapPurchaseInProgress=false;
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<62>";
-	popErr();
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/iap.monkey<62>");
 	return bb_iap_iapPurchaseInProgress;
 }
 bb_shape_Shape::bb_shape_Shape(){
@@ -14295,213 +16981,275 @@ Array<bb_graphics_Image* > bb_shape_Shape::g_images;
 bb_vector2d_Vector2D* bb_shape_Shape::g_SPEED_SLOW;
 bb_vector2d_Vector2D* bb_shape_Shape::g_SPEED_FAST;
 bb_shape_Shape* bb_shape_Shape::g_new(int t_type,int t_lane,bb_chute_Chute* t_chute){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<27>";
+	DBG_ENTER("Shape.new")
+	bb_shape_Shape *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_type,"type")
+	DBG_LOCAL(t_lane,"lane")
+	DBG_LOCAL(t_chute,"chute")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<27>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<28>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<28>");
 	this->f_type=t_type;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<29>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<29>");
 	this->f_lane=t_lane;
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<30>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<30>");
 	gc_assign(this->f_chute,t_chute);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<32>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<32>");
 	if(g_images.Length()==0){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<33>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<33>");
 		bb_graphics_Image* t_[]={bb_graphics_LoadImage(String(L"circle_inside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"plus_inside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"star_inside.png"),1,bb_graphics_Image::g_DefaultFlags),bb_graphics_LoadImage(String(L"tire_inside.png"),1,bb_graphics_Image::g_DefaultFlags)};
 		gc_assign(g_images,Array<bb_graphics_Image* >(t_,4));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<36>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<36>");
 	Float t_posX=Float(44+g_images.At(0)->m_Width()*t_lane);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<37>";
+	DBG_LOCAL(t_posX,"posX")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<37>");
 	Float t_posY=Float(t_chute->m_Height()-g_images.At(t_type)->m_Height()+37);
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<38>";
+	DBG_LOCAL(t_posY,"posY")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<38>");
 	m_pos2((new bb_vector2d_Vector2D)->g_new(t_posX,t_posY));
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<40>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<40>");
 	if(!((g_SPEED_SLOW)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<40>";
+		DBG_BLOCK();
 		gc_assign(g_SPEED_SLOW,(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(3.0)));
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<41>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<41>");
 	if(!((g_SPEED_FAST)!=0)){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<41>";
+		DBG_BLOCK();
 		gc_assign(g_SPEED_FAST,(new bb_vector2d_Vector2D)->g_new(FLOAT(0.0),FLOAT(10.0)));
 	}
-	popErr();
 	return this;
 }
 bb_shape_Shape* bb_shape_Shape::g_new2(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<11>";
+	DBG_ENTER("Shape.new")
+	bb_shape_Shape *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<11>");
 	bb_baseobject_BaseObject::g_new();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<11>";
-	popErr();
 	return this;
 }
 void bb_shape_Shape::m_OnUpdate(Float t_delta,Float t_frameTime){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<45>";
+	DBG_ENTER("Shape.OnUpdate")
+	bb_shape_Shape *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_delta,"delta")
+	DBG_LOCAL(t_frameTime,"frameTime")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<45>");
 	if(!f_isReadyForFast){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<46>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<46>");
 		f_readyTime+=t_frameTime;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<47>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<47>");
 		f_isFast=false;
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<48>";
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<48>");
 		if(f_readyTime>=FLOAT(250.0)){
-			errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<48>";
+			DBG_BLOCK();
 			f_isReadyForFast=true;
 		}
 	}
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<51>";
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<51>");
 	if(f_isFast && f_isReadyForFast){
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<52>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<52>");
 		m_pos()->m_Add2(g_SPEED_FAST->m_Copy()->m_Mul2(t_delta));
 	}else{
-		errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<54>";
+		DBG_BLOCK();
+		DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<54>");
 		m_pos()->m_Add2(g_SPEED_SLOW->m_Copy()->m_Mul2(t_delta));
 	}
-	popErr();
 }
 void bb_shape_Shape::m_OnRender(){
-	pushErr();
-	errInfo="/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<59>";
+	DBG_ENTER("Shape.OnRender")
+	bb_shape_Shape *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop/shape.monkey<59>");
 	bb_graphics_DrawImage(g_images.At(f_type),m_pos()->f_x,m_pos()->f_y,0);
-	popErr();
 }
 void bb_shape_Shape::mark(){
 	bb_baseobject_BaseObject::mark();
 	gc_mark_q(f_chute);
+}
+String bb_shape_Shape::debug(){
+	String t="(Shape)\n";
+	t=bb_baseobject_BaseObject::debug()+t;
+	t+=dbg_decl("chute",&f_chute);
+	t+=dbg_decl("isReadyForFast",&f_isReadyForFast);
+	t+=dbg_decl("readyTime",&f_readyTime);
+	t+=dbg_decl("SPEED_SLOW",&bb_shape_Shape::g_SPEED_SLOW);
+	t+=dbg_decl("SPEED_FAST",&bb_shape_Shape::g_SPEED_FAST);
+	t+=dbg_decl("images",&bb_shape_Shape::g_images);
+	t+=dbg_decl("isFast",&f_isFast);
+	t+=dbg_decl("type",&f_type);
+	t+=dbg_decl("lane",&f_lane);
+	return t;
 }
 bb_stack_Stack2::bb_stack_Stack2(){
 	f_data=Array<bb_sprite_Sprite* >();
 	f_length=0;
 }
 bb_stack_Stack2* bb_stack_Stack2::g_new(){
-	pushErr();
-	popErr();
+	DBG_ENTER("Stack.new")
+	bb_stack_Stack2 *self=this;
+	DBG_LOCAL(self,"Self")
 	return this;
 }
 bb_stack_Stack2* bb_stack_Stack2::g_new2(Array<bb_sprite_Sprite* > t_data){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<13>";
+	DBG_ENTER("Stack.new")
+	bb_stack_Stack2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_data,"data")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<13>");
 	gc_assign(this->f_data,t_data.Slice(0));
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<14>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<14>");
 	this->f_length=t_data.Length();
-	popErr();
 	return this;
 }
 int bb_stack_Stack2::m_Length(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<38>";
-	popErr();
+	DBG_ENTER("Stack.Length")
+	bb_stack_Stack2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<38>");
 	return f_length;
 }
 bb_sprite_Sprite* bb_stack_Stack2::m_Pop(){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<60>";
+	DBG_ENTER("Stack.Pop")
+	bb_stack_Stack2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<60>");
 	f_length-=1;
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<61>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<61>");
 	bb_sprite_Sprite* t_=f_data.At(f_length);
-	popErr();
 	return t_;
 }
 int bb_stack_Stack2::m_Push2(bb_sprite_Sprite* t_value){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<52>";
+	DBG_ENTER("Stack.Push")
+	bb_stack_Stack2 *self=this;
+	DBG_LOCAL(self,"Self")
+	DBG_LOCAL(t_value,"value")
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<52>");
 	if(f_length==f_data.Length()){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<53>";
+		DBG_BLOCK();
+		DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<53>");
 		gc_assign(f_data,f_data.Resize(f_length*2+10));
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<55>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<55>");
 	gc_assign(f_data.At(f_length),t_value);
-	errInfo="/Applications/MonkeyPro58/modules/monkey/stack.monkey<56>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/stack.monkey<56>");
 	f_length+=1;
-	popErr();
 	return 0;
 }
 void bb_stack_Stack2::mark(){
 	Object::mark();
 	gc_mark_q(f_data);
 }
+String bb_stack_Stack2::debug(){
+	String t="(Stack)\n";
+	t+=dbg_decl("data",&f_data);
+	t+=dbg_decl("length",&f_length);
+	return t;
+}
 int bb_math_Max(int t_x,int t_y){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<56>";
+	DBG_ENTER("Max")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<56>");
 	if(t_x>t_y){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<56>";
-		popErr();
+		DBG_BLOCK();
 		return t_x;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<57>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<57>");
 	return t_y;
 }
 Float bb_math_Max2(Float t_x,Float t_y){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<83>";
+	DBG_ENTER("Max")
+	DBG_LOCAL(t_x,"x")
+	DBG_LOCAL(t_y,"y")
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<83>");
 	if(t_x>t_y){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<83>";
-		popErr();
+		DBG_BLOCK();
 		return t_x;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<84>";
-	popErr();
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<84>");
 	return t_y;
 }
 int bb_math_Abs(int t_x){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<46>";
+	DBG_ENTER("Abs")
+	DBG_LOCAL(t_x,"x")
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<46>");
 	if(t_x>=0){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<46>";
-		popErr();
+		DBG_BLOCK();
 		return t_x;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<47>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<47>");
 	int t_=-t_x;
-	popErr();
 	return t_;
 }
 Float bb_math_Abs2(Float t_x){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<73>";
+	DBG_ENTER("Abs")
+	DBG_LOCAL(t_x,"x")
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<73>");
 	if(t_x>=FLOAT(0.0)){
-		errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<73>";
-		popErr();
+		DBG_BLOCK();
 		return t_x;
 	}
-	errInfo="/Applications/MonkeyPro58/modules/monkey/math.monkey<74>";
+	DBG_INFO("/Applications/Monkey/modules/monkey/math.monkey<74>");
 	Float t_=-t_x;
-	popErr();
 	return t_;
 }
 int bb_app_SaveState(String t_state){
-	pushErr();
-	errInfo="/Applications/MonkeyPro58/modules/mojo/app.monkey<133>";
+	DBG_ENTER("SaveState")
+	DBG_LOCAL(t_state,"state")
+	DBG_INFO("/Applications/Monkey/modules/mojo/app.monkey<133>");
 	int t_=bb_app_device->SaveState(t_state);
-	popErr();
 	return t_;
 }
 int bbInit(){
 	bb_graphics_context=0;
+	DBG_GLOBAL("context",&bb_graphics_context);
 	bb_input_device=0;
+	DBG_GLOBAL("device",&bb_input_device);
 	bb_audio_device=0;
+	DBG_GLOBAL("device",&bb_audio_device);
 	bb_app_device=0;
+	DBG_GLOBAL("device",&bb_app_device);
 	bb_scene_Scene::g_blend=0;
+	DBG_GLOBAL("blend",&bb_scene_Scene::g_blend);
 	bb_graphics_Image::g_DefaultFlags=256;
+	DBG_GLOBAL("DefaultFlags",&bb_graphics_Image::g_DefaultFlags);
 	bb_angelfont2_AngelFont::g_error=String();
+	DBG_GLOBAL("error",&bb_angelfont2_AngelFont::g_error);
 	bb_angelfont2_AngelFont::g_current=0;
+	DBG_GLOBAL("current",&bb_angelfont2_AngelFont::g_current);
 	bb_angelfont2_AngelFont::g__list=(new bb_map_StringMap4)->g_new();
-	bb_gamehighscore_GameHighscore::g_names=Array<String >();
+	DBG_GLOBAL("_list",&bb_angelfont2_AngelFont::g__list);
 	bb_gamehighscore_GameHighscore::g_scores=Array<int >();
+	DBG_GLOBAL("scores",&bb_gamehighscore_GameHighscore::g_scores);
+	bb_gamehighscore_GameHighscore::g_names=Array<String >();
+	DBG_GLOBAL("names",&bb_gamehighscore_GameHighscore::g_names);
 	bb_severity_globalSeverityInstance=0;
+	DBG_GLOBAL("globalSeverityInstance",&bb_severity_globalSeverityInstance);
 	bb_random_Seed=1234;
+	DBG_GLOBAL("Seed",&bb_random_Seed);
 	bb_graphics_renderDevice=0;
+	DBG_GLOBAL("renderDevice",&bb_graphics_renderDevice);
 	bb_angelfont_AngelFont::g_error=String();
+	DBG_GLOBAL("error",&bb_angelfont_AngelFont::g_error);
 	bb_angelfont_AngelFont::g_current=0;
+	DBG_GLOBAL("current",&bb_angelfont_AngelFont::g_current);
 	bb_angelfont_AngelFont::g__list=(new bb_map_StringMap5)->g_new();
+	DBG_GLOBAL("_list",&bb_angelfont_AngelFont::g__list);
 	bb_iap_iapPurchaseInProgress=false;
+	DBG_GLOBAL("iapPurchaseInProgress",&bb_iap_iapPurchaseInProgress);
 	bb_iap_iapCount=0;
+	DBG_GLOBAL("iapCount",&bb_iap_iapCount);
 	bb_shape_Shape::g_images=Array<bb_graphics_Image* >();
+	DBG_GLOBAL("images",&bb_shape_Shape::g_images);
 	bb_shape_Shape::g_SPEED_SLOW=0;
+	DBG_GLOBAL("SPEED_SLOW",&bb_shape_Shape::g_SPEED_SLOW);
 	bb_shape_Shape::g_SPEED_FAST=0;
+	DBG_GLOBAL("SPEED_FAST",&bb_shape_Shape::g_SPEED_FAST);
 	return 0;
 }
 void gc_mark(){
@@ -14512,8 +17260,8 @@ void gc_mark(){
 	gc_mark_q(bb_scene_Scene::g_blend);
 	gc_mark_q(bb_angelfont2_AngelFont::g_current);
 	gc_mark_q(bb_angelfont2_AngelFont::g__list);
-	gc_mark_q(bb_gamehighscore_GameHighscore::g_names);
 	gc_mark_q(bb_gamehighscore_GameHighscore::g_scores);
+	gc_mark_q(bb_gamehighscore_GameHighscore::g_names);
 	gc_mark_q(bb_severity_globalSeverityInstance);
 	gc_mark_q(bb_graphics_renderDevice);
 	gc_mark_q(bb_angelfont_AngelFont::g_current);
@@ -14532,12 +17280,140 @@ FILE *fopenFile( String path,const char *mode ){
 #endif
 }
 
+static String extractExt( String path ){
+	int i=path.FindLast( "." )+1;
+	if( i && path.Find( "/",i )==-1 && path.Find( "\\",i )==-1 ) return path.Slice( i );
+	return "";
+}
+
 unsigned char *loadImage( String path,int *width,int *height,int *depth ){
 	return stbi_load( (String("data/")+path).ToCString<char>(),width,height,depth,0 );
 }
 
 void unloadImage( unsigned char *data ){
 	stbi_image_free( data );
+}
+
+//for reading WAV file...
+static const char *readTag( FILE *f ){
+	static char buf[8];
+	if( fread( buf,4,1,f )!=1 ) return "";
+	buf[4]=0;
+	return buf;
+}
+
+static int readInt( FILE *f ){
+	unsigned char buf[4];
+	if( fread( buf,4,1,f )!=1 ) return -1;
+	return (buf[3]<<24) | (buf[2]<<16) | (buf[1]<<8) | buf[0];
+}
+
+static int readShort( FILE *f ){
+	unsigned char buf[2];
+	if( fread( buf,2,1,f )!=1 ) return -1;
+	return (buf[1]<<8) | buf[0];
+}
+
+static void skipBytes( int n,FILE *f ){
+	char *p=(char*)malloc( n );
+	fread( p,n,1,f );
+	free(p);
+}
+
+static unsigned char *loadSound_wav( String path,int *plength,int *pchannels,int *pformat,int *phertz ){
+
+	if( FILE *f=fopenFile( path,"rb" ) ){
+		if( !strcmp( readTag( f ),"RIFF" ) ){
+			int len=readInt( f )-8;len=len;
+			if( !strcmp( readTag( f ),"WAVE" ) ){
+				if( !strcmp( readTag( f ),"fmt " ) ){
+					int len2=readInt( f );
+					int comp=readShort( f );
+					if( comp==1 ){
+						int chans=readShort( f );
+						int hertz=readInt( f );
+						int bytespersec=readInt( f );bytespersec=bytespersec;
+						int pad=readShort( f );pad=pad;
+						int bits=readShort( f );
+						int format=bits/8;
+						if( len2>16 ) skipBytes( len2-16,f );
+						for(;;){
+							const char *p=readTag( f );
+							if( feof( f ) ) break;
+							int size=readInt( f );
+							if( strcmp( p,"data" ) ){
+								skipBytes( size,f );
+								continue;
+							}
+							unsigned char *data=(unsigned char*)malloc( size );
+							if( fread( data,size,1,f )==1 ){
+								*plength=size/(chans*format);
+								*pchannels=chans;
+								*pformat=format;
+								*phertz=hertz;
+								fclose( f );
+								return data;
+							}
+							free( data );
+						}
+					}
+				}
+			}
+		}
+		fclose( f );
+	}
+	return 0;
+}
+
+static unsigned char *loadSound_ogg( String path,int *length,int *channels,int *format,int *hertz ){
+
+	int error;
+	stb_vorbis *v=stb_vorbis_open_filename( (String("data/")+path).ToCString<char>(),&error,0 );
+	if( !v ) return 0;
+	
+	stb_vorbis_info info=stb_vorbis_get_info( v );
+	
+	int limit=info.channels*4096;
+	int offset=0,data_len=0,total=limit;
+
+	short *data=(short*)malloc( total*sizeof(short) );
+	
+	for(;;){
+		int n=stb_vorbis_get_frame_short_interleaved( v,info.channels,data+offset,total-offset );
+		if( !n ) break;
+	
+		data_len+=n;
+		offset+=n*info.channels;
+		
+		if( offset+limit>total ){
+			total*=2;
+			data=(short*)realloc( data,total*sizeof(short) );
+		}
+	}
+	
+	*length=data_len;
+	*channels=info.channels;
+	*format=2;
+	*hertz=info.sample_rate;
+	
+	stb_vorbis_close(v);
+
+	return (unsigned char*)data;
+}
+
+unsigned char *loadSound( String path,int *length,int *channels,int *format,int *hertz ){
+
+	String ext=extractExt( path ).ToLower();
+	
+	if( ext=="wav" ) return loadSound_wav( path,length,channels,format,hertz );
+
+	if( ext=="ogg" ) return loadSound_ogg( path,length,channels,format,hertz );
+	
+	return 0;
+}
+
+void unloadSound( unsigned char *data ){
+	free( data );
 }
 
 ALCdevice *alcDevice;
@@ -14596,16 +17472,19 @@ int main( int argc,const char *argv[] ){
 #if INIT_GL_EXTS
 	Init_GL_Exts();
 #endif
-	
+
 	try{
 	
 		bb_std_main( argc,argv );
 
-		if( runner ) seh_call( runner );
+		if( runner ) runner();
+		
+	}catch( ThrowableObject *ex ){
+	
+		Print( "Monkey Runtime Error : Uncaught Monkey Exception" );
 
 	}catch( const char *err ){
 
-		warn( ( String("Monkey runtime error: ")+err+"\n"+StackTrace() ).ToCString<char>() );
 	}
 	
 	if( alcContext ) alcDestroyContext( alcContext );
