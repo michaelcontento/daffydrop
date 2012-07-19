@@ -1,7 +1,7 @@
 CONFIG ?= debug
 TARGET ?= glfw
 MAIN = $(wildcard *.monkey)
-TRANS = /Applications/MonkeyPro58/bin/trans_macos
+TRANS = /Applications/Monkey/bin/trans_macos
 TRANS_FULL = $(TRANS) -config=$(CONFIG) -target=$(TARGET)
 
 run:
