@@ -4,23 +4,40 @@ r1
 cCheck dependencies
 cProcessInfoPlistFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Info.plist MonkeyGame-Info.plist
 cCompileXIB /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
-cCpResource icon7.png build/Release-iphonesimulator/DaffyDrop.app/icon7.png
 cCpResource icon4.png build/Release-iphonesimulator/DaffyDrop.app/icon4.png
 cCpResource data build/Release-iphonesimulator/DaffyDrop.app/data
+cCpResource icon7.png build/Release-iphonesimulator/DaffyDrop.app/icon7.png
 cCpResource Default-Portrait~ipad.png build/Release-iphonesimulator/DaffyDrop.app/Default-Portrait~ipad.png
-cCpResource icon6.png build/Release-iphonesimulator/DaffyDrop.app/icon6.png
 cCpResource icon3.png build/Release-iphonesimulator/DaffyDrop.app/icon3.png
+cCpResource icon6.png build/Release-iphonesimulator/DaffyDrop.app/icon6.png
 cCpResource Default-Portrait@2x~ipad.png build/Release-iphonesimulator/DaffyDrop.app/Default-Portrait@2x~ipad.png
 cCpResource Default@2x.png build/Release-iphonesimulator/DaffyDrop.app/Default@2x.png
 cCpResource Default.png build/Release-iphonesimulator/DaffyDrop.app/Default.png
 cCpResource icon72.png build/Release-iphonesimulator/DaffyDrop.app/icon72.png
 cCpResource icon144.png build/Release-iphonesimulator/DaffyDrop.app/icon144.png
 cCpResource icon114.png build/Release-iphonesimulator/DaffyDrop.app/icon114.png
-cCpResource appirater build/Release-iphonesimulator/DaffyDrop.app/appirater
 cCpResource icon57.png build/Release-iphonesimulator/DaffyDrop.app/icon57.png
-cProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCpResource appirater/README.md build/Release-iphonesimulator/DaffyDrop.app/README.md
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/da.lproj/Localizable.strings appirater/da.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/de.lproj/Localizable.strings appirater/de.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/en.lproj/Localizable.strings appirater/en.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/es.lproj/Localizable.strings appirater/es.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/fr.lproj/Localizable.strings appirater/fr.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ja.lproj/Localizable.strings appirater/ja.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/it.lproj/Localizable.strings appirater/it.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ko.lproj/Localizable.strings appirater/ko.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/nl.lproj/Localizable.strings appirater/nl.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pl.lproj/Localizable.strings appirater/pl.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pt.lproj/Localizable.strings appirater/pt.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ru.lproj/Localizable.strings appirater/ru.lproj/Localizable.strings
+cCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/sv.lproj/Localizable.strings appirater/sv.lproj/Localizable.strings
 cProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
+cProcessPCH /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth MonkeyGame_Prefix.pch normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
 cCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+cLd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop normal i386
+cGenerateDSYMFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop
+cTouch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app
 
 N/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk
 c000000004F593CBA0000000000000110
@@ -145,18 +162,88 @@ t1342645991
 s68
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.h
-c00000000000000000000000000000000
-t2
-s0
+c000000005007963C0000000000001FAE
+t1342674492
+s8110
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m
-c00000000000000000000000000000000
-t2
-s0
+c000000005005AF920000000000003231
+t1342549906
+s12849
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/README.md
+c000000005005AF92000000000000062E
+t1342549906
+s1582
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/da.lproj/Localizable.strings
+c000000005005AF920000000000000172
+t1342549906
+s370
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/de.lproj/Localizable.strings
+c000000005005AF92000000000000018B
+t1342549906
+s395
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/en.lproj/Localizable.strings
+c000000005005AF92000000000000015B
+t1342549906
+s347
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/es.lproj/Localizable.strings
+c000000005005AF92000000000000015D
+t1342549906
+s349
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/fr.lproj/Localizable.strings
+c000000005005AF920000000000000167
+t1342549906
+s359
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/it.lproj/Localizable.strings
+c000000005005AF920000000000000174
+t1342549906
+s372
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/ja.lproj/Localizable.strings
+c000000005005AF920000000000000146
+t1342549906
+s326
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/ko.lproj/Localizable.strings
+c000000005005AF92000000000000017A
+t1342549906
+s378
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/nl.lproj/Localizable.strings
+c000000005005AF920000000000000187
+t1342549906
+s391
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/pl.lproj/Localizable.strings
+c000000005005AF92000000000000019A
+t1342549906
+s410
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/pt.lproj/Localizable.strings
+c000000005005AF92000000000000014D
+t1342549906
+s333
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/ru.lproj/Localizable.strings
+c000000005005AF9200000000000001F1
+t1342549906
+s497
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/sv.lproj/Localizable.strings
+c000000005005AF92000000000000016F
+t1342549906
+s367
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o
-t2
-s0
+t1342873742
+s76132
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/DaffyDrop.LinkFileList
 c000000005007955D0000000000000163
@@ -164,20 +251,20 @@ t1342674269
 s355
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o
-t2
-s0
+t1342873745
+s1408088
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app
-t1342645992
-s714
+t1342873745
+s1190
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM
-t1342645992
+t1342873745
 s102
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop
-t1342645992
-s584484
+t1342873745
+s627384
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Default-Portrait@2x~ipad.png
 t1342645992
@@ -211,13 +298,37 @@ N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.buil
 t1342645992
 s8
 
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/README.md
+t1342873742
+s1582
+
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/appirater
 t1342645992
 s612
 
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/da.lproj/Localizable.strings
+t1342873742
+s576
+
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/data
-t1342645992
+t1342873742
 s1258
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/de.lproj/Localizable.strings
+t1342873742
+s616
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/en.lproj/Localizable.strings
+t1342873742
+s218
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/es.lproj/Localizable.strings
+t1342873742
+s520
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/fr.lproj/Localizable.strings
+t1342873742
+s531
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon114.png
 t1342645992
@@ -251,9 +362,41 @@ N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.buil
 t1342645992
 s9784
 
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/it.lproj/Localizable.strings
+t1342873742
+s574
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ja.lproj/Localizable.strings
+t1342873742
+s333
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ko.lproj/Localizable.strings
+t1342873742
+s387
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/nl.lproj/Localizable.strings
+t1342873742
+s438
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pl.lproj/Localizable.strings
+t1342873742
+s625
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pt.lproj/Localizable.strings
+t1342873742
+s487
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ru.lproj/Localizable.strings
+t1342873742
+s575
+
+N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/sv.lproj/Localizable.strings
+t1342873742
+s565
+
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data
-c000000005007955D00000000000004EA
-t1342674269
+c00000000500AAB0E00000000000004EA
+t1342876430
 s1258
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon114.png
@@ -297,21 +440,21 @@ t1342645992
 s9784
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.h
-c000000004FFF46D100000000000006F8
-t1342129873
+c00000000500726E800000000000006F8
+t1342645992
 s1784
 
 N/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm
-c000000005007955D000000000004A62E
-t1342674269
-s304686
+c00000000500AAB0E000000000004D26E
+t1342876430
+s316014
 
 N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch.pth
-t1342552885
+t1342674270
 s4711556
 
 N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch.pth
-t1342552885
+t1342674270
 s3915308
 
 N/var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-gowgkdjspjbhqugbwowmegijfozw/MonkeyGame_Prefix.pch.pth
@@ -325,12 +468,12 @@ s2487
 
 CCheck dependencies
 r0
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection18"Check dependencies6e4ed1ddccb7b541^4299e6ddccb7b541^---0#1#0#--18"Check dependencies36"A55DF415-2B16-444C-8C82-3A5F3788473A-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection18"Check dependencies5070118fe2bab541^0e49358fe2bab541^---0#1#0#--18"Check dependencies36"CB3E295F-2DE7-4BBD-8A9F-7281BAD2484A-
 
 CCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
-s364367070.254766
-e364367070.277852
-r0
+s364566542.727097
+e364566542.944918
+r1
 xCompileC
 xbuild/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o
 x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m
@@ -338,14 +481,12 @@ xnormal
 xi386
 xobjective-c
 xcom.apple.compilers.llvm.clang.1_0.compiler
-oclang: error: no such file or directory: '/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m'
-oclang: error: no input files
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection114"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.mef5741deccb7b541^9b1b47deccb7b541^-281"clang: error: no such file or directory: '/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m'clang: error: no input filesCommand /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang failed with exit code 11(21%IDEActivityLogMessage2@101"Command /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang failed with exit code 1-364367070#18446744073709551615#0#-2#--29"Apple LLVM compiler 3.0 Error--0#0#0#-19%DVTDocumentLocation3@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m00f45053dcffdf42^3152"CompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=c99 -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o36"102DB657-A74F-4670-A03C-84C2C439FC75-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection114"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.mc042ba0ed8bab541^ab20f20ed8bab541^---0#0#0#-19%DVTDocumentLocation2@122"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m0000000000000000^3132"CompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o appirater/Appirater.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -std=c99 -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-akozievlpcwgavgqpcrhbyzdrici/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/Appirater.m -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/Appirater.o36"EEF74570-E9C2-4B29-9884-07BB13940D6A-
 
 CCompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler
-s364337956.093215
-e364337956.391993
-r0
+s364569231.356187
+e364569234.062775
+r1
 xCompileC
 xbuild/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o
 x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm
@@ -353,38 +494,35 @@ xnormal
 xi386
 xobjective-c++
 xcom.apple.compilers.llvm.clang.1_0.compiler
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3343:2:{3343:2-3344:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3642:2:{3642:2-3643:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]
 o         [[MKStoreManager sharedManager] provideContent:transaction.payment.productIdentifier 
 o         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3355:5:{3355:5-3356:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3654:5:{3654:5-3655:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]
 o     [[MKStoreManager sharedManager] provideContent: transaction.originalTransaction.payment.productIdentifier
 o     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3579:5:{3579:5-3579:49}: warning: instance method '-canCurrentDeviceUseFeature:' not found (return type defaults to 'id') [3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3878:5:{3878:5-3878:49}: warning: instance method '-canCurrentDeviceUseFeature:' not found (return type defaults to 'id') [3]
 o         if([self canCurrentDeviceUseFeature: featureId])
 o            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3589:3:{3589:3-3589:47}: warning: instance method '-enableContentForThisSession:' not found (return type defaults to 'id') [3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3888:3:{3888:3-3888:47}: warning: instance method '-enableContentForThisSession:' not found (return type defaults to 'id') [3]
 o                 [self enableContentForThisSession:featureId];
 o                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3658:7:{3658:7-3658:39}: warning: instance method '-verifyReceipt:' not found (return type defaults to 'id') [3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3957:7:{3957:7-3957:39}: warning: instance method '-verifyReceipt:' not found (return type defaults to 'id') [3]
 o                 if(![self verifyReceipt:receiptData]) return;
 o                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3230:25: warning: property 'productsList' requires method 'productsList' to be defined - use @synthesize, @dynamic or provide a method implementation [3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3529:25: warning: property 'productsList' requires method 'productsList' to be defined - use @synthesize, @dynamic or provide a method implementation [3]
 o @property (copy) NSSet *productsList;
 o                         ^
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3375:1: note: implementation is here [3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3674:1: note: implementation is here [3]
 o @implementation MKStoreManager
 o ^
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3476:1:{3476:4-3476:8}: warning: conflicting distributed object modifiers on return type in implementation of 'release' [-Wdistributed-object-modifiers,3]
+o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3775:1:{3775:4-3775:8}: warning: conflicting distributed object modifiers on return type in implementation of 'release' [-Wdistributed-object-modifiers,3]
 o - (void)release
 o ^  ~~~~
 o/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h:36:1:{36:11-36:15}: note: previous declaration is here
 o - (oneway void)release NS_AUTOMATED_REFCOUNT_UNAVAILABLE;
 o ^         ~~~~
-o/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3970:9: fatal error: 'appirater/Appirater.h' file not found [2]
-o #import "appirater/Appirater.h"
-o         ^
-o7 warnings and 1 error generated.
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection100"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mme20618245bb7b541^a45264245bb7b541^-3120"/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3343:2:{3343:2-3344:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]         [[MKStoreManager sharedManager] provideContent:transaction.payment.productIdentifier          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3355:5:{3355:5-3356:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]     [[MKStoreManager sharedManager] provideContent: transaction.originalTransaction.payment.productIdentifier     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3579:5:{3579:5-3579:49}: warning: instance method '-canCurrentDeviceUseFeature:' not found (return type defaults to 'id') [3]         if([self canCurrentDeviceUseFeature: featureId])            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3589:3:{3589:3-3589:47}: warning: instance method '-enableContentForThisSession:' not found (return type defaults to 'id') [3]                 [self enableContentForThisSession:featureId];                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3658:7:{3658:7-3658:39}: warning: instance method '-verifyReceipt:' not found (return type defaults to 'id') [3]                 if(![self verifyReceipt:receiptData]) return;                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3230:25: warning: property 'productsList' requires method 'productsList' to be defined - use @synthesize, @dynamic or provide a method implementation [3] @property (copy) NSSet *productsList;                         ^/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3375:1: note: implementation is here [3] @implementation MKStoreManager ^/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3476:1:{3476:4-3476:8}: warning: conflicting distributed object modifiers on return type in implementation of 'release' [-Wdistributed-object-modifiers,3] - (void)release ^  ~~~~/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h:36:1:{36:11-36:15}: note: previous declaration is here - (oneway void)release NS_AUTOMATED_REFCOUNT_UNAVAILABLE; ^         ~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3970:9: fatal error: 'appirater/Appirater.h' file not found [2] #import "appirater/Appirater.h"         ^7 warnings and 1 error generated.8(21%IDEActivityLogMessage2@86"Instance method '-provideContent:forReceipt:' not found (return type defaults to 'id')55"Instance method '-provideContent:forReceipt:' not found364337956#0#218#-1#-23%DVTTextDocumentLocation3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3342#1#3342#1#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3342#1#3343#54#18446744073709551615#0#-2@86"Instance method '-provideContent:forReceipt:' not found (return type defaults to 'id')55"Instance method '-provideContent:forReceipt:' not found364337956#407#218#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3354#4#3354#4#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3354#4#3355#54#18446744073709551615#0#-2@87"Instance method '-canCurrentDeviceUseFeature:' not found (return type defaults to 'id')56"Instance method '-canCurrentDeviceUseFeature:' not found364337956#847#219#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3578#4#3578#4#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3578#4#3578#48#18446744073709551615#0#-2@88"Instance method '-enableContentForThisSession:' not found (return type defaults to 'id')57"Instance method '-enableContentForThisSession:' not found364337956#1181#220#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3588#2#3588#2#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3588#2#3588#46#18446744073709551615#0#-2@74"Instance method '-verifyReceipt:' not found (return type defaults to 'id')43"Instance method '-verifyReceipt:' not found364337956#1526#206#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3657#6#3657#6#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3657#6#3657#38#18446744073709551615#0#-2@131"Property 'productsList' requires method 'productsList' to be defined - use @synthesize, @dynamic or provide a method implementation-364337956#1849#247#1(2@22"Implementation is here-364337956#2162#134#-0#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3374#0#3374#0#18446744073709551615#0#14"Semantic Issue--1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3229#24#3229#24#18446744073709551615#0#14"Semantic Issue--2@86"Conflicting distributed object modifiers on return type in implementation of 'release'-364337956#2331#248#1(2@28"Previous declaration is here-364337956#2605#205#-0#-3@165"file://localhost/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h0000000000000000^35#0#35#0#18446744073709551615#0#30"Apple LLVM compiler 3.0 Notice1(3@165"file://localhost/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h0000000000000000^35#10#35#14#18446744073709551615#0#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3475#0#3475#0#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3475#3#3475#7#18446744073709551615#0#-2@38"'appirater/Appirater.h' file not found-364337956#2885#157#-2#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3969#8#3969#8#18446744073709551615#0#29"Lexical or Preprocessor Issue--0#0#0#-19%DVTDocumentLocation4@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3164"CompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c++ -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wno-arc-abi -Wc++0x-extensions -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o36"D3592383-247A-45BB-84A8-064C13A4BFBC-
+o7 warnings generated.
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection100"Compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mmf0515b8fe2bab541^5a121092e2bab541^-2907"/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3642:2:{3642:2-3643:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]         [[MKStoreManager sharedManager] provideContent:transaction.payment.productIdentifier          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3654:5:{3654:5-3655:55}: warning: instance method '-provideContent:forReceipt:' not found (return type defaults to 'id') [3]     [[MKStoreManager sharedManager] provideContent: transaction.originalTransaction.payment.productIdentifier     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3878:5:{3878:5-3878:49}: warning: instance method '-canCurrentDeviceUseFeature:' not found (return type defaults to 'id') [3]         if([self canCurrentDeviceUseFeature: featureId])            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3888:3:{3888:3-3888:47}: warning: instance method '-enableContentForThisSession:' not found (return type defaults to 'id') [3]                 [self enableContentForThisSession:featureId];                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3957:7:{3957:7-3957:39}: warning: instance method '-verifyReceipt:' not found (return type defaults to 'id') [3]                 if(![self verifyReceipt:receiptData]) return;                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3529:25: warning: property 'productsList' requires method 'productsList' to be defined - use @synthesize, @dynamic or provide a method implementation [3] @property (copy) NSSet *productsList;                         ^/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3674:1: note: implementation is here [3] @implementation MKStoreManager ^/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm:3775:1:{3775:4-3775:8}: warning: conflicting distributed object modifiers on return type in implementation of 'release' [-Wdistributed-object-modifiers,3] - (void)release ^  ~~~~/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h:36:1:{36:11-36:15}: note: previous declaration is here - (oneway void)release NS_AUTOMATED_REFCOUNT_UNAVAILABLE; ^         ~~~~7 warnings generated.7(21%IDEActivityLogMessage2@86"Instance method '-provideContent:forReceipt:' not found (return type defaults to 'id')55"Instance method '-provideContent:forReceipt:' not found364569231#0#218#-1#-23%DVTTextDocumentLocation3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3641#1#3641#1#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3641#1#3642#54#18446744073709551615#0#-2@86"Instance method '-provideContent:forReceipt:' not found (return type defaults to 'id')55"Instance method '-provideContent:forReceipt:' not found364569231#407#218#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3653#4#3653#4#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3653#4#3654#54#18446744073709551615#0#-2@87"Instance method '-canCurrentDeviceUseFeature:' not found (return type defaults to 'id')56"Instance method '-canCurrentDeviceUseFeature:' not found364569231#847#219#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3877#4#3877#4#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3877#4#3877#48#18446744073709551615#0#-2@88"Instance method '-enableContentForThisSession:' not found (return type defaults to 'id')57"Instance method '-enableContentForThisSession:' not found364569231#1181#220#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3887#2#3887#2#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3887#2#3887#46#18446744073709551615#0#-2@74"Instance method '-verifyReceipt:' not found (return type defaults to 'id')43"Instance method '-verifyReceipt:' not found364569231#1526#206#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3956#6#3956#6#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3956#6#3956#38#18446744073709551615#0#-2@131"Property 'productsList' requires method 'productsList' to be defined - use @synthesize, @dynamic or provide a method implementation-364569231#1849#247#1(2@22"Implementation is here-364569231#2162#134#-0#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3673#0#3673#0#18446744073709551615#0#14"Semantic Issue--1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3528#24#3528#24#18446744073709551615#0#14"Semantic Issue--2@86"Conflicting distributed object modifiers on return type in implementation of 'release'-364569231#2331#248#1(2@28"Previous declaration is here-364569231#2605#205#-0#-3@165"file://localhost/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h0000000000000000^35#0#35#0#18446744073709551615#0#30"Apple LLVM compiler 3.0 Notice1(3@165"file://localhost/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h0000000000000000^35#10#35#14#18446744073709551615#0#-1#-3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3774#0#3774#0#18446744073709551615#0#14"Semantic Issue1(3@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3774#3#3774#7#18446744073709551615#0#-0#0#0#-19%DVTDocumentLocation4@108"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm0000000000000000^3144"CompileC build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o main.mm normal i386 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv LANG en_US.US-ASCII    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang -x objective-c++ -arch i386 -fmessage-length=0 -fdiagnostics-print-source-range-info -fdiagnostics-show-category=id -fdiagnostics-parseable-fixits -Wno-trigraphs -fpascal-strings -Os -Wreturn-type -Wparentheses -Wswitch -Wno-unused-parameter -Wunused-variable -Wunused-value -Wno-shorten-64-to-32 -Wno-arc-abi -Wc++0x-extensions -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -fexceptions -fasm-blocks -mmacosx-version-min=10.6 -gdwarf-2 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-sign-conversion -fobjc-abi-version=2 -fobjc-legacy-dispatch "-DIBOutlet=__attribute__((iboutlet))" "-DIBOutletCollection(ClassName)=__attribute__((iboutletcollection(ClassName)))" "-DIBAction=void)__attribute__((ibaction)" -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DaffyDrop.hmap -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/include -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources/i386 -I/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/DerivedSources -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -DNS_BLOCK_ASSERTIONS=1 -include /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.501/SharedPrecompiledHeaders/MonkeyGame_Prefix-adbvtjuymhdnjcgxspwsdiafzwlq/MonkeyGame_Prefix.pch -MMD -MT dependencies -MF /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.d -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/main.mm -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/main.o36"F0759163-D5B6-40C5-9821-2B85DCF2A5AA-
 
 CCompileXIB /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
 s363826079.057026
@@ -393,6 +531,123 @@ r1
 xCompileXIB
 x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib
 lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection109"Compiling /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xibb9c70e9f8bafb541^363a939f8bafb541^---0#0#0#-19%DVTDocumentLocation2@115"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib0000000000000000^1357"CompileXIB MainWindow.xib    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv IBC_MINIMUM_COMPATIBILITY_VERSION 3.0    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/gems/ruby-1.9.2-p290@global/bin:/Volumes/Daten/Users/michaelcontento/.rvm/rubies/ruby-1.9.2-p290/bin:/Volumes/Daten/Users/michaelcontento/.rvm/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    setenv XCODE_DEVELOPER_USR_PATH /Developer/usr/bin/..    /Developer/usr/bin/ibtool --errors --warnings --notices --output-format human-readable-text --compile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/MainWindow.nib /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/MainWindow.xib --sdk /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk36"9BE0CAFB-AEB0-4F06-A2CA-D0AC700D88D9-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/da.lproj/Localizable.strings appirater/da.lproj/Localizable.strings
+s364566542.639616
+e364566542.677222
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/da.lproj/Localizable.strings
+xappirater/da.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/da.lproj/Localizable.strings31d2a30ed8bab541^c860ad0ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/da.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/da.lproj/Localizable.strings appirater/da.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/da.lproj -- appirater/da.lproj/Localizable.strings36"DBD1FF93-94D6-42FD-87DE-877FF912F782-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/de.lproj/Localizable.strings appirater/de.lproj/Localizable.strings
+s364566542.640568
+e364566542.679829
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/de.lproj/Localizable.strings
+xappirater/de.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/de.lproj/Localizable.strings130fa40ed8bab541^730eae0ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/de.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/de.lproj/Localizable.strings appirater/de.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/de.lproj -- appirater/de.lproj/Localizable.strings36"B357C525-BF0C-494E-B710-AF45ABDFE827-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/en.lproj/Localizable.strings appirater/en.lproj/Localizable.strings
+s364566542.653459
+e364566542.679968
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/en.lproj/Localizable.strings
+xappirater/en.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/en.lproj/Localizable.strings535ea70ed8bab541^7f13ae0ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/en.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/en.lproj/Localizable.strings appirater/en.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/en.lproj -- appirater/en.lproj/Localizable.strings36"CAC7FA85-EE1B-4FEF-964E-D77B8A6C7DD7-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/es.lproj/Localizable.strings appirater/es.lproj/Localizable.strings
+s364566542.679508
+e364566542.684590
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/es.lproj/Localizable.strings
+xappirater/es.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/es.lproj/Localizable.stringse90aae0ed8bab541^4243af0ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/es.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/es.lproj/Localizable.strings appirater/es.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/es.lproj -- appirater/es.lproj/Localizable.strings36"F07C2972-1598-4200-826E-98A459E55CF2-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/fr.lproj/Localizable.strings appirater/fr.lproj/Localizable.strings
+s364566542.681182
+e364566542.687912
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/fr.lproj/Localizable.strings
+xappirater/fr.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/fr.lproj/Localizable.strings9e97ae0ed8bab541^331bb00ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/fr.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/fr.lproj/Localizable.strings appirater/fr.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/fr.lproj -- appirater/fr.lproj/Localizable.strings36"F69D0179-359C-49E9-8043-1C135E19F67B-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/it.lproj/Localizable.strings appirater/it.lproj/Localizable.strings
+s364566542.681319
+e364566542.685682
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/it.lproj/Localizable.strings
+xappirater/it.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/it.lproj/Localizable.strings0797ae0ed8bab541^1e89af0ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/it.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/it.lproj/Localizable.strings appirater/it.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/it.lproj -- appirater/it.lproj/Localizable.strings36"B4864ED7-F0B3-428F-BF09-17FC6B4726F4-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ja.lproj/Localizable.strings appirater/ja.lproj/Localizable.strings
+s364566542.685777
+e364566542.698061
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ja.lproj/Localizable.strings
+xappirater/ja.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/ja.lproj/Localizable.strings7fa5af0ed8bab541^20b8b20ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/ja.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/ja.lproj/Localizable.strings appirater/ja.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ja.lproj -- appirater/ja.lproj/Localizable.strings36"197D3652-925B-486E-962C-F99B4A11FDBF-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ko.lproj/Localizable.strings appirater/ko.lproj/Localizable.strings
+s364566542.685889
+e364566542.698227
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ko.lproj/Localizable.strings
+xappirater/ko.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/ko.lproj/Localizable.stringse7a8af0ed8bab541^0ec0b20ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/ko.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/ko.lproj/Localizable.strings appirater/ko.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ko.lproj -- appirater/ko.lproj/Localizable.strings36"305EF0DA-B6CC-45D4-8F8D-02A1D175CDD1-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/nl.lproj/Localizable.strings appirater/nl.lproj/Localizable.strings
+s364566542.689135
+e364566542.698318
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/nl.lproj/Localizable.strings
+xappirater/nl.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/nl.lproj/Localizable.strings917db00ed8bab541^a8c7b20ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/nl.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/nl.lproj/Localizable.strings appirater/nl.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/nl.lproj -- appirater/nl.lproj/Localizable.strings36"F912C155-6F59-4CF1-9E6F-F648FAB759A9-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pl.lproj/Localizable.strings appirater/pl.lproj/Localizable.strings
+s364566542.699387
+e364566542.702064
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pl.lproj/Localizable.strings
+xappirater/pl.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/pl.lproj/Localizable.stringsa31db30ed8bab541^1fbbb30ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/pl.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/pl.lproj/Localizable.strings appirater/pl.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pl.lproj -- appirater/pl.lproj/Localizable.strings36"F3703A72-B0A9-4EDF-9097-E68BA016AF4A-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pt.lproj/Localizable.strings appirater/pt.lproj/Localizable.strings
+s364566542.699402
+e364566542.712562
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pt.lproj/Localizable.strings
+xappirater/pt.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/pt.lproj/Localizable.strings9f1eb30ed8bab541^1e6fb60ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/pt.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/pt.lproj/Localizable.strings appirater/pt.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/pt.lproj -- appirater/pt.lproj/Localizable.strings36"D4CFAE75-EAEE-4B50-AA6F-0ED097BAC55D-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ru.lproj/Localizable.strings appirater/ru.lproj/Localizable.strings
+s364566542.699409
+e364566542.712551
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ru.lproj/Localizable.strings
+xappirater/ru.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/ru.lproj/Localizable.strings251fb30ed8bab541^166db60ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/ru.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/ru.lproj/Localizable.strings appirater/ru.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/ru.lproj -- appirater/ru.lproj/Localizable.strings36"EC8F11DE-546C-4443-8CCD-25BD01077D3D-
+
+CCopyStringsFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/sv.lproj/Localizable.strings appirater/sv.lproj/Localizable.strings
+s364566542.703217
+e364566542.712559
+r1
+xCopyStringsFile
+x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/sv.lproj/Localizable.strings
+xappirater/sv.lproj/Localizable.strings
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection43"Copy appirater/sv.lproj/Localizable.strings2a19b40ed8bab541^cf69b60ed8bab541^---0#0#0#-19%DVTDocumentLocation2@139"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/sv.lproj/Localizable.strings0000000000000000^1045"CopyStringsFile build/Release-iphonesimulator/DaffyDrop.app/sv.lproj/Localizable.strings appirater/sv.lproj/Localizable.strings    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copyStrings --validate --inputencoding utf-8 --outputencoding binary --outdir /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/sv.lproj -- appirater/sv.lproj/Localizable.strings36"46453708-D908-4E84-848D-EED48634F59F-
 
 CCpResource ../../daffydrop/appirater build/Release-iphonesimulator/DaffyDrop.app/appirater
 s364243730.858597
@@ -460,14 +715,23 @@ xappirater
 xbuild/Release-iphonesimulator/DaffyDrop.app/appirater
 lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection58"Copy build/Release-iphonesimulator/DaffyDrop.app/appiraterb64cbeb4f2b5b541^b0c6c1b4f2b5b541^---0#0#0#-19%DVTDocumentLocation2@155"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/appirater/0000000000000000^1099"CpResource appirater build/Release-iphonesimulator/DaffyDrop.app/appirater    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"C7FBFDCA-203D-4D90-A373-7B6490066F9D-
 
+CCpResource appirater/README.md build/Release-iphonesimulator/DaffyDrop.app/README.md
+s364566542.639492
+e364566542.652209
+r1
+xCpResource
+xappirater/README.md
+xbuild/Release-iphonesimulator/DaffyDrop.app/README.md
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection58"Copy build/Release-iphonesimulator/DaffyDrop.app/README.md53caa30ed8bab541^b7eea60ed8bab541^---0#0#0#-19%DVTDocumentLocation2@154"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/README.md00f45053dcffdf42^1099"CpResource appirater/README.md build/Release-iphonesimulator/DaffyDrop.app/README.md    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/appirater/README.md /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"A81775D8-2EDC-4A78-ACAD-346CCF9883AF-
+
 CCpResource data build/Release-iphonesimulator/DaffyDrop.app/data
-s364367069.920058
-e364367070.036545
+s364569231.227016
+e364569231.341433
 r1
 xCpResource
 xdata
 xbuild/Release-iphonesimulator/DaffyDrop.app/data
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection53"Copy build/Release-iphonesimulator/DaffyDrop.app/datacbbaebddccb7b541^425c09deccb7b541^---0#0#0#-19%DVTDocumentLocation2@150"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/data/0000000000000000^1084"CpResource data build/Release-iphonesimulator/DaffyDrop.app/data    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"4A472355-7B12-44F6-A52D-7EBC17B4742A-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection53"Copy build/Release-iphonesimulator/DaffyDrop.app/data3b363a8fe2bab541^de59578fe2bab541^---0#0#0#-19%DVTDocumentLocation2@150"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/data/0000000000000000^1064"CpResource data build/Release-iphonesimulator/DaffyDrop.app/data    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/data /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"D04C9D3E-E253-4C8C-B96C-5BD77949203B-
 
 CCpResource icon114.png build/Release-iphonesimulator/DaffyDrop.app/icon114.png
 s364336145.143998
@@ -536,23 +800,23 @@ xbuild/Release-iphonesimulator/DaffyDrop.app/icon72.png
 lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection59"Copy build/Release-iphonesimulator/DaffyDrop.app/icon72.pngefad241154b7b541^703e251154b7b541^---0#0#0#-19%DVTDocumentLocation2@155"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/icon72.png00f45053dcffdf42^1102"CpResource icon72.png build/Release-iphonesimulator/DaffyDrop.app/icon72.png    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -strip-debug-symbols -resolve-src-symlinks /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/icon72.png /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"1E9BBE5D-9FE9-4062-A427-7EE9F0B47058-
 
 CGenerateDSYMFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop
-s364336938.266312
-e364336938.315954
+s364569234.124269
+e364569234.176865
 r1
 xGenerateDSYMFile
 x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM
 x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection144"Generating /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYMbc41442a57b7b541^5de2502a57b7b541^---0#0#0#-19%DVTDocumentLocation2@150"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM/0000000000000000^1095"GenerateDSYMFile build/Release-iphonesimulator/DaffyDrop.app.dSYM build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/usr/bin/dsymutil /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM36"FF0264A0-E508-48F6-B747-B7EDDDFE7B01-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection144"Generating /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM43e51f92e2bab541^17472d92e2bab541^---0#0#0#-19%DVTDocumentLocation2@150"file://localhost/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM/0000000000000000^1075"GenerateDSYMFile build/Release-iphonesimulator/DaffyDrop.app.dSYM build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    /Developer/usr/bin/dsymutil /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app.dSYM36"90D4363A-0822-4F51-8D64-49853A431365-
 
 CLd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop normal i386
-s364336938.218891
-e364336938.259516
+s364569234.070177
+e364569234.117673
 r1
 xLd
 x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop
 xnormal
 xi386
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection143"Link /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop9220382a57b7b541^e370422a57b7b541^---0#0#0#--1860"Ld build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop normal i386    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv MACOSX_DEPLOYMENT_TARGET 10.6    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang++ -arch i386 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -L/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -filelist /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/DaffyDrop.LinkFileList -mmacosx-version-min=10.6 -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -no_implicit_dylibs -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -framework StoreKit -framework Foundation -framework UIKit -framework CoreGraphics -framework OpenGLES -framework QuartzCore -framework OpenAL -framework AudioToolbox -framework AVFoundation -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop36"9FA7EA5A-4869-4ECB-B46B-65086F00CF2C-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection143"Link /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop5e0f1292e2bab541^25201e92e2bab541^---0#0#0#--1892"Ld build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop normal i386    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv MACOSX_DEPLOYMENT_TARGET 10.6    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    /Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin/clang++ -arch i386 -isysroot /Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator5.0.sdk -L/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -F/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator -filelist /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/DaffyDrop.build/Release-iphonesimulator/MonkeyGame.build/Objects-normal/i386/DaffyDrop.LinkFileList -mmacosx-version-min=10.6 -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -no_implicit_dylibs -D__IPHONE_OS_VERSION_MIN_REQUIRED=30000 -framework SystemConfiguration -framework CFNetwork -framework StoreKit -framework Foundation -framework UIKit -framework CoreGraphics -framework OpenGLES -framework QuartzCore -framework OpenAL -framework AudioToolbox -framework AVFoundation -o /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/DaffyDrop36"2379C364-C1CA-48B3-9B05-3D4DE2E9F1A1-
 
 CProcessInfoPlistFile /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app/Info.plist MonkeyGame-Info.plist
 s364336145.127544
@@ -593,10 +857,10 @@ CProcessPCH++ /var/folders/v9/qlwskjw97gq2fcydb4kb72tc0000gn/C/com.apple.Xcode.5
 r0
 
 CTouch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app
-s364336938.324075
-e364336938.327524
+s364569234.185301
+e364569234.189911
 r1
 xTouch
 x/Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app
-lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection134"Touch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.appfa09532a57b7b541^e0d8532a57b7b541^---0#0#0#--868"Touch build/Release-iphonesimulator/DaffyDrop.app    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx/platform-tools"    /usr/bin/touch -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"01753372-3597-4C42-B9D8-3E183E4678F1-
+lSLF04#21%IDEActivityLogSection1@2#32"com.apple.dt.IDE.BuildLogSection134"Touch /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app6f822f92e2bab541^459e3092e2bab541^---0#0#0#--848"Touch build/Release-iphonesimulator/DaffyDrop.app    cd /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios    setenv PATH "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Developer/usr/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/usr/local/git/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin:/usr/local/git/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/amazon/bin:/Volumes/Daten/Users/michaelcontento/.awsenv/bin:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/tools:/Volumes/Daten/Users/michaelcontento/android-sdk-macosx/platform-tools"    /usr/bin/touch -c /Volumes/Daten/Users/michaelcontento/Workspace/private/daffydrop/daffydrop.build/ios/build/Release-iphonesimulator/DaffyDrop.app36"C9725D3D-C4DC-4FFB-AA61-74C00755EF4B-
 

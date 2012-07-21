@@ -6,15 +6,27 @@ Import mojo
 Import bono
 Import severity
 Import scene
-Import iap
 Import appirater
+Import payment
 
 Public
+
+Class FullVersion Extends PaymentProduct
+    Method GetAppleId$()
+        Return "com.coragames.daffydrop.fullversion"
+    End
+
+    Method GetAndroidId$()
+        Return "android.test.purchased"
+    End
+End
 
 Class MenuScene Extends Scene
     Private
 
     Field easy:Sprite
+    Field fullVersion:FullVersion
+    Field paymentService:PaymentService
     Field normal:Sprite
     Field normalActive:Sprite
     Field advanced:Sprite
@@ -57,10 +69,15 @@ Class MenuScene Extends Scene
         advanced.CenterX(director)
         highscore.CenterX(director)
 
-        InitInAppPurchases("com.coragames.daffydrop", ["com.coragames.daffydrop.fullversion"])
-        If isProductPurchased("com.coragames.daffydrop.fullversion")
-            ToggleLock()
-        End
+        fullVersion = New FullVersion()
+        paymentService = New PaymentService()
+        paymentService.SetBundleId("com.coragames.daffydrop")
+        paymentService.SetPublicKey("")
+        paymentService.AddProduct(fullVersion)
+        paymentService.StartService()
+
+        fullVersion.UpdatePurchasedState()
+        If fullVersion.IsProductPurchased() Then ToggleLock()
 
         Appirater.Launched()
     End
@@ -97,10 +114,10 @@ Class MenuScene Extends Scene
 
         If Not isLocked Then Return
         If Not paymentProcessing Then Return
-        If isPurchaseInProgress() Then Return
+        If paymentService.IsPurchaseInProgress() Then Return
         paymentProcessing = False
 
-        If Not isProductPurchased("com.coragames.daffydrop.fullversion") Then Return
+        If Not fullVersion.IsProductPurchased() Then Return
         ToggleLock()
     End
 
@@ -191,6 +208,6 @@ Class MenuScene Extends Scene
 
         InitializeWaitingImages()
         paymentProcessing = True
-        buyProduct("com.coragames.daffydrop.fullversion")
+        fullVersion.Buy()
     End
 End

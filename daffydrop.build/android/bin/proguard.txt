@@ -1,3 +1,9 @@
+# view AndroidManifest.xml #generated:33
+-keep class com.coragames.daffydrop.BillingReceiver { <init>(...); }
+
+# view AndroidManifest.xml #generated:30
+-keep class com.coragames.daffydrop.BillingService { <init>(...); }
+
 # view AndroidManifest.xml #generated:17
 -keep class com.coragames.daffydrop.MonkeyGame { <init>(...); }
 

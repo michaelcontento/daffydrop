@@ -26,6 +26,15 @@ import android.opengl.*;
 import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import android.content.res.AssetManager;
+import com.payment.BillingService.RequestPurchase;
+import com.payment.BillingService.RestoreTransactions;
+import com.payment.Consts.PurchaseState;
+import com.payment.Consts;
+import com.payment.Consts.ResponseCode;
+import com.payment.PurchaseObserver;
+import com.payment.ResponseHandler;
+import com.payment.PurchaseDatabase;
+import android.database.Cursor;
 //${IMPORTS_END}
 
 class MonkeyConfig{
@@ -34,10 +43,10 @@ static final String ANDROID_APP_LABEL="DaffyDrop";
 static final String ANDROID_APP_PACKAGE="com.coragames.daffydrop";
 static final String ANDROID_NATIVE_GL_ENABLED="true";
 static final String ANDROID_SCREEN_ORIENTATION="portrait";
-static final String ANDROID_SDK_DIR="/Volumes/Daten/Users/michaelcontento/Downloads/android-sdk-macosx";
+static final String ANDROID_SDK_DIR="/Volumes/Daten/Users/michaelcontento/android-sdk-macosx";
 static final String CONFIG="release";
-static final String GLFW_WINDOW_HEIGHT="720";
-static final String GLFW_WINDOW_WIDTH="480";
+static final String GLFW_WINDOW_HEIGHT="960";
+static final String GLFW_WINDOW_WIDTH="640";
 static final String HOST="macos";
 static final String IMAGE_FILES="*.png|*.jpg|*.gif|*.bmp";
 static final String IOS_ACCELEROMETER_ENABLED="false";
@@ -213,19 +222,36 @@ class bb_std_lang{
 	}
 	
 	static String stackTrace(){
+		if( errInfo.length()==0 ) return "";
 		String str=errInfo+"\n";
-		for( int i=errStack.size()-1;i>=0;--i ){
+		for( int i=errStack.size()-1;i>0;--i ){
 			str+=(String)errStack.elementAt(i)+"\n";
 		}
 		return str;
 	}
 	
-	static void print( String str ){
+	static int print( String str ){
 		System.out.println( str );
+		return 0;
 	}
 	
-	static void error( String str ){
+	static int error( String str ){
 		throw new Error( str );
+	}
+	
+	static String makeError( String err ){
+		if( err.length()==0 ) return "";
+		return "Monkey Runtime Error : "+err+"\n\n"+stackTrace();
+	}
+	
+	static int debugLog( String str ){
+		print( str );
+		return 0;
+	}
+	
+	static int debugStop(){
+		error( "STOP" );
+		return 0;
 	}
 	
 	//***** String stuff *****
@@ -377,6 +403,12 @@ class bb_std_lang{
 		return arr!=null ? Array.getLength( arr ) : 0;
 	}
 
+}
+
+class ThrowableObject extends RuntimeException{
+	ThrowableObject(){
+		super( "Uncaught Throwable Object" );
+	}
 }
 
 // Android mojo runtime.
@@ -725,43 +757,29 @@ class gxtkAlert implements Runnable{
 	gxtkAlert( Throwable t ){
 	
 		bb_std_lang.print( "Java exception:"+t.toString() );
-
-		msg="";
 		
 		if( t instanceof NullPointerException ){
-			msg="Null object error";
+			msg="Attempt to access null object";
 		}else if( t instanceof ArithmeticException ){
-			msg="Arithmetic error";
+			msg="Arithmetic exception";
 		}else if( t instanceof ArrayIndexOutOfBoundsException ){
-			msg="Array index out of range";
-		}
-		
-		String p=t.getMessage();
-		
-		if( p==null || p.length()==0 ){
-			if( t instanceof Error ){
-				System.exit(0);
-			}
+			msg="Array index out of bounds";
 		}else{
-			if( msg.length()!=0 ){
-				msg+=" ("+p+")";
-			}else{
-				msg=p;
-			}
+			msg=t.getMessage();
 		}
 		
-		if( msg.length()==0 ){
-			msg="Unknown runtime error";
-		}
+		if( msg.length()==0 ) System.exit( 0 );
+		
+		msg=bb_std_lang.makeError( msg );
 
 		MonkeyGame.view.postDelayed( this,0 );
 	}
 
 	public void run(){
-		String t="Monkey runtime error: "+msg+"\n"+bb_std_lang.stackTrace();
-		
+
 		AlertDialog.Builder db=new AlertDialog.Builder( MonkeyGame.activity );
-		db.setMessage( t );
+
+		db.setMessage( msg );
 		
 		AlertDialog dlg=db.show();
 	}
@@ -796,7 +814,6 @@ class gxtkApp implements GLSurfaceView.Renderer{
 	void Die( Throwable t ){
 	
 		dead=true;
-
 		audio.OnDestroy();
 		
 		new gxtkAlert( t );
@@ -2087,6 +2104,203 @@ class util
         return (int) (System.currentTimeMillis() / 1000);
     }
 }
+
+
+class MonkeyPurchaseObserver extends PurchaseObserver {
+    private static final String DB_INITIALIZED = "db_initialized";
+
+    private PurchaseDatabase mPurchaseDatabase;
+    private Set<String> mOwnedItems = new HashSet<String>();
+
+    private com.payment.BillingService mBillingService;
+
+ 	protected boolean inProgress = false;
+
+    public void initDatabase()
+    {
+        mPurchaseDatabase = new PurchaseDatabase(MonkeyGame.activity);
+    }
+
+    public void destroy()
+    {
+        mPurchaseDatabase.close();
+    }
+
+    public void SetBillingService(com.payment.BillingService bs)
+    {
+        mBillingService = bs;
+    }
+ 	public void SetInProgress(boolean p)
+ 	{
+ 		inProgress = p;
+ 	}
+
+ 	public boolean IsInProgress()
+ 	{
+ 		return inProgress;
+ 	}
+
+    public MonkeyPurchaseObserver(Handler handler) {
+        super(MonkeyGame.activity, handler);
+        // bb_std_lang.print("Payment purchaseobserver started!");
+        initDatabase();
+    }
+
+    @Override
+    public void onBillingSupported(boolean supported) {
+        // bb_std_lang.print("onBilling Support!");
+       restoreDatabase();
+    }
+
+    public boolean IsBought(String productId)
+    {
+    	return mOwnedItems.contains(productId);
+    }
+
+    @Override
+    public void onRequestPurchaseResponse(RequestPurchase request,
+            ResponseCode responseCode) {
+    	// bb_std_lang.print("Payment onRequestPurchaseResponse");
+        // bb_std_lang.print("Payment "  + request.mProductId + ": " + responseCode);
+        if (responseCode == ResponseCode.RESULT_OK) {
+          // bb_std_lang.print("Payment purchase was successfully sent to server");
+
+
+        } else if (responseCode == ResponseCode.RESULT_USER_CANCELED) {
+            SetInProgress(false);
+
+           // bb_std_lang.print("Payment user canceled purchase");
+
+
+        } else {
+            SetInProgress(false);
+
+           // bb_std_lang.print("Payment purchase failed");
+
+
+        }
+    }
+
+    @Override
+    public void onRestoreTransactionsResponse(RestoreTransactions request,
+            ResponseCode responseCode) {
+    	// bb_std_lang.print("Payment onRestoreTransactionsResponse");
+        if (responseCode == ResponseCode.RESULT_OK) {
+            if (Consts.DEBUG) {
+                //bb_std_lang.print(TAG, "completed RestoreTransactions request");
+            }
+            SharedPreferences prefs = MonkeyGame.activity.getPreferences(Context.MODE_PRIVATE);
+            SharedPreferences.Editor edit = prefs.edit();
+            edit.putBoolean(DB_INITIALIZED, true);
+            edit.commit();
+            // bb_std_lang.print("set db initialized to TRUE");
+        } else {
+            if (Consts.DEBUG) {
+                SharedPreferences prefs = MonkeyGame.activity.getPreferences(Context.MODE_PRIVATE);
+                SharedPreferences.Editor edit = prefs.edit();
+                edit.putBoolean(DB_INITIALIZED, true);
+                edit.commit();
+                // bb_std_lang.print("ResponseCode invalid");
+            }
+        }
+        SetInProgress(false);
+    }
+
+    private void restoreDatabase() {
+        // bb_std_lang.print("restoreDatabase");
+        SharedPreferences prefs = MonkeyGame.activity.getPreferences(Context.MODE_PRIVATE);
+        boolean initialized = prefs.getBoolean(DB_INITIALIZED, false);
+        if (!initialized) {
+            // bb_std_lang.print("restoreTransactions");
+            mBillingService.restoreTransactions();
+        }
+
+        Cursor c = mPurchaseDatabase.queryAll();
+        try {
+            while (c.moveToNext()) {
+                int quantity = c.getInt(1);
+                if (quantity > 0) {
+                    // bb_std_lang.print("add item: " + c.getString(0));
+                    mOwnedItems.add(c.getString(0));
+                }
+            }
+        } finally {
+                Log.d("_DB", "_DB FINALLY");
+            if (c != null) {
+                c.close();
+            }
+        }
+     }
+
+
+    @Override
+    public void onPurchaseStateChange(PurchaseState purchaseState, String itemId,
+            int quantity, long purchaseTime, String developerPayload) {
+    	// bb_std_lang.print("Payment -> onPurchaseStateChange");
+           //  bb_std_lang.print("onPurchaseStateChange() itemId: " + itemId + " " + purchaseState);
+
+        if (developerPayload == null) {
+
+        } else {
+
+        }
+
+        if (purchaseState == PurchaseState.PURCHASED) {
+        	// bb_std_lang.print("Payment bought!!!! " + itemId);
+            SetInProgress(false);
+            //bb_std_lang.print("add to owned items!!!! " + itemId);
+            mOwnedItems.add(itemId);
+            //bb_std_lang.print("update db!!!! " + itemId);
+            mPurchaseDatabase.updatePurchasedItem(itemId, 1);
+            //bb_std_lang.print("done db!!!! " + itemId);
+        }
+    }
+}
+
+class PaymentWrapper {
+    private MonkeyPurchaseObserver mPurchaseObserver;
+    private Handler mHandler;
+    private com.payment.BillingService mBillingService;
+
+    public void Init()
+    {
+		mHandler = new Handler();
+		mPurchaseObserver = new MonkeyPurchaseObserver(mHandler);
+		mBillingService = new com.payment.BillingService();
+		mBillingService.setContext(MonkeyGame.activity);
+        mPurchaseObserver.SetBillingService(mBillingService);
+
+	    // Check if billing is supported.
+	    ResponseHandler.register(mPurchaseObserver);
+	    if (!mBillingService.checkBillingSupported()) {
+	        // showDialog(DIALOG_CANNOT_CONNECT_ID);
+	    }
+    }
+
+    public boolean Purchase(String productId)
+    {
+    	// android.test.purchased
+		// bb_std_lang.print("Purchase");
+		mPurchaseObserver.SetInProgress(true);
+		return mBillingService.requestPurchase(productId, null);
+    }
+
+    public boolean IsBought(String productId)
+    {
+    	return mPurchaseObserver.IsBought(productId);
+    }
+
+    public boolean IsPurchaseInProgress()
+    {
+    	return mPurchaseObserver.IsInProgress();
+    }
+
+    protected void finalize() throws Throwable
+    {
+        mPurchaseObserver.destroy();
+        mBillingService.unbind();
+    }
+}
 interface bb_directorevents_DirectorEvents{
 	public void m_OnCreate(bb_director_Director t_director);
 	public void m_OnLoading();
@@ -2701,6 +2915,8 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 	bb_sprite_Sprite f_advancedActive=null;
 	bb_sprite_Sprite f_highscore=null;
 	bb_sprite_Sprite f_lock=null;
+	bb_menuscene_FullVersion f_fullVersion=null;
+	bb_service_PaymentService f_paymentService=null;
 	boolean f_isLocked=true;
 	public void m_ToggleLock(){
 		if(f_isLocked){
@@ -2742,10 +2958,20 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 		f_normal.m_CenterX(t_director);
 		f_advanced.m_CenterX(t_director);
 		f_highscore.m_CenterX(t_director);
-		bb_iap.bb_iap_InitInAppPurchases("com.coragames.daffydrop",new String[]{"com.coragames.daffydrop.fullversion"});
-		if((bb_iap.bb_iap_isProductPurchased("com.coragames.daffydrop.fullversion"))!=0){
+		f_fullVersion=(new bb_menuscene_FullVersion()).g_new();
+		f_paymentService=(new bb_service_PaymentService()).g_new();
+		f_paymentService.m_SetBundleId("com.coragames.daffydrop");
+		f_paymentService.m_SetPublicKey("");
+		f_paymentService.m_AddProduct(f_fullVersion);
+		f_paymentService.m_StartService();
+		f_fullVersion.m_UpdatePurchasedState();
+		if(f_fullVersion.m_IsProductPurchased()){
 			m_ToggleLock();
 		}
+		bb_appirater_Appirater.g_Launched();
+	}
+	public void m_OnResume(int t_delta){
+		bb_appirater_Appirater.g_Launched();
 	}
 	boolean f_paymentProcessing=false;
 	public void m_PlayEasy(){
@@ -2775,7 +3001,7 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 		}
 		m_InitializeWaitingImages();
 		f_paymentProcessing=true;
-		bb_iap.bb_iap_buyProduct("com.coragames.daffydrop.fullversion");
+		f_fullVersion.m_Buy();
 	}
 	public void m_PlayNormal(){
 		if(f_isLocked){
@@ -2842,11 +3068,11 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 		if(!f_paymentProcessing){
 			return;
 		}
-		if(bb_iap.bb_iap_isPurchaseInProgress()){
+		if(f_paymentService.m_IsPurchaseInProgress()){
 			return;
 		}
 		f_paymentProcessing=false;
-		if(!((bb_iap.bb_iap_isProductPurchased("com.coragames.daffydrop.fullversion"))!=0)){
+		if(!f_fullVersion.m_IsProductPurchased()){
 			return;
 		}
 		m_ToggleLock();
@@ -2905,7 +3131,7 @@ class bb_highscorescene_HighscoreScene extends bb_scene_Scene implements bb_rout
 	public void m_DrawEntries(){
 		int t_posY=290;
 		boolean t_found=false;
-		bb_list_Enumerator2 t_=f_highscore.m_ObjectEnumerator();
+		bb_list_Enumerator4 t_=f_highscore.m_ObjectEnumerator();
 		while(t_.m_HasNext()){
 			bb_score_Score t_score=t_.m_NextObject();
 			if(!t_found && t_score.f_value==f_lastScoreValue && (t_score.f_key.compareTo(f_lastScoreKey)==0)){
@@ -3038,7 +3264,7 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 	public void m_OnLeave(){
 	}
 	public boolean m_HandleGameOver(){
-		if((float)(f_chute.m_Height())<f_slider.f_arrowLeft.m_pos().f_y+40.0f){
+		if((float)(f_chute.m_Height())<f_slider.f_arrowLeft.m_pos().f_y+50.0f){
 			return false;
 		}
 		if(f_isNewHighscoreRecord){
@@ -3054,6 +3280,8 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 	boolean f_collisionCheckedLastUpdate=false;
 	bb_stack_Stack2 f_falseSpriteStrack=(new bb_stack_Stack2()).g_new();
 	int[] f_lastMatchTime=new int[]{0,0,0,0};
+	boolean f_comboPending=false;
+	int f_comboPendingSince=0;
 	public void m_OnMissmatch(bb_shape_Shape t_shape){
 		bb_sprite_Sprite t_sprite=null;
 		if(f_falseSpriteStrack.m_Length()>0){
@@ -3065,6 +3293,8 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 		t_sprite.m_Restart();
 		f_chute.f_height+=15;
 		f_lastMatchTime=new int[]{0,0,0,0};
+		f_comboPending=false;
+		f_comboPendingSince=0;
 		f_errorAnimations.m_Add4(t_sprite);
 	}
 	public void m_IncrementScore(int t_value){
@@ -3099,8 +3329,6 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 			}
 		}
 	}
-	boolean f_comboPending=false;
-	int f_comboPendingSince=0;
 	public void m_DetectComboTrigger(){
 		int t_lanesNotZero=0;
 		int t_hotLanes=0;
@@ -3233,6 +3461,9 @@ class bb_gamescene_GameScene extends bb_scene_Scene implements bb_routerevents_R
 				}
 			}
 		}
+	}
+	public void m_OnSuspend(){
+		m_StartPause();
 	}
 	public void m_OnTouchDown(bb_touchevent_TouchEvent t_event){
 		if(f_pauseButton.m_Collide(t_event.m_pos())){
@@ -3570,6 +3801,29 @@ class bb_list_List extends Object{
 			t_node=t_node.f__succ;
 		}
 		return false;
+	}
+	public int m_Count(){
+		int t_n=0;
+		bb_list_Node t_node=f__head.f__succ;
+		while(t_node!=f__head){
+			t_node=t_node.f__succ;
+			t_n+=1;
+		}
+		return t_n;
+	}
+	public bb_list_Enumerator3 m_ObjectEnumerator(){
+		return (new bb_list_Enumerator3()).g_new(this);
+	}
+	public String[] m_ToArray(){
+		String[] t_arr=bb_std_lang.stringArray(m_Count());
+		int t_i=0;
+		bb_list_Enumerator3 t_=this.m_ObjectEnumerator();
+		while(t_.m_HasNext()){
+			String t_t=t_.m_NextObject();
+			t_arr[t_i]=t_t;
+			t_i+=1;
+		}
+		return t_arr;
 	}
 }
 class bb_list_Node extends Object{
@@ -4336,6 +4590,179 @@ class bb_sprite_Sprite extends bb_baseobject_BaseObject{
 		f_currentFrame=0;
 	}
 }
+abstract class bb_product_PaymentProduct extends Object{
+	boolean f_purchased=false;
+	boolean f_startBuy=false;
+	public bb_product_PaymentProduct g_new(){
+		f_purchased=false;
+		f_startBuy=false;
+		return this;
+	}
+	bb_service_PaymentService f_service=null;
+	public void m_SetService(bb_service_PaymentService t_s){
+		f_service=t_s;
+	}
+	abstract public String m_GetAppleId();
+	abstract public String m_GetAndroidId();
+	public void m_UpdatePurchasedState(){
+		f_purchased=bb_service_PaymentService.g_androidPayment.IsBought(m_GetAndroidId());
+	}
+	public boolean m_IsProductPurchased(){
+		if(f_purchased){
+			return true;
+		}
+		f_purchased=bb_service_PaymentService.g_androidPayment.IsBought(m_GetAndroidId());
+		return f_purchased;
+	}
+	public void m_Buy(){
+		f_startBuy=true;
+		bb_iap.bb_iap_buyProduct(m_GetAppleId());
+		bb_service_PaymentService.g_androidPayment.Purchase(m_GetAndroidId());
+	}
+}
+class bb_menuscene_FullVersion extends bb_product_PaymentProduct{
+	public bb_menuscene_FullVersion g_new(){
+		super.g_new();
+		return this;
+	}
+	public String m_GetAppleId(){
+		return "com.coragames.daffydrop.fullversion";
+	}
+	public String m_GetAndroidId(){
+		return "android.test.purchased";
+	}
+}
+class bb_service_PaymentService extends Object{
+	public bb_service_PaymentService g_new(){
+		return this;
+	}
+	String f_bundleId="";
+	public void m_SetBundleId(String t_bundleId){
+		this.f_bundleId=t_bundleId;
+	}
+	String f_publicKey="";
+	public void m_SetPublicKey(String t_k){
+		f_publicKey=t_k;
+	}
+	bb_list_List3 f_products=(new bb_list_List3()).g_new();
+	public void m_AddProduct(bb_product_PaymentProduct t_p){
+		t_p.m_SetService(this);
+		f_products.m_AddLast3(t_p);
+	}
+	static PaymentWrapper g_androidPayment;
+	public void m_StartService(){
+		g_androidPayment=(new PaymentWrapper());
+		g_androidPayment.Init();
+		bb_list_List t_prodIds=(new bb_list_List()).g_new();
+		bb_list_Enumerator2 t_=f_products.m_ObjectEnumerator();
+		while(t_.m_HasNext()){
+			bb_product_PaymentProduct t_p=t_.m_NextObject();
+			t_prodIds.m_AddLast(t_p.m_GetAppleId());
+		}
+		bb_iap.bb_iap_InitInAppPurchases(f_bundleId,t_prodIds.m_ToArray());
+		com.payment.Security.SetPublicKey(f_publicKey);
+	}
+	public boolean m_IsPurchaseInProgress(){
+		return g_androidPayment.IsPurchaseInProgress();
+	}
+}
+class bb_list_List3 extends Object{
+	public bb_list_List3 g_new(){
+		return this;
+	}
+	bb_list_Node3 f__head=((new bb_list_HeadNode3()).g_new());
+	public bb_list_Node3 m_AddLast3(bb_product_PaymentProduct t_data){
+		return (new bb_list_Node3()).g_new(f__head,f__head.f__pred,t_data);
+	}
+	public bb_list_List3 g_new2(bb_product_PaymentProduct[] t_data){
+		bb_product_PaymentProduct[] t_=t_data;
+		int t_2=0;
+		while(t_2<bb_std_lang.arrayLength(t_)){
+			bb_product_PaymentProduct t_t=t_[t_2];
+			t_2=t_2+1;
+			m_AddLast3(t_t);
+		}
+		return this;
+	}
+	public bb_list_Enumerator2 m_ObjectEnumerator(){
+		return (new bb_list_Enumerator2()).g_new(this);
+	}
+}
+class bb_list_Node3 extends Object{
+	bb_list_Node3 f__succ=null;
+	bb_list_Node3 f__pred=null;
+	bb_product_PaymentProduct f__data=null;
+	public bb_list_Node3 g_new(bb_list_Node3 t_succ,bb_list_Node3 t_pred,bb_product_PaymentProduct t_data){
+		f__succ=t_succ;
+		f__pred=t_pred;
+		f__succ.f__pred=this;
+		f__pred.f__succ=this;
+		f__data=t_data;
+		return this;
+	}
+	public bb_list_Node3 g_new2(){
+		return this;
+	}
+}
+class bb_list_HeadNode3 extends bb_list_Node3{
+	public bb_list_HeadNode3 g_new(){
+		super.g_new2();
+		f__succ=(this);
+		f__pred=(this);
+		return this;
+	}
+}
+class bb_list_Enumerator2 extends Object{
+	bb_list_List3 f__list=null;
+	bb_list_Node3 f__curr=null;
+	public bb_list_Enumerator2 g_new(bb_list_List3 t_list){
+		f__list=t_list;
+		f__curr=t_list.f__head.f__succ;
+		return this;
+	}
+	public bb_list_Enumerator2 g_new2(){
+		return this;
+	}
+	public boolean m_HasNext(){
+		while(f__curr.f__succ.f__pred!=f__curr){
+			f__curr=f__curr.f__succ;
+		}
+		return f__curr!=f__list.f__head;
+	}
+	public bb_product_PaymentProduct m_NextObject(){
+		bb_product_PaymentProduct t_data=f__curr.f__data;
+		f__curr=f__curr.f__succ;
+		return t_data;
+	}
+}
+class bb_list_Enumerator3 extends Object{
+	bb_list_List f__list=null;
+	bb_list_Node f__curr=null;
+	public bb_list_Enumerator3 g_new(bb_list_List t_list){
+		f__list=t_list;
+		f__curr=t_list.f__head.f__succ;
+		return this;
+	}
+	public bb_list_Enumerator3 g_new2(){
+		return this;
+	}
+	public boolean m_HasNext(){
+		while(f__curr.f__succ.f__pred!=f__curr){
+			f__curr=f__curr.f__succ;
+		}
+		return f__curr!=f__list.f__head;
+	}
+	public String m_NextObject(){
+		String t_data=f__curr.f__data;
+		f__curr=f__curr.f__succ;
+		return t_data;
+	}
+}
+class bb_appirater_Appirater extends Object{
+	static public void g_Launched(){
+		bb_std_lang.print("Appirater: App launched");
+	}
+}
 class bb_angelfont2_AngelFont extends Object{
 	static String g_error;
 	static bb_angelfont2_AngelFont g_current;
@@ -4827,7 +5254,7 @@ class bb_highscore_Highscore extends Object implements bb_persistable_Persistabl
 	public bb_highscore_Highscore g_new2(){
 		return this;
 	}
-	bb_list_List3 f_objects=(new bb_list_List3()).g_new();
+	bb_list_List4 f_objects=(new bb_list_List4()).g_new();
 	public int m_Count(){
 		return f_objects.m_Count();
 	}
@@ -4838,11 +5265,11 @@ class bb_highscore_Highscore extends Object implements bb_persistable_Persistabl
 		if(f_objects.m_Count()<2){
 			return;
 		}
-		bb_list_List3 t_newList=(new bb_list_List3()).g_new();
+		bb_list_List4 t_newList=(new bb_list_List4()).g_new();
 		bb_score_Score t_current=null;
 		while(f_objects.m_Count()>0){
 			t_current=f_objects.m_First();
-			bb_list_Enumerator2 t_=f_objects.m_ObjectEnumerator();
+			bb_list_Enumerator4 t_=f_objects.m_ObjectEnumerator();
 			while(t_.m_HasNext()){
 				bb_score_Score t_check=t_.m_NextObject();
 				if(t_check.f_value<t_current.f_value){
@@ -4861,7 +5288,7 @@ class bb_highscore_Highscore extends Object implements bb_persistable_Persistabl
 		}
 	}
 	public void m_Add5(String t_key,int t_value){
-		f_objects.m_AddLast3((new bb_score_Score()).g_new(t_key,t_value));
+		f_objects.m_AddLast4((new bb_score_Score()).g_new(t_key,t_value));
 		m_Sort();
 		m_SizeTrim();
 	}
@@ -4879,16 +5306,16 @@ class bb_highscore_Highscore extends Object implements bb_persistable_Persistabl
 		for(int t_count=0;t_count<=bb_std_lang.arrayLength(t_splitted)-2;t_count=t_count+2){
 			t_key=bb_std_lang.replace(t_splitted[t_count],"[COMMA]",",");
 			t_value=Integer.parseInt((t_splitted[t_count+1]).trim());
-			f_objects.m_AddLast3((new bb_score_Score()).g_new(t_key,t_value));
+			f_objects.m_AddLast4((new bb_score_Score()).g_new(t_key,t_value));
 		}
 		m_Sort();
 	}
-	public bb_list_Enumerator2 m_ObjectEnumerator(){
+	public bb_list_Enumerator4 m_ObjectEnumerator(){
 		return f_objects.m_ObjectEnumerator();
 	}
 	public String m_ToString(){
 		String t_result="";
-		bb_list_Enumerator2 t_=this.m_ObjectEnumerator();
+		bb_list_Enumerator4 t_=this.m_ObjectEnumerator();
 		while(t_.m_HasNext()){
 			bb_score_Score t_score=t_.m_NextObject();
 			t_result=t_result+(bb_std_lang.replace(t_score.f_key,",","[COMMA]")+","+String.valueOf(t_score.f_value)+",");
@@ -4910,7 +5337,7 @@ class bb_gamehighscore_GameHighscore extends bb_highscore_IntHighscore{
 	static String[] g_names;
 	static int[] g_scores;
 	public void m_LoadNamesAndScores(){
-		g_names=new String[]{"Michael","Sena","Joe","Mouser","Tinnet","Horas-Ra","Monkey","Mike","Bono","Angel"};
+		g_names=new String[]{"Michael","Sena","Joe","Mouser","Tinnet","Horas-Ra","Chris","Jana","Bono","Oli"};
 		g_scores=new int[]{1000,900,800,700,600,500,400,300,200,100};
 	}
 	public void m_PrefillMissing(){
@@ -4944,27 +5371,27 @@ class bb_score_Score extends Object{
 		return this;
 	}
 }
-class bb_list_List3 extends Object{
-	public bb_list_List3 g_new(){
+class bb_list_List4 extends Object{
+	public bb_list_List4 g_new(){
 		return this;
 	}
-	bb_list_Node3 f__head=((new bb_list_HeadNode3()).g_new());
-	public bb_list_Node3 m_AddLast3(bb_score_Score t_data){
-		return (new bb_list_Node3()).g_new(f__head,f__head.f__pred,t_data);
+	bb_list_Node4 f__head=((new bb_list_HeadNode4()).g_new());
+	public bb_list_Node4 m_AddLast4(bb_score_Score t_data){
+		return (new bb_list_Node4()).g_new(f__head,f__head.f__pred,t_data);
 	}
-	public bb_list_List3 g_new2(bb_score_Score[] t_data){
+	public bb_list_List4 g_new2(bb_score_Score[] t_data){
 		bb_score_Score[] t_=t_data;
 		int t_2=0;
 		while(t_2<bb_std_lang.arrayLength(t_)){
 			bb_score_Score t_t=t_[t_2];
 			t_2=t_2+1;
-			m_AddLast3(t_t);
+			m_AddLast4(t_t);
 		}
 		return this;
 	}
 	public int m_Count(){
 		int t_n=0;
-		bb_list_Node3 t_node=f__head.f__succ;
+		bb_list_Node4 t_node=f__head.f__succ;
 		while(t_node!=f__head){
 			t_node=t_node.f__succ;
 			t_n+=1;
@@ -4974,19 +5401,19 @@ class bb_list_List3 extends Object{
 	public bb_score_Score m_First(){
 		return f__head.m_NextNode().f__data;
 	}
-	public bb_list_Enumerator2 m_ObjectEnumerator(){
-		return (new bb_list_Enumerator2()).g_new(this);
+	public bb_list_Enumerator4 m_ObjectEnumerator(){
+		return (new bb_list_Enumerator4()).g_new(this);
 	}
-	public bb_list_Node3 m_AddFirst(bb_score_Score t_data){
-		return (new bb_list_Node3()).g_new(f__head.f__succ,f__head,t_data);
+	public bb_list_Node4 m_AddFirst(bb_score_Score t_data){
+		return (new bb_list_Node4()).g_new(f__head.f__succ,f__head,t_data);
 	}
 	public boolean m_Equals3(bb_score_Score t_lhs,bb_score_Score t_rhs){
 		return t_lhs==t_rhs;
 	}
 	public int m_RemoveEach2(bb_score_Score t_value){
-		bb_list_Node3 t_node=f__head.f__succ;
+		bb_list_Node4 t_node=f__head.f__succ;
 		while(t_node!=f__head){
-			bb_list_Node3 t_succ=t_node.f__succ;
+			bb_list_Node4 t_succ=t_node.f__succ;
 			if(m_Equals3(t_node.f__data,t_value)){
 				t_node.m_Remove2();
 			}
@@ -5012,11 +5439,11 @@ class bb_list_List3 extends Object{
 		return f__head.m_PrevNode().f__data;
 	}
 }
-class bb_list_Node3 extends Object{
-	bb_list_Node3 f__succ=null;
-	bb_list_Node3 f__pred=null;
+class bb_list_Node4 extends Object{
+	bb_list_Node4 f__succ=null;
+	bb_list_Node4 f__pred=null;
 	bb_score_Score f__data=null;
-	public bb_list_Node3 g_new(bb_list_Node3 t_succ,bb_list_Node3 t_pred,bb_score_Score t_data){
+	public bb_list_Node4 g_new(bb_list_Node4 t_succ,bb_list_Node4 t_pred,bb_score_Score t_data){
 		f__succ=t_succ;
 		f__pred=t_pred;
 		f__succ.f__pred=this;
@@ -5024,13 +5451,13 @@ class bb_list_Node3 extends Object{
 		f__data=t_data;
 		return this;
 	}
-	public bb_list_Node3 g_new2(){
+	public bb_list_Node4 g_new2(){
 		return this;
 	}
-	public bb_list_Node3 m_GetNode(){
+	public bb_list_Node4 m_GetNode(){
 		return this;
 	}
-	public bb_list_Node3 m_NextNode(){
+	public bb_list_Node4 m_NextNode(){
 		return f__succ.m_GetNode();
 	}
 	public int m_Remove2(){
@@ -5038,30 +5465,30 @@ class bb_list_Node3 extends Object{
 		f__pred.f__succ=f__succ;
 		return 0;
 	}
-	public bb_list_Node3 m_PrevNode(){
+	public bb_list_Node4 m_PrevNode(){
 		return f__pred.m_GetNode();
 	}
 }
-class bb_list_HeadNode3 extends bb_list_Node3{
-	public bb_list_HeadNode3 g_new(){
+class bb_list_HeadNode4 extends bb_list_Node4{
+	public bb_list_HeadNode4 g_new(){
 		super.g_new2();
 		f__succ=(this);
 		f__pred=(this);
 		return this;
 	}
-	public bb_list_Node3 m_GetNode(){
+	public bb_list_Node4 m_GetNode(){
 		return null;
 	}
 }
-class bb_list_Enumerator2 extends Object{
-	bb_list_List3 f__list=null;
-	bb_list_Node3 f__curr=null;
-	public bb_list_Enumerator2 g_new(bb_list_List3 t_list){
+class bb_list_Enumerator4 extends Object{
+	bb_list_List4 f__list=null;
+	bb_list_Node4 f__curr=null;
+	public bb_list_Enumerator4 g_new(bb_list_List4 t_list){
 		f__list=t_list;
 		f__curr=t_list.f__head.f__succ;
 		return this;
 	}
-	public bb_list_Enumerator2 g_new2(){
+	public bb_list_Enumerator4 g_new2(){
 		return this;
 	}
 	public boolean m_HasNext(){
@@ -5151,10 +5578,10 @@ class bb_severity_Severity extends Object{
 			f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+5000.0f*f_progress);
 		}else{
 			if(t_2==1){
-				f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+4750.0f*f_progress);
+				f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+5000.0f*f_progress);
 			}else{
 				if(t_2==2){
-					f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+4500.0f*f_progress);
+					f_nextChuteAdvanceTime=(int)((float)(f_nextChuteAdvanceTime)+5000.0f*f_progress);
 				}
 			}
 		}
@@ -5167,10 +5594,10 @@ class bb_severity_Severity extends Object{
 			f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(450.0f,1800.0f+2500.0f*f_progress));
 		}else{
 			if(t_3==1){
-				f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(375.0f,1750.0f+2300.0f*f_progress));
+				f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(375.0f,1800.0f+2500.0f*f_progress));
 			}else{
 				if(t_3==2){
-					f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(300.0f,1700.0f+2100.0f*f_progress));
+					f_nextShapeDropTime=(int)((float)(f_lastTime)+bb_random.bb_random_Rnd2(300.0f,1800.0f+2500.0f*f_progress));
 				}
 			}
 		}
@@ -5193,15 +5620,15 @@ class bb_severity_Severity extends Object{
 		int t_1=f_level;
 		if(t_1==0){
 			f_activatedShapes=2;
-			f_slowDownDuration=120000;
+			f_slowDownDuration=160000;
 		}else{
 			if(t_1==1){
 				f_activatedShapes=3;
-				f_slowDownDuration=100000;
+				f_slowDownDuration=140000;
 			}else{
 				if(t_1==2){
 					f_activatedShapes=4;
-					f_slowDownDuration=80000;
+					f_slowDownDuration=120000;
 				}
 			}
 		}
@@ -5228,13 +5655,13 @@ class bb_severity_Severity extends Object{
 		t_config.m_Clear();
 		for(int t_i=0;t_i<m_MinSliderTypes();t_i=t_i+1){
 			t_usedTypes.m_Insert4(f_shapeTypes[t_i]);
-			t_config.m_AddLast4(f_shapeTypes[t_i]);
+			t_config.m_AddLast5(f_shapeTypes[t_i]);
 		}
 		while(t_config.m_Count()<4){
 			if(t_usedTypes.m_Count()>=f_activatedShapes || bb_random.bb_random_Rnd()<0.5f){
-				t_config.m_AddLast4(f_shapeTypes[(int)(bb_random.bb_random_Rnd2(0.0f,(float)(t_usedTypes.m_Count())))]);
+				t_config.m_AddLast5(f_shapeTypes[(int)(bb_random.bb_random_Rnd2(0.0f,(float)(t_usedTypes.m_Count())))]);
 			}else{
-				t_config.m_AddLast4(f_shapeTypes[t_usedTypes.m_Count()]);
+				t_config.m_AddLast5(f_shapeTypes[t_usedTypes.m_Count()]);
 				t_usedTypes.m_Insert4(f_shapeTypes[t_usedTypes.m_Count()]);
 			}
 		}
@@ -5360,7 +5787,7 @@ class bb_slider_Slider extends bb_baseobject_BaseObject{
 			if(f_direction==1){
 				int t_tmpType=f_config.m_First();
 				f_config.m_RemoveFirst();
-				f_config.m_AddLast4(t_tmpType);
+				f_config.m_AddLast5(t_tmpType);
 				f_configArray=f_config.m_ToArray();
 			}else{
 				int t_tmpType2=f_config.m_Last();
@@ -5386,7 +5813,7 @@ class bb_slider_Slider extends bb_baseobject_BaseObject{
 			t_img=f_images[f_config.m_First()];
 			bb_graphics.bb_graphics_DrawImage(t_img,(float)(t_img.m_Width()*4)+t_posX,f_posY,0);
 		}
-		bb_list_Enumerator3 t_=f_config.m_ObjectEnumerator();
+		bb_list_Enumerator5 t_=f_config.m_ObjectEnumerator();
 		while(t_.m_HasNext()){
 			int t_type=t_.m_NextObject();
 			bb_graphics.bb_graphics_DrawImage(f_images[t_type],t_posX,f_posY,0);
@@ -6002,21 +6429,21 @@ class bb_stack_IntStack extends bb_stack_Stack{
 		return this;
 	}
 }
-class bb_list_List4 extends Object{
-	public bb_list_List4 g_new(){
+class bb_list_List5 extends Object{
+	public bb_list_List5 g_new(){
 		return this;
 	}
-	bb_list_Node4 f__head=((new bb_list_HeadNode4()).g_new());
-	public bb_list_Node4 m_AddLast4(int t_data){
-		return (new bb_list_Node4()).g_new(f__head,f__head.f__pred,t_data);
+	bb_list_Node5 f__head=((new bb_list_HeadNode5()).g_new());
+	public bb_list_Node5 m_AddLast5(int t_data){
+		return (new bb_list_Node5()).g_new(f__head,f__head.f__pred,t_data);
 	}
-	public bb_list_List4 g_new2(int[] t_data){
+	public bb_list_List5 g_new2(int[] t_data){
 		int[] t_=t_data;
 		int t_2=0;
 		while(t_2<bb_std_lang.arrayLength(t_)){
 			int t_t=t_[t_2];
 			t_2=t_2+1;
-			m_AddLast4(t_t);
+			m_AddLast5(t_t);
 		}
 		return this;
 	}
@@ -6027,20 +6454,20 @@ class bb_list_List4 extends Object{
 	}
 	public int m_Count(){
 		int t_n=0;
-		bb_list_Node4 t_node=f__head.f__succ;
+		bb_list_Node5 t_node=f__head.f__succ;
 		while(t_node!=f__head){
 			t_node=t_node.f__succ;
 			t_n+=1;
 		}
 		return t_n;
 	}
-	public bb_list_Enumerator3 m_ObjectEnumerator(){
-		return (new bb_list_Enumerator3()).g_new(this);
+	public bb_list_Enumerator5 m_ObjectEnumerator(){
+		return (new bb_list_Enumerator5()).g_new(this);
 	}
 	public int[] m_ToArray(){
 		int[] t_arr=new int[m_Count()];
 		int t_i=0;
-		bb_list_Enumerator3 t_=this.m_ObjectEnumerator();
+		bb_list_Enumerator5 t_=this.m_ObjectEnumerator();
 		while(t_.m_HasNext()){
 			int t_t=t_.m_NextObject();
 			t_arr[t_i]=t_t;
@@ -6064,21 +6491,21 @@ class bb_list_List4 extends Object{
 		f__head.f__pred.m_Remove2();
 		return t_data;
 	}
-	public bb_list_Node4 m_AddFirst2(int t_data){
-		return (new bb_list_Node4()).g_new(f__head.f__succ,f__head,t_data);
+	public bb_list_Node5 m_AddFirst2(int t_data){
+		return (new bb_list_Node5()).g_new(f__head.f__succ,f__head,t_data);
 	}
 }
-class bb_list_IntList extends bb_list_List4{
+class bb_list_IntList extends bb_list_List5{
 	public bb_list_IntList g_new(){
 		super.g_new();
 		return this;
 	}
 }
-class bb_list_Node4 extends Object{
-	bb_list_Node4 f__succ=null;
-	bb_list_Node4 f__pred=null;
+class bb_list_Node5 extends Object{
+	bb_list_Node5 f__succ=null;
+	bb_list_Node5 f__pred=null;
 	int f__data=0;
-	public bb_list_Node4 g_new(bb_list_Node4 t_succ,bb_list_Node4 t_pred,int t_data){
+	public bb_list_Node5 g_new(bb_list_Node5 t_succ,bb_list_Node5 t_pred,int t_data){
 		f__succ=t_succ;
 		f__pred=t_pred;
 		f__succ.f__pred=this;
@@ -6086,13 +6513,13 @@ class bb_list_Node4 extends Object{
 		f__data=t_data;
 		return this;
 	}
-	public bb_list_Node4 g_new2(){
+	public bb_list_Node5 g_new2(){
 		return this;
 	}
-	public bb_list_Node4 m_GetNode(){
+	public bb_list_Node5 m_GetNode(){
 		return this;
 	}
-	public bb_list_Node4 m_NextNode(){
+	public bb_list_Node5 m_NextNode(){
 		return f__succ.m_GetNode();
 	}
 	public int m_Remove2(){
@@ -6100,18 +6527,18 @@ class bb_list_Node4 extends Object{
 		f__pred.f__succ=f__succ;
 		return 0;
 	}
-	public bb_list_Node4 m_PrevNode(){
+	public bb_list_Node5 m_PrevNode(){
 		return f__pred.m_GetNode();
 	}
 }
-class bb_list_HeadNode4 extends bb_list_Node4{
-	public bb_list_HeadNode4 g_new(){
+class bb_list_HeadNode5 extends bb_list_Node5{
+	public bb_list_HeadNode5 g_new(){
 		super.g_new2();
 		f__succ=(this);
 		f__pred=(this);
 		return this;
 	}
-	public bb_list_Node4 m_GetNode(){
+	public bb_list_Node5 m_GetNode(){
 		return null;
 	}
 }
@@ -6439,15 +6866,15 @@ class bb_map_Node6 extends Object{
 		return t_n+1;
 	}
 }
-class bb_list_Enumerator3 extends Object{
-	bb_list_List4 f__list=null;
-	bb_list_Node4 f__curr=null;
-	public bb_list_Enumerator3 g_new(bb_list_List4 t_list){
+class bb_list_Enumerator5 extends Object{
+	bb_list_List5 f__list=null;
+	bb_list_Node5 f__curr=null;
+	public bb_list_Enumerator5 g_new(bb_list_List5 t_list){
 		f__list=t_list;
 		f__curr=t_list.f__head.f__succ;
 		return this;
 	}
-	public bb_list_Enumerator3 g_new2(){
+	public bb_list_Enumerator5 g_new2(){
 		return this;
 	}
 	public boolean m_HasNext(){
@@ -6552,7 +6979,7 @@ class bb_touchevent_TouchEvent extends Object{
 	public bb_touchevent_TouchEvent g_new2(){
 		return this;
 	}
-	bb_list_List5 f_positions=(new bb_list_List5()).g_new();
+	bb_list_List6 f_positions=(new bb_list_List6()).g_new();
 	public bb_vector2d_Vector2D m_startPos(){
 		if(f_positions.m_Count()==0){
 			return (new bb_vector2d_Vector2D()).g_new(0.0f,0.0f);
@@ -6574,7 +7001,7 @@ class bb_touchevent_TouchEvent extends Object{
 		if(m_prevPos().f_x==t_pos.f_x && m_prevPos().f_y==t_pos.f_y){
 			return;
 		}
-		f_positions.m_AddLast5(t_pos);
+		f_positions.m_AddLast6(t_pos);
 	}
 	public void m_Trim(int t_size){
 		if(t_size==0){
@@ -6600,27 +7027,27 @@ class bb_touchevent_TouchEvent extends Object{
 		return m_pos().m_Copy().m_Sub(m_startPos());
 	}
 }
-class bb_list_List5 extends Object{
-	public bb_list_List5 g_new(){
+class bb_list_List6 extends Object{
+	public bb_list_List6 g_new(){
 		return this;
 	}
-	bb_list_Node5 f__head=((new bb_list_HeadNode5()).g_new());
-	public bb_list_Node5 m_AddLast5(bb_vector2d_Vector2D t_data){
-		return (new bb_list_Node5()).g_new(f__head,f__head.f__pred,t_data);
+	bb_list_Node6 f__head=((new bb_list_HeadNode6()).g_new());
+	public bb_list_Node6 m_AddLast6(bb_vector2d_Vector2D t_data){
+		return (new bb_list_Node6()).g_new(f__head,f__head.f__pred,t_data);
 	}
-	public bb_list_List5 g_new2(bb_vector2d_Vector2D[] t_data){
+	public bb_list_List6 g_new2(bb_vector2d_Vector2D[] t_data){
 		bb_vector2d_Vector2D[] t_=t_data;
 		int t_2=0;
 		while(t_2<bb_std_lang.arrayLength(t_)){
 			bb_vector2d_Vector2D t_t=t_[t_2];
 			t_2=t_2+1;
-			m_AddLast5(t_t);
+			m_AddLast6(t_t);
 		}
 		return this;
 	}
 	public int m_Count(){
 		int t_n=0;
-		bb_list_Node5 t_node=f__head.f__succ;
+		bb_list_Node6 t_node=f__head.f__succ;
 		while(t_node!=f__head){
 			t_node=t_node.f__succ;
 			t_n+=1;
@@ -6630,7 +7057,7 @@ class bb_list_List5 extends Object{
 	public bb_vector2d_Vector2D m_First(){
 		return f__head.m_NextNode().f__data;
 	}
-	public bb_list_Node5 m_LastNode(){
+	public bb_list_Node6 m_LastNode(){
 		return f__head.m_PrevNode();
 	}
 	public int m_Clear(){
@@ -6647,11 +7074,11 @@ class bb_list_List5 extends Object{
 		return f__head.m_PrevNode().f__data;
 	}
 }
-class bb_list_Node5 extends Object{
-	bb_list_Node5 f__succ=null;
-	bb_list_Node5 f__pred=null;
+class bb_list_Node6 extends Object{
+	bb_list_Node6 f__succ=null;
+	bb_list_Node6 f__pred=null;
 	bb_vector2d_Vector2D f__data=null;
-	public bb_list_Node5 g_new(bb_list_Node5 t_succ,bb_list_Node5 t_pred,bb_vector2d_Vector2D t_data){
+	public bb_list_Node6 g_new(bb_list_Node6 t_succ,bb_list_Node6 t_pred,bb_vector2d_Vector2D t_data){
 		f__succ=t_succ;
 		f__pred=t_pred;
 		f__succ.f__pred=this;
@@ -6659,16 +7086,16 @@ class bb_list_Node5 extends Object{
 		f__data=t_data;
 		return this;
 	}
-	public bb_list_Node5 g_new2(){
+	public bb_list_Node6 g_new2(){
 		return this;
 	}
-	public bb_list_Node5 m_GetNode(){
+	public bb_list_Node6 m_GetNode(){
 		return this;
 	}
-	public bb_list_Node5 m_NextNode(){
+	public bb_list_Node6 m_NextNode(){
 		return f__succ.m_GetNode();
 	}
-	public bb_list_Node5 m_PrevNode(){
+	public bb_list_Node6 m_PrevNode(){
 		return f__pred.m_GetNode();
 	}
 	public bb_vector2d_Vector2D m_Value(){
@@ -6680,14 +7107,14 @@ class bb_list_Node5 extends Object{
 		return 0;
 	}
 }
-class bb_list_HeadNode5 extends bb_list_Node5{
-	public bb_list_HeadNode5 g_new(){
+class bb_list_HeadNode6 extends bb_list_Node6{
+	public bb_list_HeadNode6 g_new(){
 		super.g_new2();
 		f__succ=(this);
 		f__pred=(this);
 		return this;
 	}
-	public bb_list_Node5 m_GetNode(){
+	public bb_list_Node6 m_GetNode(){
 		return null;
 	}
 }
@@ -7057,7 +7484,7 @@ class bb_shape_Shape extends bb_baseobject_BaseObject{
 			g_images=new bb_graphics_Image[]{bb_graphics.bb_graphics_LoadImage("circle_inside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("plus_inside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("star_inside.png",1,bb_graphics_Image.g_DefaultFlags),bb_graphics.bb_graphics_LoadImage("tire_inside.png",1,bb_graphics_Image.g_DefaultFlags)};
 		}
 		float t_posX=(float)(44+g_images[0].m_Width()*t_lane);
-		float t_posY=(float)(t_chute.m_Height()-g_images[t_type].m_Height());
+		float t_posY=(float)(t_chute.m_Height()-g_images[t_type].m_Height()+37);
 		m_pos2((new bb_vector2d_Vector2D()).g_new(t_posX,t_posY));
 		if(!((g_SPEED_SLOW)!=null)){
 			g_SPEED_SLOW=(new bb_vector2d_Vector2D()).g_new(0.0f,3.0f);
@@ -7072,8 +7499,17 @@ class bb_shape_Shape extends bb_baseobject_BaseObject{
 		return this;
 	}
 	boolean f_isFast=false;
+	boolean f_isReadyForFast=false;
+	float f_readyTime=.0f;
 	public void m_OnUpdate(float t_delta,float t_frameTime){
-		if(f_isFast){
+		if(!f_isReadyForFast){
+			f_readyTime+=t_frameTime;
+			f_isFast=false;
+			if(f_readyTime>=250.0f){
+				f_isReadyForFast=true;
+			}
+		}
+		if(f_isFast && f_isReadyForFast){
 			m_pos().m_Add2(g_SPEED_FAST.m_Copy().m_Mul2(t_delta));
 		}else{
 			m_pos().m_Add2(g_SPEED_SLOW.m_Copy().m_Mul2(t_delta));
@@ -7474,6 +7910,7 @@ class bb_{
 		bb_app.bb_app_device=null;
 		bb_scene_Scene.g_blend=null;
 		bb_graphics_Image.g_DefaultFlags=256;
+		bb_service_PaymentService.g_androidPayment=null;
 		bb_angelfont2_AngelFont.g_error="";
 		bb_angelfont2_AngelFont.g_current=null;
 		bb_angelfont2_AngelFont.g__list=(new bb_map_StringMap4()).g_new();
@@ -7492,6 +7929,8 @@ class bb_{
 		bb_shape_Shape.g_SPEED_FAST=null;
 		return 0;
 	}
+}
+class bb_appirater{
 }
 class bb_bono{
 }
@@ -7569,23 +8008,12 @@ class bb_iap{
 	static public int bb_iap_InitInAppPurchases(String t_bundleID,String[] t_productList){
 		return 0;
 	}
-	static public int bb_iap_isProductPurchased(String t_product){
-		return 0;
-	}
 	static boolean bb_iap_iapPurchaseInProgress;
 	static int bb_iap_iapCount;
 	static public int bb_iap_buyProduct(String t_product){
 		bb_iap.bb_iap_iapPurchaseInProgress=true;
 		bb_iap.bb_iap_iapCount=0;
 		return 0;
-	}
-	static public boolean bb_iap_isPurchaseInProgress(){
-		bb_iap.bb_iap_iapPurchaseInProgress=true;
-		bb_iap.bb_iap_iapCount=bb_iap.bb_iap_iapCount+1;
-		if(bb_iap.bb_iap_iapCount>500){
-			bb_iap.bb_iap_iapPurchaseInProgress=false;
-		}
-		return bb_iap.bb_iap_iapPurchaseInProgress;
 	}
 }
 class bb_introscene{
@@ -7596,7 +8024,13 @@ class bb_newhighscorescene{
 }
 class bb_pausescene{
 }
+class bb_payment{
+}
+class bb_product{
+}
 class bb_scene{
+}
+class bb_service{
 }
 class bb_severity{
 	static bb_severity_Severity bb_severity_globalSeverityInstance;

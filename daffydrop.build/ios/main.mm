@@ -242,6 +242,8 @@ typedef float Float;
 #define FLOAT(X) X##f
 #endif
 
+void dbg_error( const char *p );
+
 //***** GC Config *****
 
 #if CFG_CPP_DEBUG_GC
@@ -293,7 +295,7 @@ struct gc_object{
 	
 	virtual void mark(){
 	}
-
+	
 	void *operator new( size_t size ){
 		return gc_malloc( size );
 	}
@@ -585,12 +587,12 @@ public:
 	}
 	
 	T &At( int index ){
-		if( index<0 || index>=rep->length ) throw "Array index out of range";
+		if( index<0 || index>=rep->length ) dbg_error( "Array index out of range" );
 		return rep->data[index]; 
 	}
 	
 	const T &At( int index )const{
-		if( index<0 || index>=rep->length ) throw "Array index out of range";
+		if( index<0 || index>=rep->length ) dbg_error( "Array index out of range" );
 		return rep->data[index]; 
 	}
 	
@@ -722,7 +724,7 @@ public:
 		rep=Rep::alloc( t_strlen(buf) );
 		for( int i=0;i<rep->length;++i ) rep->data[i]=buf[i];
 	}
-
+	
 	String( Float n ){
 		char buf[256];
 		
@@ -1033,7 +1035,7 @@ public:
 	bool Save( FILE *fp ){
 		std::vector<unsigned char> buf;
 		Save( buf );
-		return fwrite( &buf[0],1,buf.size(),fp )==buf.size();
+		return buf.size() ? fwrite( &buf[0],1,buf.size(),fp )==buf.size() : true;
 	}
 	
 	void Save( std::vector<unsigned char> &buf ){
@@ -1082,7 +1084,7 @@ public:
 			if( n>0 ) buf.insert( buf.end(),tmp,tmp+n );
 			if( n!=4096 ) break;
 		}
-		return String::Load( &buf[0],buf.size() );
+		return buf.size() ? String::Load( &buf[0],buf.size() ) : "";
 	}
 	
 	static String Load( unsigned char *p,int n ){
@@ -1192,62 +1194,336 @@ public:
 	virtual int Compare( Object *obj ){
 		return (char*)this-(char*)obj;
 	}
+	
+	virtual String debug(){
+		return "+Object\n";
+	}
+};
+
+class ThrowableObject : public Object{
 };
 
 struct gc_interface{
 	virtual ~gc_interface(){}
 };
 
+
+//***** Debugger *****
+
+int Print( String t );
+
+#define dbg_stream stderr
+
+#if _MSC_VER
+#define dbg_typeof decltype
+#else
+#define dbg_typeof __typeof__
+#endif 
+
+struct dbg_func;
+struct dbg_var_type;
+
+static int dbg_suspend;
+static int dbg_stepmode;
+
+const char *dbg_info;
+String dbg_exstack;
+
+static void *dbg_var_buf[65536*3];
+static void **dbg_var_ptr=dbg_var_buf;
+
+static dbg_func *dbg_func_buf[1024];
+static dbg_func **dbg_func_ptr=dbg_func_buf;
+
+String dbg_type( bool *p ){
+	return "Bool";
+}
+
+String dbg_type( int *p ){
+	return "Int";
+}
+
+String dbg_type( Float *p ){
+	return "Float";
+}
+
+String dbg_type( String *p ){
+	return "String";
+}
+
+template<class T> String dbg_type( T *p ){
+	return "Object";
+}
+
+template<class T> String dbg_type( Array<T> *p ){
+	return dbg_type( &(*p)[0] )+"[]";
+}
+
+String dbg_value( bool *p ){
+	return *p ? "True" : "False";
+}
+
+String dbg_value( int *p ){
+	return String( *p );
+}
+
+String dbg_value( Float *p ){
+	return String( *p );
+}
+
+String dbg_value( String *p ){
+	return String( "\"" )+(*p).Replace( "\"","~q" )+String( "\"" );
+}
+
+template<class T> String dbg_value( T *t ){
+	Object *p=dynamic_cast<Object*>( *t );
+	char buf[64];
+	sprintf( buf,"%p",p );
+	return String("@") + (buf[0]=='0' && buf[1]=='x' ? buf+2 : buf );
+}
+
+template<class T> String dbg_value( Array<T> *p ){
+	String t="[";
+	int n=(*p).Length();
+	for( int i=0;i<n;++i ){
+		if( i ) t+=",";
+		t+=dbg_value( &(*p)[i] );
+	}
+	return t+"]";
+}
+
+template<class T> String dbg_decl( const char *id,T *ptr ){
+	return String( id )+":"+dbg_type(ptr)+"="+dbg_value(ptr)+"\n";
+}
+
+struct dbg_var_type{
+	virtual String type( void *p )=0;
+	virtual String value( void *p )=0;
+};
+
+template<class T> struct dbg_var_type_t : public dbg_var_type{
+
+	String type( void *p ){
+		return dbg_type( (T*)p );
+	}
+	
+	String value( void *p ){
+		return dbg_value( (T*)p );
+	}
+	
+	static dbg_var_type_t<T> info;
+};
+template<class T> dbg_var_type_t<T> dbg_var_type_t<T>::info;
+
+struct dbg_blk{
+	void **var_ptr;
+	
+	dbg_blk():var_ptr(dbg_var_ptr){
+		if( dbg_stepmode=='l' ) --dbg_suspend;
+	}
+	
+	~dbg_blk(){
+		if( dbg_stepmode=='l' ) ++dbg_suspend;
+		dbg_var_ptr=var_ptr;
+	}
+};
+
+struct dbg_func : public dbg_blk{
+	const char *id;
+	const char *info;
+
+	dbg_func( const char *p ):id(p),info(dbg_info){
+		*dbg_func_ptr++=this;
+		if( dbg_stepmode=='s' ) --dbg_suspend;
+	}
+	
+	~dbg_func(){
+		if( dbg_stepmode=='s' ) ++dbg_suspend;
+		--dbg_func_ptr;
+		dbg_info=info;
+	}
+};
+
+int dbg_print( String t ){
+	static char *buf;
+	static int len;
+	int n=t.Length();
+	if( n+100>len ){
+		len=n+100;
+		free( buf );
+		buf=(char*)malloc( len );
+	}
+	buf[n]='\n';
+	for( int i=0;i<n;++i ) buf[i]=t[i];
+	fwrite( buf,n+1,1,dbg_stream );
+	fflush( dbg_stream );
+	return 0;
+}
+
+void dbg_callstack(){
+
+	void **var_ptr=dbg_var_buf;
+	dbg_func **func_ptr=dbg_func_buf;
+	
+	while( var_ptr!=dbg_var_ptr ){
+		while( func_ptr!=dbg_func_ptr && var_ptr==(*func_ptr)->var_ptr ){
+			const char *id=(*func_ptr++)->id;
+			const char *info=func_ptr!=dbg_func_ptr ? (*func_ptr)->info : dbg_info;
+			fprintf( dbg_stream,"+%s;%s\n",id,info );
+		}
+		void *vp=*var_ptr++;
+		const char *nm=(const char*)*var_ptr++;
+		dbg_var_type *ty=(dbg_var_type*)*var_ptr++;
+		dbg_print( String(nm)+":"+ty->type(vp)+"="+ty->value(vp) );
+	}
+	while( func_ptr!=dbg_func_ptr ){
+		const char *id=(*func_ptr++)->id;
+		const char *info=func_ptr!=dbg_func_ptr ? (*func_ptr)->info : dbg_info;
+		fprintf( dbg_stream,"+%s;%s\n",id,info );
+	}
+}
+
+String dbg_stacktrace(){
+	if( !dbg_info || !dbg_info[0] ) return "";
+	String str=String( dbg_info )+"\n";
+	dbg_func **func_ptr=dbg_func_ptr;
+	if( func_ptr==dbg_func_buf ) return str;
+	while( --func_ptr!=dbg_func_buf ){
+		str+=String( (*func_ptr)->info )+"\n";
+	}
+	return str;
+}
+
+void dbg_throw( const char *err ){
+	dbg_exstack=dbg_stacktrace();
+	throw err;
+}
+
+void dbg_stop(){
+
+#ifdef TARGET_OS_IPHONE
+	dbg_throw( "STOP" );
+#endif
+
+	fprintf( dbg_stream,"{{~~%s~~}}\n",dbg_info );
+	dbg_callstack();
+	dbg_print( "" );
+	
+	for(;;){
+
+		char buf[256];
+		char *e=fgets( buf,256,stdin );
+		if( !e ) exit( -1 );
+		
+		e=strchr( buf,'\n' );
+		if( !e ) exit( -1 );
+		
+		*e=0;
+		
+		Object *p;
+		
+		switch( buf[0] ){
+		case '?':
+			break;
+		case 'r':	//run
+			dbg_suspend=0;		
+			dbg_stepmode=0;
+			return;
+		case 's':	//step
+			dbg_suspend=1;
+			dbg_stepmode='s';
+			return;
+		case 'e':	//enter func
+			dbg_suspend=1;
+			dbg_stepmode='e';
+			return;
+		case 'l':	//leave block
+			dbg_suspend=0;
+			dbg_stepmode='l';
+			return;
+		case '@':	//dump object
+			p=0;
+			sscanf( buf+1,"%p",&p );
+			if( p ){
+				dbg_print( p->debug() );
+			}else{
+				dbg_print( "" );
+			}
+			break;
+		case 'q':	//quit!
+			exit( 0 );
+			break;			
+		default:
+			printf( "????? %s ?????",buf );fflush( stdout );
+			exit( -1 );
+		}
+	}
+}
+
+void dbg_error( const char *err ){
+
+#ifdef TARGET_OS_IPHONE
+	dbg_throw( err );
+#endif
+
+	for(;;){
+		Print( String("Monkey Runtime Error : ")+err );
+		Print( dbg_stacktrace() );
+		dbg_stop();
+	}
+}
+
+#define DBG_INFO(X) dbg_info=(X);if( dbg_suspend>0 ) dbg_stop();
+
+#define DBG_ENTER(P) dbg_func _dbg_func(P);
+
+#define DBG_BLOCK(T) dbg_blk _dbg_blk;
+
+#define DBG_GLOBAL( ID,NAME )	//TODO!
+
+#define DBG_LOCAL( ID,NAME )\
+*dbg_var_ptr++=&ID;\
+*dbg_var_ptr++=(void*)NAME;\
+*dbg_var_ptr++=&dbg_var_type_t<dbg_typeof(ID)>::info;
+
 //**** main ****
 
 int argc;
 const char **argv;
-const char *errInfo="";
-std::vector<const char*> errStack;
 
 Float D2R=0.017453292519943295f;
 Float R2D=57.29577951308232f;
 
-void pushErr(){
-	errStack.push_back( errInfo );
-}
-
-void popErr(){
-	errInfo=errStack.back();
-	errStack.pop_back();
-}
-
-String StackTrace(){
-	String str;
-	pushErr();
-	for( int i=errStack.size()-1;i>=0;--i ){
-		str+=String( errStack[i] )+"\n";
-	}
-	popErr();
-	return str;
-}
-
 int Print( String t ){
-	puts( t.ToCString<char>() );
+	static char *buf;
+	static int len;
+	int n=t.Length();
+	if( n+100>len ){
+		len=n+100;
+		free( buf );
+		buf=(char*)malloc( len );
+	}
+	for( int i=0;i<n;++i ) buf[i]=t[i];
+	buf[n]=0;
+	puts( buf );
 	fflush( stdout );
 	return 0;
 }
 
 int Error( String err ){
-	throw err.ToCString<char>();
+	if( !err.Length() ) exit( 0 );
+	dbg_error( err.ToCString<char>() );
 	return 0;
 }
 
-int Compare( int x,int y ){
-	return x-y;
+int DebugLog( String t ){
+	Print( t );
+	return 0;
 }
 
-int Compare( Float x,Float y ){
-	return x<y ? -1 : x>y;
-}
-
-int Compare( String x,String y ){
-	return x.Compare( y );
+int DebugStop(){
+	dbg_stop();
+	return 0;
 }
 
 int bbInit();
@@ -1255,43 +1531,29 @@ int bbMain();
 
 #if _MSC_VER
 
-//Ok, this is butt ugly stuff, but MSVC's SEH seems to be the only
-//way you can catch int divide by zero...let's use it for null objects too...
-//
-const char *FilterException( int type ){
-	switch( type ){
-	case STATUS_ACCESS_VIOLATION:return "Memory access violation";
-	case STATUS_INTEGER_DIVIDE_BY_ZERO:return "Integer divide by zero";
-	}
-	return 0;
-}
+static void _cdecl seTranslator( unsigned int ex,EXCEPTION_POINTERS *p ){
 
-int seh_call( int(*f)() ){
-	const char *p;
-	__try{
-		return f();
-	}__except( (p=FilterException(GetExceptionCode()))!=0 ){
-		puts( p );
-		throw p;
+	switch( ex ){
+	case EXCEPTION_ACCESS_VIOLATION:dbg_error( "Memory access violation" );
+	case EXCEPTION_ILLEGAL_INSTRUCTION:dbg_error( "Illegal instruction" );
+	case EXCEPTION_INT_DIVIDE_BY_ZERO:dbg_error( "Integer divide by zero" );
+	case EXCEPTION_STACK_OVERFLOW:dbg_error( "Stack overflow" );
 	}
+	dbg_error( "Unknown exception" );
 }
 
 #else
 
-int seh_call( int(*f)() ){
-	return f();
-}
-
 void sighandler( int sig  ){
 	switch( sig ){
-	case SIGILL:throw "Illegal instruction";
-	case SIGFPE:throw "Floating point exception";
+	case SIGSEGV:dbg_error( "Memory access violation" );
+	case SIGILL:dbg_error( "Illegal instruction" );
+	case SIGFPE:dbg_error( "Floating point exception" );
 #if !_WIN32
-	case SIGBUS:throw "Bus error";
-#endif
-	case SIGSEGV:throw "Segmentation violation";
+	case SIGBUS:dbg_error( "Bus error" );
+#endif	
 	}
-	throw "Unknown exception";
+	dbg_error( "Unknown signal" );
 }
 
 #endif
@@ -1299,27 +1561,33 @@ void sighandler( int sig  ){
 //entry point call by target main()...
 //
 int bb_std_main( int argc,const char **argv ){
-	
+
 	::argc=argc;
 	::argv=argv;
 	
-#if !_MSC_VER
+#if _MSC_VER
+
+	_set_se_translator( seTranslator );
+
+#else
+	
+	signal( SIGSEGV,sighandler );
 	signal( SIGILL,sighandler );
 	signal( SIGFPE,sighandler );
 #if !_WIN32
 	signal( SIGBUS,sighandler );
 #endif
-	signal( SIGSEGV,sighandler );
+
 #endif
 
-	seh_call( bbInit );
+	bbInit();
 	
 #if CFG_CPP_INCREMENTAL_GC
 	gc_mark_roots();
 #endif
 	
-	seh_call( bbMain );
-	
+	bbMain();
+
 	return 0;
 }
 
@@ -1364,11 +1632,11 @@ BOOL CheckForExtension( NSString *name ){
 
 void RuntimeError( const char *p ){
 
-	if( !p || !*p ) exit( 0 );
+	if( !p || !p[0] ) exit( 0 );
 	
 	app=0;
-
-	String t=String("Monkey runtime error: ")+p+"\n"+StackTrace();
+	
+	String t=String( "Monkey Runtime Error: " )+p+"\n\n"+dbg_exstack;
 	
 	UIAlertView *aview=[[UIAlertView alloc] 
 	initWithTitle:@"Monkey Error" 
@@ -1378,6 +1646,10 @@ void RuntimeError( const char *p ){
 	otherButtonTitles:nil];
 	[aview autorelease];
 	[aview show];
+}
+
+void RuntimeError( ThrowableObject *p ){
+	RuntimeError( "Uncaught Monkey Exception" );
 }
 
 class gxtkObject : public Object{
@@ -2144,6 +2416,8 @@ void gxtkApp::InvokeOnUpdate(){
 			OnUpdate();
 			input->EndUpdate();
 		}
+	}catch( ThrowableObject *p ){
+		RuntimeError( p );		
 	}catch( const char *p ){
 		RuntimeError( p );
 	}
@@ -2162,6 +2436,8 @@ void gxtkApp::InvokeOnSuspend(){
 			SetUpdateRate( 0 );
 			updateRate=upr;
 		}
+	}catch( ThrowableObject *p ){
+		RuntimeError( p );		
 	}catch( const char *p ){
 		RuntimeError( p );
 	}
@@ -2180,6 +2456,8 @@ void gxtkApp::InvokeOnResume(){
 		audio->OnResume();
 		OnResume();
 		suspended=false;
+	}catch( ThrowableObject *p ){
+		RuntimeError( p );		
 	}catch( const char *p ){
 		RuntimeError( p );
 	}
@@ -2200,6 +2478,8 @@ void gxtkApp::InvokeOnRender(){
 			OnRender();
 			graphics->EndRender();
 		}
+	}catch( ThrowableObject *p ){
+		RuntimeError( p );		
 	}catch( const char *p ){
 		RuntimeError( p );
 	}
@@ -2421,7 +2701,7 @@ void gxtkInput::OnEvent( UIEvent *event ){
 				break;
 			}
 			if( pid==32 ){
-				printf( "***** GXTK Touch Error *****\n" );fflush( stdout );
+//				printf( "***** GXTK Touch Error *****\n" );fflush( stdout );
 				continue;
 			}
 			
@@ -3036,9 +3316,18 @@ gxtkSample *gxtkSample::LoadWAV( String path ){
 	
 	//Note: this code needs to appear *before* view init code below for some weird reason...clean this up!
 	try{
-		bb_std_main( 0,0 );
-		if( !app ) exit( 0 );
+		try{
+		
+			bb_std_main( 0,0 );
+			
+			if( !app ) exit( 0 );
+			
+		}catch( ThrowableObject *p ){
+		
+			throw "Uncaught Monkey Exception";
+		}
 	}catch( const char *p ){
+	
 		err=p;
 	}
 
@@ -3065,15 +3354,16 @@ gxtkSample *gxtkSample::LoadWAV( String path ){
 
 	if( err ){
 		RuntimeError( err );
-	}else{
-		ALCdevice *alcDevice=alcOpenDevice( 0 );
-		if( !alcDevice ) RuntimeError( "alcOpenDevice failed" );
-	
-		ALCcontext *alcContext=alcCreateContext( alcDevice,0 );
-		if( !alcContext ) RuntimeError( "alcCreateContext failed" );
-	
-		if( !alcMakeContextCurrent( alcContext ) ) RuntimeError( "alcMakeContextCurrent failed" );
+		return YES;
 	}
+	
+	ALCdevice *alcDevice=alcOpenDevice( 0 );
+	if( !alcDevice ) RuntimeError( "alcOpenDevice failed" );
+
+	ALCcontext *alcContext=alcCreateContext( alcDevice,0 );
+	if( !alcContext ) RuntimeError( "alcCreateContext failed" );
+
+	if( !alcMakeContextCurrent( alcContext ) ) RuntimeError( "alcMakeContextCurrent failed" );
 	
 	return YES;
 }
@@ -3082,14 +3372,12 @@ gxtkSample *gxtkSample::LoadWAV( String path ){
 	if( !app ) return;
 	
 	app->InvokeOnSuspend();
-//	gc_collect();
 }
 
 -(void)applicationDidBecomeActive:(UIApplication *)application{
 	if( !app ) return;
 	
 	app->InvokeOnResume();
-//	gc_collect();
 }
 
 -(void)applicationDidEnterBackground:(UIApplication *)application{
@@ -3106,6 +3394,9 @@ gxtkSample *gxtkSample::LoadWAV( String path ){
 		app->nextUpdate+=app->updatePeriod;
 		
 		app->InvokeOnUpdate();
+		
+		if( !app ) return;
+
 		if( !app->updateRate ) break;
 		
 		if( app->Time()<app->nextUpdate ) break;
@@ -3114,11 +3405,8 @@ gxtkSample *gxtkSample::LoadWAV( String path ){
 			app->nextUpdate=app->Time();
 			break;
 		}		
-		
-//		gc_collect();
 	}
 	app->InvokeOnRender();
-//	gc_collect();
 }
 
 -(void)dealloc{
@@ -3133,6 +3421,17 @@ public:
     int static GetTimestamp() {
         time_t unixTime = (time_t) [[NSDate date] timeIntervalSince1970];
         return static_cast<int>(unixTime);
+    }
+};
+
+#import "appirater/Appirater.h"
+
+class AppiraterMonk
+{
+public:
+    static void Launched()
+    {
+        [Appirater appLaunched:YES];
     }
 };
 /*
@@ -3966,17 +4265,6 @@ int getPurchaseResult() {
 void resetPurchaseResult() {
 	[[MKStoreManager sharedManager] setPurchaseResult: 0];
 }
-
-#import "appirater/Appirater.h"
-
-class AppiraterMonk
-{
-public:
-    static void Launched()
-    {
-        [Appirater appLaunched:YES];
-    }
-};
 class bb_directorevents_DirectorEvents;
 class bb_router_Router;
 class bb_partial_Partial;
@@ -4015,6 +4303,14 @@ class bb_graphics_Frame;
 class bb_positionable_Positionable;
 class bb_baseobject_BaseObject;
 class bb_sprite_Sprite;
+class bb_product_PaymentProduct;
+class bb_menuscene_FullVersion;
+class bb_service_PaymentService;
+class bb_list_List3;
+class bb_list_Node3;
+class bb_list_HeadNode3;
+class bb_list_Enumerator2;
+class bb_list_Enumerator3;
 class bb_angelfont2_AngelFont;
 class bb_kernpair_KernPair;
 class bb_map_Map3;
@@ -4029,10 +4325,10 @@ class bb_highscore_Highscore;
 class bb_highscore_IntHighscore;
 class bb_gamehighscore_GameHighscore;
 class bb_score_Score;
-class bb_list_List3;
-class bb_list_Node3;
-class bb_list_HeadNode3;
-class bb_list_Enumerator2;
+class bb_list_List4;
+class bb_list_Node4;
+class bb_list_HeadNode4;
+class bb_list_Enumerator4;
 class bb_statestore_StateStore;
 class bb_chute_Chute;
 class bb_severity_Severity;
@@ -4051,22 +4347,22 @@ class bb_transition_TransitionInCubic;
 class bb_transition_TransitionLinear;
 class bb_stack_Stack;
 class bb_stack_IntStack;
-class bb_list_List4;
+class bb_list_List5;
 class bb_list_IntList;
-class bb_list_Node4;
-class bb_list_HeadNode4;
+class bb_list_Node5;
+class bb_list_HeadNode5;
 class bb_set_Set;
 class bb_set_IntSet;
 class bb_map_Map6;
 class bb_map_IntMap;
 class bb_map_Node6;
-class bb_list_Enumerator3;
+class bb_list_Enumerator5;
 class bb_textinput_TextInput;
 class bb_deltatimer_DeltaTimer;
 class bb_touchevent_TouchEvent;
-class bb_list_List5;
-class bb_list_Node5;
-class bb_list_HeadNode5;
+class bb_list_List6;
+class bb_list_Node6;
+class bb_list_HeadNode6;
 class bb_keyevent_KeyEvent;
 class bb_map_Map7;
 class bb_map_IntMap2;
@@ -4260,6 +4556,8 @@ class bb_menuscene_MenuScene : public bb_scene_Scene{
 	bb_sprite_Sprite* f_advancedActive;
 	bb_sprite_Sprite* f_highscore;
 	bb_sprite_Sprite* f_lock;
+	bb_menuscene_FullVersion* f_fullVersion;
+	bb_service_PaymentService* f_paymentService;
 	bool f_isLocked;
 	bool f_paymentProcessing;
 	bb_font_Font* f_waitingText;
@@ -4450,6 +4748,9 @@ class bb_list_List : public Object{
 	bb_list_List* g_new2(Array<String >);
 	virtual bool m_Equals(String,String);
 	virtual bool m_Contains(String);
+	virtual int m_Count();
+	virtual bb_list_Enumerator3* m_ObjectEnumerator();
+	virtual Array<String > m_ToArray();
 	void mark();
 };
 class bb_list_Node : public Object{
@@ -4708,6 +5009,90 @@ class bb_sprite_Sprite : public bb_baseobject_BaseObject{
 	virtual void m_Restart();
 	void mark();
 };
+class bb_product_PaymentProduct : public Object{
+	public:
+	bool f_purchased;
+	bool f_startBuy;
+	bb_service_PaymentService* f_service;
+	bb_product_PaymentProduct();
+	bb_product_PaymentProduct* g_new();
+	virtual void m_SetService(bb_service_PaymentService*);
+	virtual String m_GetAppleId()=0;
+	virtual void m_UpdatePurchasedState();
+	virtual bool m_IsPurchaseInProgress();
+	virtual bool m_IsProductPurchased();
+	virtual void m_Buy();
+	void mark();
+};
+class bb_menuscene_FullVersion : public bb_product_PaymentProduct{
+	public:
+	bb_menuscene_FullVersion();
+	bb_menuscene_FullVersion* g_new();
+	virtual String m_GetAppleId();
+	void mark();
+};
+class bb_service_PaymentService : public Object{
+	public:
+	String f_bundleId;
+	String f_publicKey;
+	bb_list_List3* f_products;
+	bb_service_PaymentService();
+	bb_service_PaymentService* g_new();
+	virtual void m_SetBundleId(String);
+	virtual void m_SetPublicKey(String);
+	virtual void m_AddProduct(bb_product_PaymentProduct*);
+	virtual void m_StartService();
+	virtual bool m_IsPurchaseInProgress();
+	void mark();
+};
+class bb_list_List3 : public Object{
+	public:
+	bb_list_Node3* f__head;
+	bb_list_List3();
+	bb_list_List3* g_new();
+	virtual bb_list_Node3* m_AddLast3(bb_product_PaymentProduct*);
+	bb_list_List3* g_new2(Array<bb_product_PaymentProduct* >);
+	virtual bb_list_Enumerator2* m_ObjectEnumerator();
+	void mark();
+};
+class bb_list_Node3 : public Object{
+	public:
+	bb_list_Node3* f__succ;
+	bb_list_Node3* f__pred;
+	bb_product_PaymentProduct* f__data;
+	bb_list_Node3();
+	bb_list_Node3* g_new(bb_list_Node3*,bb_list_Node3*,bb_product_PaymentProduct*);
+	bb_list_Node3* g_new2();
+	void mark();
+};
+class bb_list_HeadNode3 : public bb_list_Node3{
+	public:
+	bb_list_HeadNode3();
+	bb_list_HeadNode3* g_new();
+	void mark();
+};
+class bb_list_Enumerator2 : public Object{
+	public:
+	bb_list_List3* f__list;
+	bb_list_Node3* f__curr;
+	bb_list_Enumerator2();
+	bb_list_Enumerator2* g_new(bb_list_List3*);
+	bb_list_Enumerator2* g_new2();
+	virtual bool m_HasNext();
+	virtual bb_product_PaymentProduct* m_NextObject();
+	void mark();
+};
+class bb_list_Enumerator3 : public Object{
+	public:
+	bb_list_List* f__list;
+	bb_list_Node* f__curr;
+	bb_list_Enumerator3();
+	bb_list_Enumerator3* g_new(bb_list_List*);
+	bb_list_Enumerator3* g_new2();
+	virtual bool m_HasNext();
+	virtual String m_NextObject();
+	void mark();
+};
 class bb_angelfont2_AngelFont : public Object{
 	public:
 	String f_iniText;
@@ -4833,7 +5218,7 @@ class bb_persistable_Persistable : public virtual gc_interface{
 class bb_highscore_Highscore : public Object,public virtual bb_persistable_Persistable{
 	public:
 	int f__maxCount;
-	bb_list_List3* f_objects;
+	bb_list_List4* f_objects;
 	bb_highscore_Highscore();
 	bb_highscore_Highscore* g_new(int);
 	bb_highscore_Highscore* g_new2();
@@ -4844,7 +5229,7 @@ class bb_highscore_Highscore : public Object,public virtual bb_persistable_Persi
 	virtual void m_Add5(String,int);
 	virtual bb_score_Score* m_Last();
 	virtual void m_FromString(String);
-	virtual bb_list_Enumerator2* m_ObjectEnumerator();
+	virtual bb_list_Enumerator4* m_ObjectEnumerator();
 	virtual String m_ToString();
 	void mark();
 };
@@ -4875,17 +5260,17 @@ class bb_score_Score : public Object{
 	bb_score_Score* g_new2();
 	void mark();
 };
-class bb_list_List3 : public Object{
+class bb_list_List4 : public Object{
 	public:
-	bb_list_Node3* f__head;
-	bb_list_List3();
-	bb_list_List3* g_new();
-	virtual bb_list_Node3* m_AddLast3(bb_score_Score*);
-	bb_list_List3* g_new2(Array<bb_score_Score* >);
+	bb_list_Node4* f__head;
+	bb_list_List4();
+	bb_list_List4* g_new();
+	virtual bb_list_Node4* m_AddLast4(bb_score_Score*);
+	bb_list_List4* g_new2(Array<bb_score_Score* >);
 	virtual int m_Count();
 	virtual bb_score_Score* m_First();
-	virtual bb_list_Enumerator2* m_ObjectEnumerator();
-	virtual bb_list_Node3* m_AddFirst(bb_score_Score*);
+	virtual bb_list_Enumerator4* m_ObjectEnumerator();
+	virtual bb_list_Node4* m_AddFirst(bb_score_Score*);
 	virtual bool m_Equals3(bb_score_Score*,bb_score_Score*);
 	virtual int m_RemoveEach2(bb_score_Score*);
 	virtual int m_Remove3(bb_score_Score*);
@@ -4894,34 +5279,34 @@ class bb_list_List3 : public Object{
 	virtual bb_score_Score* m_Last();
 	void mark();
 };
-class bb_list_Node3 : public Object{
+class bb_list_Node4 : public Object{
 	public:
-	bb_list_Node3* f__succ;
-	bb_list_Node3* f__pred;
+	bb_list_Node4* f__succ;
+	bb_list_Node4* f__pred;
 	bb_score_Score* f__data;
-	bb_list_Node3();
-	bb_list_Node3* g_new(bb_list_Node3*,bb_list_Node3*,bb_score_Score*);
-	bb_list_Node3* g_new2();
-	virtual bb_list_Node3* m_GetNode();
-	virtual bb_list_Node3* m_NextNode();
+	bb_list_Node4();
+	bb_list_Node4* g_new(bb_list_Node4*,bb_list_Node4*,bb_score_Score*);
+	bb_list_Node4* g_new2();
+	virtual bb_list_Node4* m_GetNode();
+	virtual bb_list_Node4* m_NextNode();
 	virtual int m_Remove2();
-	virtual bb_list_Node3* m_PrevNode();
+	virtual bb_list_Node4* m_PrevNode();
 	void mark();
 };
-class bb_list_HeadNode3 : public bb_list_Node3{
+class bb_list_HeadNode4 : public bb_list_Node4{
 	public:
-	bb_list_HeadNode3();
-	bb_list_HeadNode3* g_new();
-	virtual bb_list_Node3* m_GetNode();
+	bb_list_HeadNode4();
+	bb_list_HeadNode4* g_new();
+	virtual bb_list_Node4* m_GetNode();
 	void mark();
 };
-class bb_list_Enumerator2 : public Object{
+class bb_list_Enumerator4 : public Object{
 	public:
-	bb_list_List3* f__list;
-	bb_list_Node3* f__curr;
-	bb_list_Enumerator2();
-	bb_list_Enumerator2* g_new(bb_list_List3*);
-	bb_list_Enumerator2* g_new2();
+	bb_list_List4* f__list;
+	bb_list_Node4* f__curr;
+	bb_list_Enumerator4();
+	bb_list_Enumerator4* g_new(bb_list_List4*);
+	bb_list_Enumerator4* g_new2();
 	virtual bool m_HasNext();
 	virtual bb_score_Score* m_NextObject();
 	void mark();
@@ -5187,49 +5572,49 @@ extern int bb_random_Seed;
 Float bb_random_Rnd();
 Float bb_random_Rnd2(Float,Float);
 Float bb_random_Rnd3(Float);
-class bb_list_List4 : public Object{
+class bb_list_List5 : public Object{
 	public:
-	bb_list_Node4* f__head;
-	bb_list_List4();
-	bb_list_List4* g_new();
-	virtual bb_list_Node4* m_AddLast4(int);
-	bb_list_List4* g_new2(Array<int >);
+	bb_list_Node5* f__head;
+	bb_list_List5();
+	bb_list_List5* g_new();
+	virtual bb_list_Node5* m_AddLast5(int);
+	bb_list_List5* g_new2(Array<int >);
 	virtual int m_Clear();
 	virtual int m_Count();
-	virtual bb_list_Enumerator3* m_ObjectEnumerator();
+	virtual bb_list_Enumerator5* m_ObjectEnumerator();
 	virtual Array<int > m_ToArray();
 	virtual int m_First();
 	virtual int m_RemoveFirst();
 	virtual int m_Last();
 	virtual int m_RemoveLast();
-	virtual bb_list_Node4* m_AddFirst2(int);
+	virtual bb_list_Node5* m_AddFirst2(int);
 	void mark();
 };
-class bb_list_IntList : public bb_list_List4{
+class bb_list_IntList : public bb_list_List5{
 	public:
 	bb_list_IntList();
 	bb_list_IntList* g_new();
 	void mark();
 };
-class bb_list_Node4 : public Object{
+class bb_list_Node5 : public Object{
 	public:
-	bb_list_Node4* f__succ;
-	bb_list_Node4* f__pred;
+	bb_list_Node5* f__succ;
+	bb_list_Node5* f__pred;
 	int f__data;
-	bb_list_Node4();
-	bb_list_Node4* g_new(bb_list_Node4*,bb_list_Node4*,int);
-	bb_list_Node4* g_new2();
-	virtual bb_list_Node4* m_GetNode();
-	virtual bb_list_Node4* m_NextNode();
+	bb_list_Node5();
+	bb_list_Node5* g_new(bb_list_Node5*,bb_list_Node5*,int);
+	bb_list_Node5* g_new2();
+	virtual bb_list_Node5* m_GetNode();
+	virtual bb_list_Node5* m_NextNode();
 	virtual int m_Remove2();
-	virtual bb_list_Node4* m_PrevNode();
+	virtual bb_list_Node5* m_PrevNode();
 	void mark();
 };
-class bb_list_HeadNode4 : public bb_list_Node4{
+class bb_list_HeadNode5 : public bb_list_Node5{
 	public:
-	bb_list_HeadNode4();
-	bb_list_HeadNode4* g_new();
-	virtual bb_list_Node4* m_GetNode();
+	bb_list_HeadNode5();
+	bb_list_HeadNode5* g_new();
+	virtual bb_list_Node5* m_GetNode();
 	void mark();
 };
 class bb_set_Set : public Object{
@@ -5292,13 +5677,13 @@ class bb_map_Node6 : public Object{
 	virtual int m_Count2(int);
 	void mark();
 };
-class bb_list_Enumerator3 : public Object{
+class bb_list_Enumerator5 : public Object{
 	public:
-	bb_list_List4* f__list;
-	bb_list_Node4* f__curr;
-	bb_list_Enumerator3();
-	bb_list_Enumerator3* g_new(bb_list_List4*);
-	bb_list_Enumerator3* g_new2();
+	bb_list_List5* f__list;
+	bb_list_Node5* f__curr;
+	bb_list_Enumerator5();
+	bb_list_Enumerator5* g_new(bb_list_List5*);
+	bb_list_Enumerator5* g_new2();
 	virtual bool m_HasNext();
 	virtual int m_NextObject();
 	void mark();
@@ -5349,7 +5734,7 @@ class bb_touchevent_TouchEvent : public Object{
 	public:
 	int f__finger;
 	int f__startTime;
-	bb_list_List5* f_positions;
+	bb_list_List6* f_positions;
 	int f__endTime;
 	bb_touchevent_TouchEvent();
 	bb_touchevent_TouchEvent* g_new(int);
@@ -5365,41 +5750,41 @@ class bb_touchevent_TouchEvent : public Object{
 };
 Float bb_input_TouchX(int);
 Float bb_input_TouchY(int);
-class bb_list_List5 : public Object{
+class bb_list_List6 : public Object{
 	public:
-	bb_list_Node5* f__head;
-	bb_list_List5();
-	bb_list_List5* g_new();
-	virtual bb_list_Node5* m_AddLast5(bb_vector2d_Vector2D*);
-	bb_list_List5* g_new2(Array<bb_vector2d_Vector2D* >);
+	bb_list_Node6* f__head;
+	bb_list_List6();
+	bb_list_List6* g_new();
+	virtual bb_list_Node6* m_AddLast6(bb_vector2d_Vector2D*);
+	bb_list_List6* g_new2(Array<bb_vector2d_Vector2D* >);
 	virtual int m_Count();
 	virtual bb_vector2d_Vector2D* m_First();
-	virtual bb_list_Node5* m_LastNode();
+	virtual bb_list_Node6* m_LastNode();
 	virtual int m_Clear();
 	virtual bb_vector2d_Vector2D* m_RemoveFirst();
 	virtual bb_vector2d_Vector2D* m_Last();
 	void mark();
 };
-class bb_list_Node5 : public Object{
+class bb_list_Node6 : public Object{
 	public:
-	bb_list_Node5* f__succ;
-	bb_list_Node5* f__pred;
+	bb_list_Node6* f__succ;
+	bb_list_Node6* f__pred;
 	bb_vector2d_Vector2D* f__data;
-	bb_list_Node5();
-	bb_list_Node5* g_new(bb_list_Node5*,bb_list_Node5*,bb_vector2d_Vector2D*);
-	bb_list_Node5* g_new2();
-	virtual bb_list_Node5* m_GetNode();
-	virtual bb_list_Node5* m_NextNode();
-	virtual bb_list_Node5* m_PrevNode();
+	bb_list_Node6();
+	bb_list_Node6* g_new(bb_list_Node6*,bb_list_Node6*,bb_vector2d_Vector2D*);
+	bb_list_Node6* g_new2();
+	virtual bb_list_Node6* m_GetNode();
+	virtual bb_list_Node6* m_NextNode();
+	virtual bb_list_Node6* m_PrevNode();
 	virtual bb_vector2d_Vector2D* m_Value();
 	virtual int m_Remove2();
 	void mark();
 };
-class bb_list_HeadNode5 : public bb_list_Node5{
+class bb_list_HeadNode6 : public bb_list_Node6{
 	public:
-	bb_list_HeadNode5();
-	bb_list_HeadNode5* g_new();
-	virtual bb_list_Node5* m_GetNode();
+	bb_list_HeadNode6();
+	bb_list_HeadNode6* g_new();
+	virtual bb_list_Node6* m_GetNode();
 	void mark();
 };
 int bb_input_EnableKeyboard();
@@ -6158,6 +6543,8 @@ bb_menuscene_MenuScene::bb_menuscene_MenuScene(){
 	f_advancedActive=0;
 	f_highscore=0;
 	f_lock=0;
+	f_fullVersion=0;
+	f_paymentService=0;
 	f_isLocked=true;
 	f_paymentProcessing=false;
 	f_waitingText=0;
@@ -6207,9 +6594,14 @@ void bb_menuscene_MenuScene::m_OnCreate(bb_director_Director* t_director){
 	f_normal->m_CenterX(t_director);
 	f_advanced->m_CenterX(t_director);
 	f_highscore->m_CenterX(t_director);
-	String t_[]={String(L"com.coragames.daffydrop.fullversion")};
-	InitInAppPurchases(String(L"com.coragames.daffydrop"),Array<String >(t_,1));
-	if((isProductPurchased(String(L"com.coragames.daffydrop.fullversion")))!=0){
+	gc_assign(f_fullVersion,(new bb_menuscene_FullVersion)->g_new());
+	gc_assign(f_paymentService,(new bb_service_PaymentService)->g_new());
+	f_paymentService->m_SetBundleId(String(L"com.coragames.daffydrop"));
+	f_paymentService->m_SetPublicKey(String());
+	f_paymentService->m_AddProduct(f_fullVersion);
+	f_paymentService->m_StartService();
+	f_fullVersion->m_UpdatePurchasedState();
+	if(f_fullVersion->m_IsProductPurchased()){
 		m_ToggleLock();
 	}
 	AppiraterMonk::Launched();
@@ -6242,7 +6634,7 @@ void bb_menuscene_MenuScene::m_HandleLocked(){
 	}
 	m_InitializeWaitingImages();
 	f_paymentProcessing=true;
-	buyProduct(String(L"com.coragames.daffydrop.fullversion"));
+	f_fullVersion->m_Buy();
 }
 void bb_menuscene_MenuScene::m_PlayNormal(){
 	if(f_isLocked){
@@ -6309,11 +6701,11 @@ void bb_menuscene_MenuScene::m_OnUpdate(Float t_delta,Float t_frameTime){
 	if(!f_paymentProcessing){
 		return;
 	}
-	if((isPurchaseInProgress())!=0){
+	if(f_paymentService->m_IsPurchaseInProgress()){
 		return;
 	}
 	f_paymentProcessing=false;
-	if(!((isProductPurchased(String(L"com.coragames.daffydrop.fullversion")))!=0)){
+	if(!f_fullVersion->m_IsProductPurchased()){
 		return;
 	}
 	m_ToggleLock();
@@ -6347,6 +6739,8 @@ void bb_menuscene_MenuScene::mark(){
 	gc_mark_q(f_advancedActive);
 	gc_mark_q(f_highscore);
 	gc_mark_q(f_lock);
+	gc_mark_q(f_fullVersion);
+	gc_mark_q(f_paymentService);
 	gc_mark_q(f_waitingText);
 	gc_mark_q(f_waitingImage);
 }
@@ -6384,7 +6778,7 @@ void bb_highscorescene_HighscoreScene::m_OnUpdate(Float t_delta,Float t_frameTim
 void bb_highscorescene_HighscoreScene::m_DrawEntries(){
 	int t_posY=290;
 	bool t_found=false;
-	bb_list_Enumerator2* t_=f_highscore->m_ObjectEnumerator();
+	bb_list_Enumerator4* t_=f_highscore->m_ObjectEnumerator();
 	while(t_->m_HasNext()){
 		bb_score_Score* t_score=t_->m_NextObject();
 		if(!t_found && t_score->f_value==f_lastScoreValue && t_score->f_key==f_lastScoreKey){
@@ -7097,6 +7491,29 @@ bool bb_list_List::m_Contains(String t_value){
 		t_node=t_node->f__succ;
 	}
 	return false;
+}
+int bb_list_List::m_Count(){
+	int t_n=0;
+	bb_list_Node* t_node=f__head->f__succ;
+	while(t_node!=f__head){
+		t_node=t_node->f__succ;
+		t_n+=1;
+	}
+	return t_n;
+}
+bb_list_Enumerator3* bb_list_List::m_ObjectEnumerator(){
+	return (new bb_list_Enumerator3)->g_new(this);
+}
+Array<String > bb_list_List::m_ToArray(){
+	Array<String > t_arr=Array<String >(m_Count());
+	int t_i=0;
+	bb_list_Enumerator3* t_=this->m_ObjectEnumerator();
+	while(t_->m_HasNext()){
+		String t_t=t_->m_NextObject();
+		t_arr[t_i]=t_t;
+		t_i+=1;
+	}
+	return t_arr;
 }
 void bb_list_List::mark(){
 	Object::mark();
@@ -7979,6 +8396,200 @@ void bb_sprite_Sprite::mark(){
 	gc_mark_q(f_image);
 	gc_mark_q(f_scale);
 }
+bb_product_PaymentProduct::bb_product_PaymentProduct(){
+	f_purchased=false;
+	f_startBuy=false;
+	f_service=0;
+}
+bb_product_PaymentProduct* bb_product_PaymentProduct::g_new(){
+	f_purchased=false;
+	f_startBuy=false;
+	return this;
+}
+void bb_product_PaymentProduct::m_SetService(bb_service_PaymentService* t_s){
+	gc_assign(f_service,t_s);
+}
+void bb_product_PaymentProduct::m_UpdatePurchasedState(){
+	f_purchased=isProductPurchased(m_GetAppleId())>0;
+}
+bool bb_product_PaymentProduct::m_IsPurchaseInProgress(){
+	return isPurchaseInProgress()>0;
+}
+bool bb_product_PaymentProduct::m_IsProductPurchased(){
+	if(f_startBuy && !m_IsPurchaseInProgress()){
+		m_UpdatePurchasedState();
+	}
+	return f_purchased;
+}
+void bb_product_PaymentProduct::m_Buy(){
+	f_startBuy=true;
+	buyProduct(m_GetAppleId());
+}
+void bb_product_PaymentProduct::mark(){
+	Object::mark();
+	gc_mark_q(f_service);
+}
+bb_menuscene_FullVersion::bb_menuscene_FullVersion(){
+}
+bb_menuscene_FullVersion* bb_menuscene_FullVersion::g_new(){
+	bb_product_PaymentProduct::g_new();
+	return this;
+}
+String bb_menuscene_FullVersion::m_GetAppleId(){
+	return String(L"com.coragames.daffydrop.fullversion");
+}
+void bb_menuscene_FullVersion::mark(){
+	bb_product_PaymentProduct::mark();
+}
+bb_service_PaymentService::bb_service_PaymentService(){
+	f_bundleId=String();
+	f_publicKey=String();
+	f_products=(new bb_list_List3)->g_new();
+}
+bb_service_PaymentService* bb_service_PaymentService::g_new(){
+	return this;
+}
+void bb_service_PaymentService::m_SetBundleId(String t_bundleId){
+	this->f_bundleId=t_bundleId;
+}
+void bb_service_PaymentService::m_SetPublicKey(String t_k){
+	f_publicKey=t_k;
+}
+void bb_service_PaymentService::m_AddProduct(bb_product_PaymentProduct* t_p){
+	t_p->m_SetService(this);
+	f_products->m_AddLast3(t_p);
+}
+void bb_service_PaymentService::m_StartService(){
+	bb_list_List* t_prodIds=(new bb_list_List)->g_new();
+	bb_list_Enumerator2* t_=f_products->m_ObjectEnumerator();
+	while(t_->m_HasNext()){
+		bb_product_PaymentProduct* t_p=t_->m_NextObject();
+		t_prodIds->m_AddLast(t_p->m_GetAppleId());
+	}
+	InitInAppPurchases(f_bundleId,t_prodIds->m_ToArray());
+}
+bool bb_service_PaymentService::m_IsPurchaseInProgress(){
+	return isPurchaseInProgress()>0;
+}
+void bb_service_PaymentService::mark(){
+	Object::mark();
+	gc_mark_q(f_products);
+}
+bb_list_List3::bb_list_List3(){
+	f__head=((new bb_list_HeadNode3)->g_new());
+}
+bb_list_List3* bb_list_List3::g_new(){
+	return this;
+}
+bb_list_Node3* bb_list_List3::m_AddLast3(bb_product_PaymentProduct* t_data){
+	return (new bb_list_Node3)->g_new(f__head,f__head->f__pred,t_data);
+}
+bb_list_List3* bb_list_List3::g_new2(Array<bb_product_PaymentProduct* > t_data){
+	Array<bb_product_PaymentProduct* > t_=t_data;
+	int t_2=0;
+	while(t_2<t_.Length()){
+		bb_product_PaymentProduct* t_t=t_[t_2];
+		t_2=t_2+1;
+		m_AddLast3(t_t);
+	}
+	return this;
+}
+bb_list_Enumerator2* bb_list_List3::m_ObjectEnumerator(){
+	return (new bb_list_Enumerator2)->g_new(this);
+}
+void bb_list_List3::mark(){
+	Object::mark();
+	gc_mark_q(f__head);
+}
+bb_list_Node3::bb_list_Node3(){
+	f__succ=0;
+	f__pred=0;
+	f__data=0;
+}
+bb_list_Node3* bb_list_Node3::g_new(bb_list_Node3* t_succ,bb_list_Node3* t_pred,bb_product_PaymentProduct* t_data){
+	gc_assign(f__succ,t_succ);
+	gc_assign(f__pred,t_pred);
+	gc_assign(f__succ->f__pred,this);
+	gc_assign(f__pred->f__succ,this);
+	gc_assign(f__data,t_data);
+	return this;
+}
+bb_list_Node3* bb_list_Node3::g_new2(){
+	return this;
+}
+void bb_list_Node3::mark(){
+	Object::mark();
+	gc_mark_q(f__succ);
+	gc_mark_q(f__pred);
+	gc_mark_q(f__data);
+}
+bb_list_HeadNode3::bb_list_HeadNode3(){
+}
+bb_list_HeadNode3* bb_list_HeadNode3::g_new(){
+	bb_list_Node3::g_new2();
+	gc_assign(f__succ,(this));
+	gc_assign(f__pred,(this));
+	return this;
+}
+void bb_list_HeadNode3::mark(){
+	bb_list_Node3::mark();
+}
+bb_list_Enumerator2::bb_list_Enumerator2(){
+	f__list=0;
+	f__curr=0;
+}
+bb_list_Enumerator2* bb_list_Enumerator2::g_new(bb_list_List3* t_list){
+	gc_assign(f__list,t_list);
+	gc_assign(f__curr,t_list->f__head->f__succ);
+	return this;
+}
+bb_list_Enumerator2* bb_list_Enumerator2::g_new2(){
+	return this;
+}
+bool bb_list_Enumerator2::m_HasNext(){
+	while(f__curr->f__succ->f__pred!=f__curr){
+		gc_assign(f__curr,f__curr->f__succ);
+	}
+	return f__curr!=f__list->f__head;
+}
+bb_product_PaymentProduct* bb_list_Enumerator2::m_NextObject(){
+	bb_product_PaymentProduct* t_data=f__curr->f__data;
+	gc_assign(f__curr,f__curr->f__succ);
+	return t_data;
+}
+void bb_list_Enumerator2::mark(){
+	Object::mark();
+	gc_mark_q(f__list);
+	gc_mark_q(f__curr);
+}
+bb_list_Enumerator3::bb_list_Enumerator3(){
+	f__list=0;
+	f__curr=0;
+}
+bb_list_Enumerator3* bb_list_Enumerator3::g_new(bb_list_List* t_list){
+	gc_assign(f__list,t_list);
+	gc_assign(f__curr,t_list->f__head->f__succ);
+	return this;
+}
+bb_list_Enumerator3* bb_list_Enumerator3::g_new2(){
+	return this;
+}
+bool bb_list_Enumerator3::m_HasNext(){
+	while(f__curr->f__succ->f__pred!=f__curr){
+		gc_assign(f__curr,f__curr->f__succ);
+	}
+	return f__curr!=f__list->f__head;
+}
+String bb_list_Enumerator3::m_NextObject(){
+	String t_data=f__curr->f__data;
+	gc_assign(f__curr,f__curr->f__succ);
+	return t_data;
+}
+void bb_list_Enumerator3::mark(){
+	Object::mark();
+	gc_mark_q(f__list);
+	gc_mark_q(f__curr);
+}
 bb_angelfont2_AngelFont::bb_angelfont2_AngelFont(){
 	f_iniText=String();
 	f_kernPairs=(new bb_map_StringMap3)->g_new();
@@ -8500,7 +9111,7 @@ void bb_map_Node4::mark(){
 }
 bb_highscore_Highscore::bb_highscore_Highscore(){
 	f__maxCount=0;
-	f_objects=(new bb_list_List3)->g_new();
+	f_objects=(new bb_list_List4)->g_new();
 }
 bb_highscore_Highscore* bb_highscore_Highscore::g_new(int t_maxCount){
 	f__maxCount=t_maxCount;
@@ -8519,11 +9130,11 @@ void bb_highscore_Highscore::m_Sort(){
 	if(f_objects->m_Count()<2){
 		return;
 	}
-	bb_list_List3* t_newList=(new bb_list_List3)->g_new();
+	bb_list_List4* t_newList=(new bb_list_List4)->g_new();
 	bb_score_Score* t_current=0;
 	while(f_objects->m_Count()>0){
 		t_current=f_objects->m_First();
-		bb_list_Enumerator2* t_=f_objects->m_ObjectEnumerator();
+		bb_list_Enumerator4* t_=f_objects->m_ObjectEnumerator();
 		while(t_->m_HasNext()){
 			bb_score_Score* t_check=t_->m_NextObject();
 			if(t_check->f_value<t_current->f_value){
@@ -8542,7 +9153,7 @@ void bb_highscore_Highscore::m_SizeTrim(){
 	}
 }
 void bb_highscore_Highscore::m_Add5(String t_key,int t_value){
-	f_objects->m_AddLast3((new bb_score_Score)->g_new(t_key,t_value));
+	f_objects->m_AddLast4((new bb_score_Score)->g_new(t_key,t_value));
 	m_Sort();
 	m_SizeTrim();
 }
@@ -8560,16 +9171,16 @@ void bb_highscore_Highscore::m_FromString(String t_input){
 	for(int t_count=0;t_count<=t_splitted.Length()-2;t_count=t_count+2){
 		t_key=t_splitted[t_count].Replace(String(L"[COMMA]"),String(L","));
 		t_value=(t_splitted[t_count+1]).ToInt();
-		f_objects->m_AddLast3((new bb_score_Score)->g_new(t_key,t_value));
+		f_objects->m_AddLast4((new bb_score_Score)->g_new(t_key,t_value));
 	}
 	m_Sort();
 }
-bb_list_Enumerator2* bb_highscore_Highscore::m_ObjectEnumerator(){
+bb_list_Enumerator4* bb_highscore_Highscore::m_ObjectEnumerator(){
 	return f_objects->m_ObjectEnumerator();
 }
 String bb_highscore_Highscore::m_ToString(){
 	String t_result=String();
-	bb_list_Enumerator2* t_=this->m_ObjectEnumerator();
+	bb_list_Enumerator4* t_=this->m_ObjectEnumerator();
 	while(t_->m_HasNext()){
 		bb_score_Score* t_score=t_->m_NextObject();
 		t_result=t_result+(t_score->f_key.Replace(String(L","),String(L"[COMMA]"))+String(L",")+String(t_score->f_value)+String(L","));
@@ -8639,50 +9250,50 @@ bb_score_Score* bb_score_Score::g_new2(){
 void bb_score_Score::mark(){
 	Object::mark();
 }
-bb_list_List3::bb_list_List3(){
-	f__head=((new bb_list_HeadNode3)->g_new());
+bb_list_List4::bb_list_List4(){
+	f__head=((new bb_list_HeadNode4)->g_new());
 }
-bb_list_List3* bb_list_List3::g_new(){
+bb_list_List4* bb_list_List4::g_new(){
 	return this;
 }
-bb_list_Node3* bb_list_List3::m_AddLast3(bb_score_Score* t_data){
-	return (new bb_list_Node3)->g_new(f__head,f__head->f__pred,t_data);
+bb_list_Node4* bb_list_List4::m_AddLast4(bb_score_Score* t_data){
+	return (new bb_list_Node4)->g_new(f__head,f__head->f__pred,t_data);
 }
-bb_list_List3* bb_list_List3::g_new2(Array<bb_score_Score* > t_data){
+bb_list_List4* bb_list_List4::g_new2(Array<bb_score_Score* > t_data){
 	Array<bb_score_Score* > t_=t_data;
 	int t_2=0;
 	while(t_2<t_.Length()){
 		bb_score_Score* t_t=t_[t_2];
 		t_2=t_2+1;
-		m_AddLast3(t_t);
+		m_AddLast4(t_t);
 	}
 	return this;
 }
-int bb_list_List3::m_Count(){
+int bb_list_List4::m_Count(){
 	int t_n=0;
-	bb_list_Node3* t_node=f__head->f__succ;
+	bb_list_Node4* t_node=f__head->f__succ;
 	while(t_node!=f__head){
 		t_node=t_node->f__succ;
 		t_n+=1;
 	}
 	return t_n;
 }
-bb_score_Score* bb_list_List3::m_First(){
+bb_score_Score* bb_list_List4::m_First(){
 	return f__head->m_NextNode()->f__data;
 }
-bb_list_Enumerator2* bb_list_List3::m_ObjectEnumerator(){
-	return (new bb_list_Enumerator2)->g_new(this);
+bb_list_Enumerator4* bb_list_List4::m_ObjectEnumerator(){
+	return (new bb_list_Enumerator4)->g_new(this);
 }
-bb_list_Node3* bb_list_List3::m_AddFirst(bb_score_Score* t_data){
-	return (new bb_list_Node3)->g_new(f__head->f__succ,f__head,t_data);
+bb_list_Node4* bb_list_List4::m_AddFirst(bb_score_Score* t_data){
+	return (new bb_list_Node4)->g_new(f__head->f__succ,f__head,t_data);
 }
-bool bb_list_List3::m_Equals3(bb_score_Score* t_lhs,bb_score_Score* t_rhs){
+bool bb_list_List4::m_Equals3(bb_score_Score* t_lhs,bb_score_Score* t_rhs){
 	return t_lhs==t_rhs;
 }
-int bb_list_List3::m_RemoveEach2(bb_score_Score* t_value){
-	bb_list_Node3* t_node=f__head->f__succ;
+int bb_list_List4::m_RemoveEach2(bb_score_Score* t_value){
+	bb_list_Node4* t_node=f__head->f__succ;
 	while(t_node!=f__head){
-		bb_list_Node3* t_succ=t_node->f__succ;
+		bb_list_Node4* t_succ=t_node->f__succ;
 		if(m_Equals3(t_node->f__data,t_value)){
 			t_node->m_Remove2();
 		}
@@ -8690,33 +9301,33 @@ int bb_list_List3::m_RemoveEach2(bb_score_Score* t_value){
 	}
 	return 0;
 }
-int bb_list_List3::m_Remove3(bb_score_Score* t_value){
+int bb_list_List4::m_Remove3(bb_score_Score* t_value){
 	m_RemoveEach2(t_value);
 	return 0;
 }
-int bb_list_List3::m_Clear(){
+int bb_list_List4::m_Clear(){
 	gc_assign(f__head->f__succ,f__head);
 	gc_assign(f__head->f__pred,f__head);
 	return 0;
 }
-bb_score_Score* bb_list_List3::m_RemoveLast(){
+bb_score_Score* bb_list_List4::m_RemoveLast(){
 	bb_score_Score* t_data=f__head->m_PrevNode()->f__data;
 	f__head->f__pred->m_Remove2();
 	return t_data;
 }
-bb_score_Score* bb_list_List3::m_Last(){
+bb_score_Score* bb_list_List4::m_Last(){
 	return f__head->m_PrevNode()->f__data;
 }
-void bb_list_List3::mark(){
+void bb_list_List4::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
 }
-bb_list_Node3::bb_list_Node3(){
+bb_list_Node4::bb_list_Node4(){
 	f__succ=0;
 	f__pred=0;
 	f__data=0;
 }
-bb_list_Node3* bb_list_Node3::g_new(bb_list_Node3* t_succ,bb_list_Node3* t_pred,bb_score_Score* t_data){
+bb_list_Node4* bb_list_Node4::g_new(bb_list_Node4* t_succ,bb_list_Node4* t_pred,bb_score_Score* t_data){
 	gc_assign(f__succ,t_succ);
 	gc_assign(f__pred,t_pred);
 	gc_assign(f__succ->f__pred,this);
@@ -8724,67 +9335,67 @@ bb_list_Node3* bb_list_Node3::g_new(bb_list_Node3* t_succ,bb_list_Node3* t_pred,
 	gc_assign(f__data,t_data);
 	return this;
 }
-bb_list_Node3* bb_list_Node3::g_new2(){
+bb_list_Node4* bb_list_Node4::g_new2(){
 	return this;
 }
-bb_list_Node3* bb_list_Node3::m_GetNode(){
+bb_list_Node4* bb_list_Node4::m_GetNode(){
 	return this;
 }
-bb_list_Node3* bb_list_Node3::m_NextNode(){
+bb_list_Node4* bb_list_Node4::m_NextNode(){
 	return f__succ->m_GetNode();
 }
-int bb_list_Node3::m_Remove2(){
+int bb_list_Node4::m_Remove2(){
 	gc_assign(f__succ->f__pred,f__pred);
 	gc_assign(f__pred->f__succ,f__succ);
 	return 0;
 }
-bb_list_Node3* bb_list_Node3::m_PrevNode(){
+bb_list_Node4* bb_list_Node4::m_PrevNode(){
 	return f__pred->m_GetNode();
 }
-void bb_list_Node3::mark(){
+void bb_list_Node4::mark(){
 	Object::mark();
 	gc_mark_q(f__succ);
 	gc_mark_q(f__pred);
 	gc_mark_q(f__data);
 }
-bb_list_HeadNode3::bb_list_HeadNode3(){
+bb_list_HeadNode4::bb_list_HeadNode4(){
 }
-bb_list_HeadNode3* bb_list_HeadNode3::g_new(){
-	bb_list_Node3::g_new2();
+bb_list_HeadNode4* bb_list_HeadNode4::g_new(){
+	bb_list_Node4::g_new2();
 	gc_assign(f__succ,(this));
 	gc_assign(f__pred,(this));
 	return this;
 }
-bb_list_Node3* bb_list_HeadNode3::m_GetNode(){
+bb_list_Node4* bb_list_HeadNode4::m_GetNode(){
 	return 0;
 }
-void bb_list_HeadNode3::mark(){
-	bb_list_Node3::mark();
+void bb_list_HeadNode4::mark(){
+	bb_list_Node4::mark();
 }
-bb_list_Enumerator2::bb_list_Enumerator2(){
+bb_list_Enumerator4::bb_list_Enumerator4(){
 	f__list=0;
 	f__curr=0;
 }
-bb_list_Enumerator2* bb_list_Enumerator2::g_new(bb_list_List3* t_list){
+bb_list_Enumerator4* bb_list_Enumerator4::g_new(bb_list_List4* t_list){
 	gc_assign(f__list,t_list);
 	gc_assign(f__curr,t_list->f__head->f__succ);
 	return this;
 }
-bb_list_Enumerator2* bb_list_Enumerator2::g_new2(){
+bb_list_Enumerator4* bb_list_Enumerator4::g_new2(){
 	return this;
 }
-bool bb_list_Enumerator2::m_HasNext(){
+bool bb_list_Enumerator4::m_HasNext(){
 	while(f__curr->f__succ->f__pred!=f__curr){
 		gc_assign(f__curr,f__curr->f__succ);
 	}
 	return f__curr!=f__list->f__head;
 }
-bb_score_Score* bb_list_Enumerator2::m_NextObject(){
+bb_score_Score* bb_list_Enumerator4::m_NextObject(){
 	bb_score_Score* t_data=f__curr->f__data;
 	gc_assign(f__curr,f__curr->f__succ);
 	return t_data;
 }
-void bb_list_Enumerator2::mark(){
+void bb_list_Enumerator4::mark(){
 	Object::mark();
 	gc_mark_q(f__list);
 	gc_mark_q(f__curr);
@@ -8957,13 +9568,13 @@ void bb_severity_Severity::m_ConfigureSlider(bb_list_IntList* t_config){
 	t_config->m_Clear();
 	for(int t_i=0;t_i<m_MinSliderTypes();t_i=t_i+1){
 		t_usedTypes->m_Insert4(f_shapeTypes[t_i]);
-		t_config->m_AddLast4(f_shapeTypes[t_i]);
+		t_config->m_AddLast5(f_shapeTypes[t_i]);
 	}
 	while(t_config->m_Count()<4){
 		if(t_usedTypes->m_Count()>=f_activatedShapes || bb_random_Rnd()<FLOAT(0.5)){
-			t_config->m_AddLast4(f_shapeTypes[int(bb_random_Rnd2(FLOAT(0.0),Float(t_usedTypes->m_Count())))]);
+			t_config->m_AddLast5(f_shapeTypes[int(bb_random_Rnd2(FLOAT(0.0),Float(t_usedTypes->m_Count())))]);
 		}else{
-			t_config->m_AddLast4(f_shapeTypes[t_usedTypes->m_Count()]);
+			t_config->m_AddLast5(f_shapeTypes[t_usedTypes->m_Count()]);
 			t_usedTypes->m_Insert4(f_shapeTypes[t_usedTypes->m_Count()]);
 		}
 	}
@@ -9102,7 +9713,7 @@ Float bb_slider_Slider::m_GetMovementOffset(){
 		if(f_direction==1){
 			int t_tmpType=f_config->m_First();
 			f_config->m_RemoveFirst();
-			f_config->m_AddLast4(t_tmpType);
+			f_config->m_AddLast5(t_tmpType);
 			gc_assign(f_configArray,f_config->m_ToArray());
 		}else{
 			int t_tmpType2=f_config->m_Last();
@@ -9128,7 +9739,7 @@ void bb_slider_Slider::m_OnRender(){
 		t_img=f_images[f_config->m_First()];
 		bb_graphics_DrawImage(t_img,Float(t_img->m_Width()*4)+t_posX,f_posY,0);
 	}
-	bb_list_Enumerator3* t_=f_config->m_ObjectEnumerator();
+	bb_list_Enumerator5* t_=f_config->m_ObjectEnumerator();
 	while(t_->m_HasNext()){
 		int t_type=t_->m_NextObject();
 		bb_graphics_DrawImage(f_images[t_type],t_posX,f_posY,0);
@@ -9805,46 +10416,46 @@ Float bb_random_Rnd2(Float t_low,Float t_high){
 Float bb_random_Rnd3(Float t_range){
 	return bb_random_Rnd()*t_range;
 }
-bb_list_List4::bb_list_List4(){
-	f__head=((new bb_list_HeadNode4)->g_new());
+bb_list_List5::bb_list_List5(){
+	f__head=((new bb_list_HeadNode5)->g_new());
 }
-bb_list_List4* bb_list_List4::g_new(){
+bb_list_List5* bb_list_List5::g_new(){
 	return this;
 }
-bb_list_Node4* bb_list_List4::m_AddLast4(int t_data){
-	return (new bb_list_Node4)->g_new(f__head,f__head->f__pred,t_data);
+bb_list_Node5* bb_list_List5::m_AddLast5(int t_data){
+	return (new bb_list_Node5)->g_new(f__head,f__head->f__pred,t_data);
 }
-bb_list_List4* bb_list_List4::g_new2(Array<int > t_data){
+bb_list_List5* bb_list_List5::g_new2(Array<int > t_data){
 	Array<int > t_=t_data;
 	int t_2=0;
 	while(t_2<t_.Length()){
 		int t_t=t_[t_2];
 		t_2=t_2+1;
-		m_AddLast4(t_t);
+		m_AddLast5(t_t);
 	}
 	return this;
 }
-int bb_list_List4::m_Clear(){
+int bb_list_List5::m_Clear(){
 	gc_assign(f__head->f__succ,f__head);
 	gc_assign(f__head->f__pred,f__head);
 	return 0;
 }
-int bb_list_List4::m_Count(){
+int bb_list_List5::m_Count(){
 	int t_n=0;
-	bb_list_Node4* t_node=f__head->f__succ;
+	bb_list_Node5* t_node=f__head->f__succ;
 	while(t_node!=f__head){
 		t_node=t_node->f__succ;
 		t_n+=1;
 	}
 	return t_n;
 }
-bb_list_Enumerator3* bb_list_List4::m_ObjectEnumerator(){
-	return (new bb_list_Enumerator3)->g_new(this);
+bb_list_Enumerator5* bb_list_List5::m_ObjectEnumerator(){
+	return (new bb_list_Enumerator5)->g_new(this);
 }
-Array<int > bb_list_List4::m_ToArray(){
+Array<int > bb_list_List5::m_ToArray(){
 	Array<int > t_arr=Array<int >(m_Count());
 	int t_i=0;
-	bb_list_Enumerator3* t_=this->m_ObjectEnumerator();
+	bb_list_Enumerator5* t_=this->m_ObjectEnumerator();
 	while(t_->m_HasNext()){
 		int t_t=t_->m_NextObject();
 		t_arr[t_i]=t_t;
@@ -9852,44 +10463,44 @@ Array<int > bb_list_List4::m_ToArray(){
 	}
 	return t_arr;
 }
-int bb_list_List4::m_First(){
+int bb_list_List5::m_First(){
 	return f__head->m_NextNode()->f__data;
 }
-int bb_list_List4::m_RemoveFirst(){
+int bb_list_List5::m_RemoveFirst(){
 	int t_data=f__head->m_NextNode()->f__data;
 	f__head->f__succ->m_Remove2();
 	return t_data;
 }
-int bb_list_List4::m_Last(){
+int bb_list_List5::m_Last(){
 	return f__head->m_PrevNode()->f__data;
 }
-int bb_list_List4::m_RemoveLast(){
+int bb_list_List5::m_RemoveLast(){
 	int t_data=f__head->m_PrevNode()->f__data;
 	f__head->f__pred->m_Remove2();
 	return t_data;
 }
-bb_list_Node4* bb_list_List4::m_AddFirst2(int t_data){
-	return (new bb_list_Node4)->g_new(f__head->f__succ,f__head,t_data);
+bb_list_Node5* bb_list_List5::m_AddFirst2(int t_data){
+	return (new bb_list_Node5)->g_new(f__head->f__succ,f__head,t_data);
 }
-void bb_list_List4::mark(){
+void bb_list_List5::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
 }
 bb_list_IntList::bb_list_IntList(){
 }
 bb_list_IntList* bb_list_IntList::g_new(){
-	bb_list_List4::g_new();
+	bb_list_List5::g_new();
 	return this;
 }
 void bb_list_IntList::mark(){
-	bb_list_List4::mark();
+	bb_list_List5::mark();
 }
-bb_list_Node4::bb_list_Node4(){
+bb_list_Node5::bb_list_Node5(){
 	f__succ=0;
 	f__pred=0;
 	f__data=0;
 }
-bb_list_Node4* bb_list_Node4::g_new(bb_list_Node4* t_succ,bb_list_Node4* t_pred,int t_data){
+bb_list_Node5* bb_list_Node5::g_new(bb_list_Node5* t_succ,bb_list_Node5* t_pred,int t_data){
 	gc_assign(f__succ,t_succ);
 	gc_assign(f__pred,t_pred);
 	gc_assign(f__succ->f__pred,this);
@@ -9897,41 +10508,41 @@ bb_list_Node4* bb_list_Node4::g_new(bb_list_Node4* t_succ,bb_list_Node4* t_pred,
 	f__data=t_data;
 	return this;
 }
-bb_list_Node4* bb_list_Node4::g_new2(){
+bb_list_Node5* bb_list_Node5::g_new2(){
 	return this;
 }
-bb_list_Node4* bb_list_Node4::m_GetNode(){
+bb_list_Node5* bb_list_Node5::m_GetNode(){
 	return this;
 }
-bb_list_Node4* bb_list_Node4::m_NextNode(){
+bb_list_Node5* bb_list_Node5::m_NextNode(){
 	return f__succ->m_GetNode();
 }
-int bb_list_Node4::m_Remove2(){
+int bb_list_Node5::m_Remove2(){
 	gc_assign(f__succ->f__pred,f__pred);
 	gc_assign(f__pred->f__succ,f__succ);
 	return 0;
 }
-bb_list_Node4* bb_list_Node4::m_PrevNode(){
+bb_list_Node5* bb_list_Node5::m_PrevNode(){
 	return f__pred->m_GetNode();
 }
-void bb_list_Node4::mark(){
+void bb_list_Node5::mark(){
 	Object::mark();
 	gc_mark_q(f__succ);
 	gc_mark_q(f__pred);
 }
-bb_list_HeadNode4::bb_list_HeadNode4(){
+bb_list_HeadNode5::bb_list_HeadNode5(){
 }
-bb_list_HeadNode4* bb_list_HeadNode4::g_new(){
-	bb_list_Node4::g_new2();
+bb_list_HeadNode5* bb_list_HeadNode5::g_new(){
+	bb_list_Node5::g_new2();
 	gc_assign(f__succ,(this));
 	gc_assign(f__pred,(this));
 	return this;
 }
-bb_list_Node4* bb_list_HeadNode4::m_GetNode(){
+bb_list_Node5* bb_list_HeadNode5::m_GetNode(){
 	return 0;
 }
-void bb_list_HeadNode4::mark(){
-	bb_list_Node4::mark();
+void bb_list_HeadNode5::mark(){
+	bb_list_Node5::mark();
 }
 bb_set_Set::bb_set_Set(){
 	f_map=0;
@@ -10277,30 +10888,30 @@ void bb_map_Node6::mark(){
 	gc_mark_q(f_value);
 	gc_mark_q(f_parent);
 }
-bb_list_Enumerator3::bb_list_Enumerator3(){
+bb_list_Enumerator5::bb_list_Enumerator5(){
 	f__list=0;
 	f__curr=0;
 }
-bb_list_Enumerator3* bb_list_Enumerator3::g_new(bb_list_List4* t_list){
+bb_list_Enumerator5* bb_list_Enumerator5::g_new(bb_list_List5* t_list){
 	gc_assign(f__list,t_list);
 	gc_assign(f__curr,t_list->f__head->f__succ);
 	return this;
 }
-bb_list_Enumerator3* bb_list_Enumerator3::g_new2(){
+bb_list_Enumerator5* bb_list_Enumerator5::g_new2(){
 	return this;
 }
-bool bb_list_Enumerator3::m_HasNext(){
+bool bb_list_Enumerator5::m_HasNext(){
 	while(f__curr->f__succ->f__pred!=f__curr){
 		gc_assign(f__curr,f__curr->f__succ);
 	}
 	return f__curr!=f__list->f__head;
 }
-int bb_list_Enumerator3::m_NextObject(){
+int bb_list_Enumerator5::m_NextObject(){
 	int t_data=f__curr->f__data;
 	gc_assign(f__curr,f__curr->f__succ);
 	return t_data;
 }
-void bb_list_Enumerator3::mark(){
+void bb_list_Enumerator5::mark(){
 	Object::mark();
 	gc_mark_q(f__list);
 	gc_mark_q(f__curr);
@@ -10475,7 +11086,7 @@ int bb_input_TouchDown(int t_index){
 bb_touchevent_TouchEvent::bb_touchevent_TouchEvent(){
 	f__finger=0;
 	f__startTime=0;
-	f_positions=(new bb_list_List5)->g_new();
+	f_positions=(new bb_list_List6)->g_new();
 	f__endTime=0;
 }
 bb_touchevent_TouchEvent* bb_touchevent_TouchEvent::g_new(int t_finger){
@@ -10506,7 +11117,7 @@ void bb_touchevent_TouchEvent::m_Add2(bb_vector2d_Vector2D* t_pos){
 	if(m_prevPos()->f_x==t_pos->f_x && m_prevPos()->f_y==t_pos->f_y){
 		return;
 	}
-	f_positions->m_AddLast5(t_pos);
+	f_positions->m_AddLast6(t_pos);
 }
 void bb_touchevent_TouchEvent::m_Trim(int t_size){
 	if(t_size==0){
@@ -10541,63 +11152,63 @@ Float bb_input_TouchX(int t_index){
 Float bb_input_TouchY(int t_index){
 	return bb_input_device->TouchY(t_index);
 }
-bb_list_List5::bb_list_List5(){
-	f__head=((new bb_list_HeadNode5)->g_new());
+bb_list_List6::bb_list_List6(){
+	f__head=((new bb_list_HeadNode6)->g_new());
 }
-bb_list_List5* bb_list_List5::g_new(){
+bb_list_List6* bb_list_List6::g_new(){
 	return this;
 }
-bb_list_Node5* bb_list_List5::m_AddLast5(bb_vector2d_Vector2D* t_data){
-	return (new bb_list_Node5)->g_new(f__head,f__head->f__pred,t_data);
+bb_list_Node6* bb_list_List6::m_AddLast6(bb_vector2d_Vector2D* t_data){
+	return (new bb_list_Node6)->g_new(f__head,f__head->f__pred,t_data);
 }
-bb_list_List5* bb_list_List5::g_new2(Array<bb_vector2d_Vector2D* > t_data){
+bb_list_List6* bb_list_List6::g_new2(Array<bb_vector2d_Vector2D* > t_data){
 	Array<bb_vector2d_Vector2D* > t_=t_data;
 	int t_2=0;
 	while(t_2<t_.Length()){
 		bb_vector2d_Vector2D* t_t=t_[t_2];
 		t_2=t_2+1;
-		m_AddLast5(t_t);
+		m_AddLast6(t_t);
 	}
 	return this;
 }
-int bb_list_List5::m_Count(){
+int bb_list_List6::m_Count(){
 	int t_n=0;
-	bb_list_Node5* t_node=f__head->f__succ;
+	bb_list_Node6* t_node=f__head->f__succ;
 	while(t_node!=f__head){
 		t_node=t_node->f__succ;
 		t_n+=1;
 	}
 	return t_n;
 }
-bb_vector2d_Vector2D* bb_list_List5::m_First(){
+bb_vector2d_Vector2D* bb_list_List6::m_First(){
 	return f__head->m_NextNode()->f__data;
 }
-bb_list_Node5* bb_list_List5::m_LastNode(){
+bb_list_Node6* bb_list_List6::m_LastNode(){
 	return f__head->m_PrevNode();
 }
-int bb_list_List5::m_Clear(){
+int bb_list_List6::m_Clear(){
 	gc_assign(f__head->f__succ,f__head);
 	gc_assign(f__head->f__pred,f__head);
 	return 0;
 }
-bb_vector2d_Vector2D* bb_list_List5::m_RemoveFirst(){
+bb_vector2d_Vector2D* bb_list_List6::m_RemoveFirst(){
 	bb_vector2d_Vector2D* t_data=f__head->m_NextNode()->f__data;
 	f__head->f__succ->m_Remove2();
 	return t_data;
 }
-bb_vector2d_Vector2D* bb_list_List5::m_Last(){
+bb_vector2d_Vector2D* bb_list_List6::m_Last(){
 	return f__head->m_PrevNode()->f__data;
 }
-void bb_list_List5::mark(){
+void bb_list_List6::mark(){
 	Object::mark();
 	gc_mark_q(f__head);
 }
-bb_list_Node5::bb_list_Node5(){
+bb_list_Node6::bb_list_Node6(){
 	f__succ=0;
 	f__pred=0;
 	f__data=0;
 }
-bb_list_Node5* bb_list_Node5::g_new(bb_list_Node5* t_succ,bb_list_Node5* t_pred,bb_vector2d_Vector2D* t_data){
+bb_list_Node6* bb_list_Node6::g_new(bb_list_Node6* t_succ,bb_list_Node6* t_pred,bb_vector2d_Vector2D* t_data){
 	gc_assign(f__succ,t_succ);
 	gc_assign(f__pred,t_pred);
 	gc_assign(f__succ->f__pred,this);
@@ -10605,45 +11216,45 @@ bb_list_Node5* bb_list_Node5::g_new(bb_list_Node5* t_succ,bb_list_Node5* t_pred,
 	gc_assign(f__data,t_data);
 	return this;
 }
-bb_list_Node5* bb_list_Node5::g_new2(){
+bb_list_Node6* bb_list_Node6::g_new2(){
 	return this;
 }
-bb_list_Node5* bb_list_Node5::m_GetNode(){
+bb_list_Node6* bb_list_Node6::m_GetNode(){
 	return this;
 }
-bb_list_Node5* bb_list_Node5::m_NextNode(){
+bb_list_Node6* bb_list_Node6::m_NextNode(){
 	return f__succ->m_GetNode();
 }
-bb_list_Node5* bb_list_Node5::m_PrevNode(){
+bb_list_Node6* bb_list_Node6::m_PrevNode(){
 	return f__pred->m_GetNode();
 }
-bb_vector2d_Vector2D* bb_list_Node5::m_Value(){
+bb_vector2d_Vector2D* bb_list_Node6::m_Value(){
 	return f__data;
 }
-int bb_list_Node5::m_Remove2(){
+int bb_list_Node6::m_Remove2(){
 	gc_assign(f__succ->f__pred,f__pred);
 	gc_assign(f__pred->f__succ,f__succ);
 	return 0;
 }
-void bb_list_Node5::mark(){
+void bb_list_Node6::mark(){
 	Object::mark();
 	gc_mark_q(f__succ);
 	gc_mark_q(f__pred);
 	gc_mark_q(f__data);
 }
-bb_list_HeadNode5::bb_list_HeadNode5(){
+bb_list_HeadNode6::bb_list_HeadNode6(){
 }
-bb_list_HeadNode5* bb_list_HeadNode5::g_new(){
-	bb_list_Node5::g_new2();
+bb_list_HeadNode6* bb_list_HeadNode6::g_new(){
+	bb_list_Node6::g_new2();
 	gc_assign(f__succ,(this));
 	gc_assign(f__pred,(this));
 	return this;
 }
-bb_list_Node5* bb_list_HeadNode5::m_GetNode(){
+bb_list_Node6* bb_list_HeadNode6::m_GetNode(){
 	return 0;
 }
-void bb_list_HeadNode5::mark(){
-	bb_list_Node5::mark();
+void bb_list_HeadNode6::mark(){
+	bb_list_Node6::mark();
 }
 int bb_input_EnableKeyboard(){
 	return bb_input_device->SetKeyboardEnabled(1);
