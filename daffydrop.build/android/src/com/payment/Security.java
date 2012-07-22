@@ -2,9 +2,9 @@
 
 package com.payment;
 
+import com.payment.Base64;
+import com.payment.Base64DecoderException;
 import com.payment.Consts.PurchaseState;
-import com.payment.util.Base64;
-import com.payment.util.Base64DecoderException;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -51,6 +51,14 @@ public class Security {
      * check if a nonce exists.
      */
     private static HashSet<Long> sKnownNonces = new HashSet<Long>();
+
+    protected static String base64EncodedPublicKey;
+
+    public static void SetPublicKey(String key)
+    {
+        base64EncodedPublicKey = key;
+    }
+
 
     /**
      * A class to hold the verified purchase information.
@@ -103,12 +111,10 @@ public class Security {
      */
     public static ArrayList<VerifiedPurchase> verifyPurchase(String signedData, String signature) {
         if (signedData == null) {
-            Log.e(TAG, "data is null");
+            Log.e("Payment", "data is null");
             return null;
         }
-        if (Consts.DEBUG) {
-            Log.i(TAG, "signedData: " + signedData);
-        }
+        Log.i("Payment", "signedData: " + signedData);
         boolean verified = false;
         if (!TextUtils.isEmpty(signature)) {
             /**
@@ -124,11 +130,11 @@ public class Security {
              * Generally, encryption keys / passwords should only be kept in memory
              * long enough to perform the operation they need to perform.
              */
-            String base64EncodedPublicKey = "your public key here";
+
             PublicKey key = Security.generatePublicKey(base64EncodedPublicKey);
             verified = Security.verify(key, signedData, signature);
             if (!verified) {
-                Log.w(TAG, "signature does not match data.");
+                Log.w("Payment", "signature does not match data.");
                 return null;
             }
         }
@@ -151,7 +157,7 @@ public class Security {
         }
 
         if (!Security.isNonceKnown(nonce)) {
-            Log.w(TAG, "Nonce not found: " + nonce);
+            Log.w("Payment", "Nonce not found: " + nonce);
             return null;
         }
 
@@ -180,7 +186,7 @@ public class Security {
                         orderId, purchaseTime, developerPayload));
             }
         } catch (JSONException e) {
-            Log.e(TAG, "JSON exception: ", e);
+            Log.e("Payment", "JSON exception: ", e);
             return null;
         }
         removeNonce(nonce);

@@ -2114,7 +2114,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
 
     private com.payment.BillingService mBillingService;
 
- 	protected boolean inProgress = false;
+    protected boolean inProgress = false;
 
     public void initDatabase()
     {
@@ -2130,15 +2130,15 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
     {
         mBillingService = bs;
     }
- 	public void SetInProgress(boolean p)
- 	{
- 		inProgress = p;
- 	}
+    public void SetInProgress(boolean p)
+    {
+        inProgress = p;
+    }
 
- 	public boolean IsInProgress()
- 	{
- 		return inProgress;
- 	}
+    public boolean IsInProgress()
+    {
+        return inProgress;
+    }
 
     public MonkeyPurchaseObserver(Handler handler) {
         super(MonkeyGame.activity, handler);
@@ -2154,13 +2154,13 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
 
     public boolean IsBought(String productId)
     {
-    	return mOwnedItems.contains(productId);
+        return mOwnedItems.contains(productId);
     }
 
     @Override
     public void onRequestPurchaseResponse(RequestPurchase request,
             ResponseCode responseCode) {
-    	// bb_std_lang.print("Payment onRequestPurchaseResponse");
+        // bb_std_lang.print("Payment onRequestPurchaseResponse");
         // bb_std_lang.print("Payment "  + request.mProductId + ": " + responseCode);
         if (responseCode == ResponseCode.RESULT_OK) {
           // bb_std_lang.print("Payment purchase was successfully sent to server");
@@ -2184,7 +2184,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
     @Override
     public void onRestoreTransactionsResponse(RestoreTransactions request,
             ResponseCode responseCode) {
-    	// bb_std_lang.print("Payment onRestoreTransactionsResponse");
+        // bb_std_lang.print("Payment onRestoreTransactionsResponse");
         if (responseCode == ResponseCode.RESULT_OK) {
             if (Consts.DEBUG) {
                 //bb_std_lang.print(TAG, "completed RestoreTransactions request");
@@ -2236,7 +2236,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
     @Override
     public void onPurchaseStateChange(PurchaseState purchaseState, String itemId,
             int quantity, long purchaseTime, String developerPayload) {
-    	// bb_std_lang.print("Payment -> onPurchaseStateChange");
+        // bb_std_lang.print("Payment -> onPurchaseStateChange");
            //  bb_std_lang.print("onPurchaseStateChange() itemId: " + itemId + " " + purchaseState);
 
         if (developerPayload == null) {
@@ -2246,7 +2246,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
         }
 
         if (purchaseState == PurchaseState.PURCHASED) {
-        	// bb_std_lang.print("Payment bought!!!! " + itemId);
+            // bb_std_lang.print("Payment bought!!!! " + itemId);
             SetInProgress(false);
             //bb_std_lang.print("add to owned items!!!! " + itemId);
             mOwnedItems.add(itemId);
@@ -2264,35 +2264,35 @@ class PaymentWrapper {
 
     public void Init()
     {
-		mHandler = new Handler();
-		mPurchaseObserver = new MonkeyPurchaseObserver(mHandler);
-		mBillingService = new com.payment.BillingService();
-		mBillingService.setContext(MonkeyGame.activity);
+        mHandler = new Handler();
+        mPurchaseObserver = new MonkeyPurchaseObserver(mHandler);
+        mBillingService = new com.payment.BillingService();
+        mBillingService.setContext(MonkeyGame.activity);
         mPurchaseObserver.SetBillingService(mBillingService);
 
-	    // Check if billing is supported.
-	    ResponseHandler.register(mPurchaseObserver);
-	    if (!mBillingService.checkBillingSupported()) {
-	        // showDialog(DIALOG_CANNOT_CONNECT_ID);
-	    }
+        // Check if billing is supported.
+        ResponseHandler.register(mPurchaseObserver);
+        if (!mBillingService.checkBillingSupported()) {
+            // showDialog(DIALOG_CANNOT_CONNECT_ID);
+        }
     }
 
     public boolean Purchase(String productId)
     {
-    	// android.test.purchased
-		// bb_std_lang.print("Purchase");
-		mPurchaseObserver.SetInProgress(true);
-		return mBillingService.requestPurchase(productId, null);
+        // android.test.purchased
+        // bb_std_lang.print("Purchase");
+        mPurchaseObserver.SetInProgress(true);
+        return mBillingService.requestPurchase(productId, null);
     }
 
     public boolean IsBought(String productId)
     {
-    	return mPurchaseObserver.IsBought(productId);
+        return mPurchaseObserver.IsBought(productId);
     }
 
     public boolean IsPurchaseInProgress()
     {
-    	return mPurchaseObserver.IsInProgress();
+        return mPurchaseObserver.IsInProgress();
     }
 
     protected void finalize() throws Throwable
@@ -2961,7 +2961,7 @@ class bb_menuscene_MenuScene extends bb_scene_Scene{
 		f_fullVersion=(new bb_menuscene_FullVersion()).g_new();
 		f_paymentService=(new bb_service_PaymentService()).g_new();
 		f_paymentService.m_SetBundleId("com.coragames.daffydrop");
-		f_paymentService.m_SetPublicKey("");
+		f_paymentService.m_SetPublicKey("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsug15ycEvF5iXuMBKON5bk+1a8I4nXtdexw9Jzwn6se9aRiQxtg40uvYB1RjiowTA8sjlOn9eTA78xJSjRnVBvif9VPgAKYVqLCeUMOiivw8XFEiit0XQhXZxNRdMdBETQyAClvb+UxbS+txX203DXFoAUAzOqElB7T6vJ3BUKFOtAKDN2AUTJIg3denEnXekIJVcdtiAJR4oAF72A2q02szkxP8TB/0auMOrnBiZ1Cn+HZfXeSottW7rkpyJ4etpDTrYNh0Sv8f2F7QFSXfdoorFTbWwppHpiGVDcp7AfbMRr6xp6KPzfMcayPA/ZvJoiaUfm7jZaeOHUYgoRvOuwIDAQAB");
 		f_paymentService.m_AddProduct(f_fullVersion);
 		f_paymentService.m_StartService();
 		f_fullVersion.m_UpdatePurchasedState();

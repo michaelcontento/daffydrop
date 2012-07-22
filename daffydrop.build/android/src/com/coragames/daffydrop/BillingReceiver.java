@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-package com.payment;
+package com.coragames.daffydrop;
 
+import com.payment.BillingService;
+import com.payment.Consts;
 import com.payment.Consts.ResponseCode;
 
 import android.content.BroadcastReceiver;
@@ -77,6 +79,7 @@ public class BillingReceiver extends BroadcastReceiver {
      * @param signature the signature for the signedData
      */
     private void purchaseStateChanged(Context context, String signedData, String signature) {
+    	Log.d("Payment", "purchaseStateChange " + signedData + "/" + signature);
         Intent intent = new Intent(Consts.ACTION_PURCHASE_STATE_CHANGED);
         intent.setClass(context, BillingService.class);
         intent.putExtra(Consts.INAPP_SIGNED_DATA, signedData);

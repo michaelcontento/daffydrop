@@ -2,20 +2,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 
 	package="com.coragames.daffydrop"
-
+	
 	android:versionCode="1"
 	android:versionName="1.0"
 	android:installLocation="auto">
 
-	<uses-sdk
+    <uses-permission android:name="com.android.vending.BILLING" />
+	
+	<uses-sdk 
 		android:minSdkVersion="3"
 		android:targetSdkVersion="7" />
-
+		
 	<uses-feature android:glEsVersion="0x00010001" />
-
+		
 	<application android:label="DaffyDrop" android:icon="@drawable/icon">
-		<activity
-			android:name="MonkeyGame"
+		<activity 
+			android:name="MonkeyGame" 
 			android:label="DaffyDrop"
 			android:screenOrientation="portrait"
 			android:configChanges="keyboardHidden|orientation"
@@ -26,18 +28,16 @@
 			</intent-filter>
 		</activity>
 
-        <!--  REQUIRED -->
-        <service android:name="BillingService" />
+        <service android:name="android.permission.INTERNET" />
+        <service android:name="com.payment.BillingService" />
 
-        <!--  REQUIRED -->
         <receiver android:name="BillingReceiver">
-            <intent-filter>
-                <action android:name="com.android.vending.billing.IN_APP_NOTIFY" />
-                <action android:name="com.android.vending.billing.RESPONSE_CODE" />
-                <action android:name="com.android.vending.billing.PURCHASE_STATE_CHANGED" />
-            </intent-filter>
+          <intent-filter>
+            <action android:name="com.android.vending.billing.IN_APP_NOTIFY" />
+            <action android:name="com.android.vending.billing.RESPONSE_CODE" />
+            <action android:name="com.android.vending.billing.PURCHASE_STATE_CHANGED" />
+          </intent-filter>
         </receiver>
 	</application>
-
-  <uses-permission android:name="com.android.vending.BILLING" />
-</manifest>
+</manifest> 
+          

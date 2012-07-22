@@ -4,7 +4,6 @@ import com.payment.BillingService.RestoreTransactions;
 import com.payment.Consts.PurchaseState;
 import com.payment.Consts;
 import com.payment.Consts.ResponseCode;
-import com.payment.Consts.PurchaseState;
 import com.payment.PurchaseObserver;
 import com.payment.ResponseHandler;
 import com.payment.PurchaseDatabase;
@@ -18,7 +17,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
 
     private com.payment.BillingService mBillingService;
 
- 	protected boolean inProgress = false;
+    protected boolean inProgress = false;
 
     public void initDatabase()
     {
@@ -34,15 +33,15 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
     {
         mBillingService = bs;
     }
- 	public void SetInProgress(boolean p)
- 	{
- 		inProgress = p;
- 	}
+    public void SetInProgress(boolean p)
+    {
+        inProgress = p;
+    }
 
- 	public boolean IsInProgress()
- 	{
- 		return inProgress;
- 	}
+    public boolean IsInProgress()
+    {
+        return inProgress;
+    }
 
     public MonkeyPurchaseObserver(Handler handler) {
         super(MonkeyGame.activity, handler);
@@ -58,13 +57,13 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
 
     public boolean IsBought(String productId)
     {
-    	return mOwnedItems.contains(productId);
+        return mOwnedItems.contains(productId);
     }
 
     @Override
     public void onRequestPurchaseResponse(RequestPurchase request,
             ResponseCode responseCode) {
-    	// bb_std_lang.print("Payment onRequestPurchaseResponse");
+        // bb_std_lang.print("Payment onRequestPurchaseResponse");
         // bb_std_lang.print("Payment "  + request.mProductId + ": " + responseCode);
         if (responseCode == ResponseCode.RESULT_OK) {
           // bb_std_lang.print("Payment purchase was successfully sent to server");
@@ -88,7 +87,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
     @Override
     public void onRestoreTransactionsResponse(RestoreTransactions request,
             ResponseCode responseCode) {
-    	// bb_std_lang.print("Payment onRestoreTransactionsResponse");
+        // bb_std_lang.print("Payment onRestoreTransactionsResponse");
         if (responseCode == ResponseCode.RESULT_OK) {
             if (Consts.DEBUG) {
                 //bb_std_lang.print(TAG, "completed RestoreTransactions request");
@@ -140,7 +139,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
     @Override
     public void onPurchaseStateChange(PurchaseState purchaseState, String itemId,
             int quantity, long purchaseTime, String developerPayload) {
-    	// bb_std_lang.print("Payment -> onPurchaseStateChange");
+        // bb_std_lang.print("Payment -> onPurchaseStateChange");
            //  bb_std_lang.print("onPurchaseStateChange() itemId: " + itemId + " " + purchaseState);
 
         if (developerPayload == null) {
@@ -150,7 +149,7 @@ class MonkeyPurchaseObserver extends PurchaseObserver {
         }
 
         if (purchaseState == PurchaseState.PURCHASED) {
-        	// bb_std_lang.print("Payment bought!!!! " + itemId);
+            // bb_std_lang.print("Payment bought!!!! " + itemId);
             SetInProgress(false);
             //bb_std_lang.print("add to owned items!!!! " + itemId);
             mOwnedItems.add(itemId);
@@ -168,35 +167,35 @@ class PaymentWrapper {
 
     public void Init()
     {
-		mHandler = new Handler();
-		mPurchaseObserver = new MonkeyPurchaseObserver(mHandler);
-		mBillingService = new com.payment.BillingService();
-		mBillingService.setContext(MonkeyGame.activity);
+        mHandler = new Handler();
+        mPurchaseObserver = new MonkeyPurchaseObserver(mHandler);
+        mBillingService = new com.payment.BillingService();
+        mBillingService.setContext(MonkeyGame.activity);
         mPurchaseObserver.SetBillingService(mBillingService);
 
-	    // Check if billing is supported.
-	    ResponseHandler.register(mPurchaseObserver);
-	    if (!mBillingService.checkBillingSupported()) {
-	        // showDialog(DIALOG_CANNOT_CONNECT_ID);
-	    }
+        // Check if billing is supported.
+        ResponseHandler.register(mPurchaseObserver);
+        if (!mBillingService.checkBillingSupported()) {
+            // showDialog(DIALOG_CANNOT_CONNECT_ID);
+        }
     }
 
     public boolean Purchase(String productId)
     {
-    	// android.test.purchased
-		// bb_std_lang.print("Purchase");
-		mPurchaseObserver.SetInProgress(true);
-		return mBillingService.requestPurchase(productId, null);
+        // android.test.purchased
+        // bb_std_lang.print("Purchase");
+        mPurchaseObserver.SetInProgress(true);
+        return mBillingService.requestPurchase(productId, null);
     }
 
     public boolean IsBought(String productId)
     {
-    	return mPurchaseObserver.IsBought(productId);
+        return mPurchaseObserver.IsBought(productId);
     }
 
     public boolean IsPurchaseInProgress()
     {
-    	return mPurchaseObserver.IsInProgress();
+        return mPurchaseObserver.IsInProgress();
     }
 
     protected void finalize() throws Throwable

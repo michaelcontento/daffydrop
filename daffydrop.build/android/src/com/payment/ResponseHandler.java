@@ -55,9 +55,9 @@ public class ResponseHandler {
      * {@link BillingService#checkBillingSupported()}.
      * @param supported true if in-app billing is supported.
      */
-    public static void checkBillingSupportedResponse(boolean supported, String type) {
+    public static void checkBillingSupportedResponse(boolean supported) {
         if (sPurchaseObserver != null) {
-            sPurchaseObserver.onBillingSupported(supported, type);
+            sPurchaseObserver.onBillingSupported(supported);
         }
     }
 
@@ -110,12 +110,8 @@ public class ResponseHandler {
         // the database because we need to read and update the current quantity
         // first.
         new Thread(new Runnable() {
-            @Override
             public void run() {
-                PurchaseDatabase db = new PurchaseDatabase(context);
-                int quantity = db.updatePurchase(
-                        orderId, productId, purchaseState, purchaseTime, developerPayload);
-                db.close();
+                int quantity = 1;
 
                 // This needs to be synchronized because the UI thread can change the
                 // value of sPurchaseObserver.
