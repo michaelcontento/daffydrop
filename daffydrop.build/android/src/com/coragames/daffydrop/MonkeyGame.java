@@ -4629,7 +4629,7 @@ class bb_menuscene_FullVersion extends bb_product_PaymentProduct{
 		return "com.coragames.daffydrop.fullversion";
 	}
 	public String m_GetAndroidId(){
-		return "android.test.purchased";
+		return "com.coragames.daffydrop.fullversion";
 	}
 }
 class bb_service_PaymentService extends Object{

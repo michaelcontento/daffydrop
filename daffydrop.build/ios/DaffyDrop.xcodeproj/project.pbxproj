@@ -317,12 +317,14 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COMPRESS_PNG_FILES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = MonkeyGame_Prefix.pch;
 				INFOPLIST_FILE = "MonkeyGame-Info.plist";
+				New_Setting = "";
 				PRODUCT_NAME = DaffyDrop;
 				PROVISIONING_PROFILE = "";
 			};
@@ -334,11 +336,13 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COMPRESS_PNG_FILES = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = MonkeyGame_Prefix.pch;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "MonkeyGame-Info.plist";
+				New_Setting = "";
 				PRODUCT_NAME = DaffyDrop;
 				PROVISIONING_PROFILE = "";
 				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
@@ -353,15 +357,16 @@
 					armv6,
 					"$(ARCHS_UNIVERSAL_IPHONE_OS)",
 				);
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "iPhone Distribution: Michael Contento";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: Michael Contento";
+				COMPRESS_PNG_FILES = YES;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_THUMB_SUPPORT = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 3.0;
-				PROVISIONING_PROFILE = "";
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
+				PROVISIONING_PROFILE = "BB9A0A7C-0427-4770-B23C-61B3C47D9CD8";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "BB9A0A7C-0427-4770-B23C-61B3C47D9CD8";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -374,16 +379,17 @@
 					armv6,
 					"$(ARCHS_UNIVERSAL_IPHONE_OS)",
 				);
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "iPhone Distribution: Michael Contento";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: Michael Contento";
+				COMPRESS_PNG_FILES = YES;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_THUMB_SUPPORT = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 3.0;
 				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
-				PROVISIONING_PROFILE = "";
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
+				PROVISIONING_PROFILE = "BB9A0A7C-0427-4770-B23C-61B3C47D9CD8";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "BB9A0A7C-0427-4770-B23C-61B3C47D9CD8";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

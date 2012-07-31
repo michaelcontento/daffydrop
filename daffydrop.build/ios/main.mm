@@ -3475,6 +3475,7 @@ MKStoreKit function wrappers by Roman Budzowski (c) 21.07.2011
 }
 	
 - (void) paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions;
+- (void) paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error;
 - (void) failedTransaction: (SKPaymentTransaction *)transaction;
 - (void) completeTransaction: (SKPaymentTransaction *)transaction;
 - (void) restoreTransaction: (SKPaymentTransaction *)transaction;
@@ -3558,6 +3559,11 @@ MKStoreKit function wrappers by Roman Budzowski (c) 21.07.2011
 
 
 @implementation MKStoreObserver
+
+- (void)paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error
+{
+    [[MKStoreManager sharedManager] setIsPurchaseInProgress: NO];
+}
 
 - (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions
 {
@@ -4250,6 +4256,7 @@ void InitInAppPurchases(String bundleID, Array<String> prodList) {
 
 void restorePurchasedProducts() {
 //	NSLog(@"trying to restore");
+    [[MKStoreManager sharedManager] setIsPurchaseInProgress: YES];
 	[[MKStoreManager sharedManager] restorePreviousTransactions];
 }
 
@@ -4556,10 +4563,12 @@ class bb_menuscene_MenuScene : public bb_scene_Scene{
 	bb_sprite_Sprite* f_advancedActive;
 	bb_sprite_Sprite* f_highscore;
 	bb_sprite_Sprite* f_lock;
+	bb_sprite_Sprite* f_restore;
 	bb_menuscene_FullVersion* f_fullVersion;
 	bb_service_PaymentService* f_paymentService;
 	bool f_isLocked;
 	bool f_paymentProcessing;
+	bool f_initialized;
 	bb_font_Font* f_waitingText;
 	bb_sprite_Sprite* f_waitingImage;
 	bb_menuscene_MenuScene();
@@ -4567,8 +4576,9 @@ class bb_menuscene_MenuScene : public bb_scene_Scene{
 	virtual void m_ToggleLock();
 	virtual void m_OnCreate(bb_director_Director*);
 	virtual void m_OnResume(int);
-	virtual void m_PlayEasy();
 	virtual void m_InitializeWaitingImages();
+	virtual void m_HandleRestore();
+	virtual void m_PlayEasy();
 	virtual void m_HandleLocked();
 	virtual void m_PlayNormal();
 	virtual void m_PlayAdvanced();
@@ -6543,10 +6553,12 @@ bb_menuscene_MenuScene::bb_menuscene_MenuScene(){
 	f_advancedActive=0;
 	f_highscore=0;
 	f_lock=0;
+	f_restore=0;
 	f_fullVersion=0;
 	f_paymentService=0;
 	f_isLocked=true;
 	f_paymentProcessing=false;
+	f_initialized=false;
 	f_waitingText=0;
 	f_waitingImage=0;
 }
@@ -6560,15 +6572,11 @@ void bb_menuscene_MenuScene::m_ToggleLock(){
 		m_layer()->m_Remove(f_lock);
 		m_layer()->m_Remove(f_normal);
 		m_layer()->m_Remove(f_advanced);
+		m_layer()->m_Remove(f_restore);
 		m_layer()->m_Add4(f_normalActive);
 		m_layer()->m_Add4(f_advancedActive);
 	}else{
-		f_isLocked=true;
-		m_layer()->m_Remove(f_normalActive);
-		m_layer()->m_Remove(f_advancedActive);
-		m_layer()->m_Add4(f_normal);
-		m_layer()->m_Add4(f_advanced);
-		m_layer()->m_Add4(f_lock);
+		return;
 	}
 }
 void bb_menuscene_MenuScene::m_OnCreate(bb_director_Director* t_director){
@@ -6589,6 +6597,9 @@ void bb_menuscene_MenuScene::m_OnCreate(bb_director_Director* t_director){
 	m_layer()->m_Add4(f_advanced);
 	m_layer()->m_Add4(f_highscore);
 	m_layer()->m_Add4(f_lock);
+	gc_assign(f_restore,(new bb_sprite_Sprite)->g_new(String(L"restore.png"),f_normal->m_pos()->m_Copy()));
+	f_restore->m_pos()->f_x+=f_normal->m_size()->f_x+FLOAT(35.0);
+	m_layer()->m_Add4(f_restore);
 	bb_scene_Scene::m_OnCreate(t_director);
 	f_easy->m_CenterX(t_director);
 	f_normal->m_CenterX(t_director);
@@ -6609,11 +6620,10 @@ void bb_menuscene_MenuScene::m_OnCreate(bb_director_Director* t_director){
 void bb_menuscene_MenuScene::m_OnResume(int t_delta){
 	AppiraterMonk::Launched();
 }
-void bb_menuscene_MenuScene::m_PlayEasy(){
-	bb_severity_CurrentSeverity()->m_Set5(0);
-	m_router()->m_Goto(String(L"game"));
-}
 void bb_menuscene_MenuScene::m_InitializeWaitingImages(){
+	if(f_initialized){
+		return;
+	}
 	gc_assign(f_waitingText,(new bb_font_Font)->g_new(String(L"CoRa"),0));
 	f_waitingText->m_OnCreate(m_director());
 	f_waitingText->m_text(String(L"Loading"));
@@ -6624,6 +6634,22 @@ void bb_menuscene_MenuScene::m_InitializeWaitingImages(){
 	f_waitingImage->m_Center(m_director());
 	bb_vector2d_Vector2D* t_=f_waitingImage->m_pos();
 	t_->f_y=t_->f_y-FLOAT(50.0);
+	f_initialized=true;
+}
+void bb_menuscene_MenuScene::m_HandleRestore(){
+	if(f_paymentProcessing){
+		return;
+	}
+	if(!f_isLocked){
+		return;
+	}
+	m_InitializeWaitingImages();
+	f_paymentProcessing=true;
+	restorePurchasedProducts();
+}
+void bb_menuscene_MenuScene::m_PlayEasy(){
+	bb_severity_CurrentSeverity()->m_Set5(0);
+	m_router()->m_Goto(String(L"game"));
 }
 void bb_menuscene_MenuScene::m_HandleLocked(){
 	if(f_paymentProcessing){
@@ -6655,6 +6681,9 @@ void bb_menuscene_MenuScene::m_PlayAdvanced(){
 void bb_menuscene_MenuScene::m_OnTouchDown(bb_touchevent_TouchEvent* t_event){
 	if(f_paymentProcessing){
 		return;
+	}
+	if(f_restore->m_Collide(t_event->m_pos())){
+		m_HandleRestore();
 	}
 	if(f_easy->m_Collide(t_event->m_pos())){
 		m_PlayEasy();
@@ -6705,6 +6734,7 @@ void bb_menuscene_MenuScene::m_OnUpdate(Float t_delta,Float t_frameTime){
 		return;
 	}
 	f_paymentProcessing=false;
+	f_fullVersion->m_UpdatePurchasedState();
 	if(!f_fullVersion->m_IsProductPurchased()){
 		return;
 	}
@@ -6739,6 +6769,7 @@ void bb_menuscene_MenuScene::mark(){
 	gc_mark_q(f_advancedActive);
 	gc_mark_q(f_highscore);
 	gc_mark_q(f_lock);
+	gc_mark_q(f_restore);
 	gc_mark_q(f_fullVersion);
 	gc_mark_q(f_paymentService);
 	gc_mark_q(f_waitingText);
