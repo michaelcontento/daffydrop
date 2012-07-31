@@ -17,7 +17,7 @@ Class FullVersion Extends PaymentProduct
     End
 
     Method GetAndroidId$()
-        Return "android.test.purchased"
+        Return "com.coragames.daffydrop.fullversion"
     End
 End
 
@@ -32,6 +32,7 @@ Class MenuScene Extends Scene
     Field advanced:Sprite
     Field advancedActive:Sprite
     Field highscore:Sprite
+    Field restore:Sprite
     Field isLocked:Bool = True
     Field lock:Sprite
     Field paymentProcessing:Bool
@@ -62,6 +63,12 @@ Class MenuScene Extends Scene
         layer.Add(highscore)
         layer.Add(lock)
 
+#If TARGET="ios"
+        restore = New Sprite("restore.png", normal.pos.Copy())
+        restore.pos.x += normal.size.x + 35
+        layer.Add(restore)
+#End
+
         Super.OnCreate(director)
 
         easy.CenterX(director)
@@ -88,6 +95,9 @@ Class MenuScene Extends Scene
 
     Method OnTouchDown:Void(event:TouchEvent)
         If paymentProcessing Then Return
+#If TARGET="ios"
+        If restore.Collide(event.pos) Then HandleRestore()
+#End
         If easy.Collide(event.pos) Then PlayEasy()
         If normal.Collide(event.pos) Then PlayNormal()
         If advanced.Collide(event.pos) Then PlayAdvanced()
@@ -117,7 +127,9 @@ Class MenuScene Extends Scene
         If paymentService.IsPurchaseInProgress() Then Return
         paymentProcessing = False
 
+        fullVersion.UpdatePurchasedState()
         If Not fullVersion.IsProductPurchased() Then Return
+
         ToggleLock()
     End
 
@@ -148,7 +160,10 @@ Class MenuScene Extends Scene
 
     Private
 
+    Field initialized:Bool
     Method InitializeWaitingImages:Void()
+        If initialized Then Return
+
         waitingText = New Font("CoRa")
         waitingText.OnCreate(director)
         waitingText.text = "Loading"
@@ -159,6 +174,8 @@ Class MenuScene Extends Scene
         waitingImage.OnCreate(director)
         waitingImage.Center(director)
         waitingImage.pos.y -= 50
+
+        initialized = True
     End
 
     Method ToggleLock:Void()
@@ -167,9 +184,13 @@ Class MenuScene Extends Scene
             layer.Remove(lock)
             layer.Remove(normal)
             layer.Remove(advanced)
+#If TARGET="ios"
+            layer.Remove(restore)
+#End
             layer.Add(normalActive)
             layer.Add(advancedActive)
         Else
+            Return
             isLocked = True
             layer.Remove(normalActive)
             layer.Remove(advancedActive)
@@ -209,5 +230,14 @@ Class MenuScene Extends Scene
         InitializeWaitingImages()
         paymentProcessing = True
         fullVersion.Buy()
+    End
+
+    Method HandleRestore:Void()
+        If paymentProcessing Then Return
+        If Not isLocked Then Return
+
+        InitializeWaitingImages()
+        paymentProcessing = True
+        restorePurchasedProducts()
     End
 End
