@@ -30,7 +30,10 @@ Class Shape Extends BaseObject
         Self.chute = chute
 
         If images.Length() = 0
-            images = [LoadImage("circle_inside.png"), LoadImage("plus_inside.png"), LoadImage("star_inside.png"), LoadImage("tire_inside.png")]
+            images = [LoadImage("shapes/circle_inside.png"),
+                LoadImage("shapes/plus_inside.png"),
+                LoadImage("shapes/star_inside.png"),
+                LoadImage("shapes/tire_inside.png")]
         End
 
         Local posX:Float = 44 + (images[0].Width() * lane)

@@ -34,7 +34,10 @@ Class Slider Extends BaseObject
     Const RIGHT:Int = 2
 
     Method OnCreate:Void(director:Director)
-        images = [LoadImage("circle_outside.png"), LoadImage("plus_outside.png"), LoadImage("star_outside.png"), LoadImage("tire_outside.png")]
+        images = [LoadImage("shapes/circle_outside.png"),
+            LoadImage("shapes/plus_outside.png"),
+            LoadImage("shapes/star_outside.png"),
+            LoadImage("shapes/tire_outside.png")]
 
         arrowLeft = New Sprite("arrow_ingame.png")
         arrowLeft.pos.y = director.size.y - arrowLeft.size.y
