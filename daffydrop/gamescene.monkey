@@ -57,7 +57,7 @@ Class GameScene Extends Scene Implements RouterEvents
         upperShapes = New FanOut()
         errorAnimations = New FanOut()
 
-        pauseButton = New Sprite("pause-button.png")
+        pauseButton = New Sprite("buttons/pause-button.png")
         pauseButton.pos = director.size.Copy().Sub(pauseButton.size)
         pauseButton.pos.y = 0
 

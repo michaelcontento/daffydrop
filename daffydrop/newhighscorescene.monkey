@@ -29,7 +29,7 @@ Class NewHighscoreScene Extends Scene
         layer.Add(background)
 
 #If TARGET<>"ios" And TARGET<>"android"
-        continueBtn = New Sprite("01_06-continue.png")
+        continueBtn = New Sprite("buttons/01_06-continue.png")
         layer.Add(continueBtn)
 #End
 

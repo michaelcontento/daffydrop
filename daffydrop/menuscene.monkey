@@ -22,10 +22,10 @@ Class MenuScene Extends Scene
 
     Method OnCreate:Void(director:Director)
         Local offset:Vector2D = New Vector2D(0, 150)
-        easy = New Sprite("01_02-easy.png", New Vector2D(0, 290))
-        normal = New Sprite("01_02-normal_active.png", easy.pos.Copy().Add(offset))
-        advanced = New Sprite("01_02-advanced_active.png", normal.pos.Copy().Add(offset))
-        highscore = New Sprite("01_04button-highscore.png", advanced.pos.Copy().Add(offset))
+        easy = New Sprite("buttons/01_02-easy.png", New Vector2D(0, 290))
+        normal = New Sprite("buttons/01_02-normal_active.png", easy.pos.Copy().Add(offset))
+        advanced = New Sprite("buttons/01_02-advanced_active.png", normal.pos.Copy().Add(offset))
+        highscore = New Sprite("buttons/01_04button-highscore.png", advanced.pos.Copy().Add(offset))
 
         layer.Add(New Sprite("01_main.jpg"))
         layer.Add(easy)

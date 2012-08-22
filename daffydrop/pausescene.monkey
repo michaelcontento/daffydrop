@@ -22,10 +22,10 @@ Class PauseScene Extends Scene
         overlay = New Sprite("pause.png")
         layer.Add(overlay)
 
-        continueBtn = New Sprite("01_06-continue.png")
+        continueBtn = New Sprite("buttons/01_06-continue.png")
         layer.Add(continueBtn)
 
-        quitBtn = New Sprite("01_07-quit.png")
+        quitBtn = New Sprite("buttons/01_07-quit.png")
         layer.Add(quitBtn)
 
         Super.OnCreate(director)
