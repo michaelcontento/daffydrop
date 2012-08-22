@@ -12,6 +12,7 @@ Import slider
 Import scene
 Import newhighscorescene
 Import gamehighscore
+Import soundmanager
 
 Public
 
@@ -46,6 +47,7 @@ Class GameScene Extends Scene Implements RouterEvents
     Field comboPendingSince:Int
     Field checkPosY:Float
     Field collisionCheckedLastUpdate:Bool
+    Global soundmanager:SoundManager
 
     Public
 
@@ -106,6 +108,13 @@ Class GameScene Extends Scene Implements RouterEvents
         layer.Add(pauseButton)
 
         Super.OnCreate(director)
+
+        If Not soundmanager
+            soundmanager = New SoundManager()
+            soundmanager.Add("match", "sounds/shape-match")
+            soundmanager.Add("mismatch", "sounds/shape-mismatch")
+            soundmanager.PreloadAll()
+        End
 
         checkPosY = director.size.y - (slider.images[0].Height() / 2) - 5
     End
@@ -351,6 +360,7 @@ Class GameScene Extends Scene Implements RouterEvents
     Method OnMatch:Void(shape:Shape)
         lastMatchTime[shape.lane] = Millisecs()
         IncrementScore(10)
+        soundmanager.Play("match")
     End
 
     Method IncrementScore:Void(value:Int)
@@ -379,6 +389,7 @@ Class GameScene Extends Scene Implements RouterEvents
         comboPending = False
         comboPendingSince = 0
         errorAnimations.Add(sprite)
+        soundmanager.Play("mismatch")
     End
 
     Method LoadHighscoreMinValue:Void()

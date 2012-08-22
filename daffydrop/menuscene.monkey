@@ -27,6 +27,8 @@ Class MenuScene Extends Scene
         advanced = New Sprite("buttons/01_02-advanced_active.png", normal.pos.Copy().Add(offset))
         highscore = New Sprite("buttons/01_04button-highscore.png", advanced.pos.Copy().Add(offset))
 
+        PlayMusic("sounds/background.mp3", 1)
+
         layer.Add(New Sprite("01_main.jpg"))
         layer.Add(easy)
         layer.Add(normal)
