@@ -16,6 +16,11 @@ Class SoundManager
     Field musicSounds:StringMap<Bool> = New StringMap<Bool>()
     Field lastChannel:Int
     Const CHANNELS:Int = 9
+#If TARGET="android"
+    Const IS_ANDROID:Bool = True
+#Else
+    Const IS_ANDROID:Bool = False
+#End
 
     Public
 
@@ -89,7 +94,7 @@ Class SoundManager
             channelId += 1
             If channelId >= CHANNELS Then channelId = 0
 
-            If ChannelState(channelId) = 0
+            If IS_ANDROID Or ChannelState(channelId) = 0
                 lastChannel = channelId
                 Return channelId
             End
