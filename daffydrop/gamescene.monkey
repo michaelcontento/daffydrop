@@ -113,6 +113,9 @@ Class GameScene Extends Scene Implements RouterEvents
             soundmanager = New SoundManager()
             soundmanager.Add("match", "sounds/shape-match")
             soundmanager.Add("mismatch", "sounds/shape-mismatch")
+            soundmanager.Add("combo", "sounds/combo")
+            soundmanager.Add("gameover", "sounds/gameover")
+            soundmanager.Add("newhighscore", "sounds/newhighscore")
             soundmanager.PreloadAll()
         End
 
@@ -256,6 +259,7 @@ Class GameScene Extends Scene Implements RouterEvents
             NewHighscoreScene(router.Get("newhighscore")).score = score
             router.Goto("newhighscore")
         Else
+            soundmanager.Play("gameover")
             router.Goto("gameover")
         End
 
@@ -348,6 +352,7 @@ Class GameScene Extends Scene Implements RouterEvents
         IncrementScore(15 * lanesNotZero)
         comboFont.text = "COMBO x " + lanesNotZero
 
+        soundmanager.Play("combo")
         comboAnimation.Restart()
         layer.Add(comboAnimation)
     End
@@ -371,6 +376,7 @@ Class GameScene Extends Scene Implements RouterEvents
             isNewHighscoreRecord = True
             newHighscoreAnimation.Restart()
             layer.Add(newHighscoreAnimation)
+            soundmanager.Play("newhighscore")
         End
     End
 
