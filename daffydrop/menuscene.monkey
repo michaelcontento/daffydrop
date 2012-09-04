@@ -7,6 +7,7 @@ Import bono
 Import severity
 Import scene
 Import appirater
+Import utilbackport
 
 Public
 
@@ -17,6 +18,7 @@ Class MenuScene Extends Scene
     Field normal:Sprite
     Field advanced:Sprite
     Field highscore:Sprite
+    Field moreGames:Sprite
 
     Public
 
@@ -37,6 +39,14 @@ Class MenuScene Extends Scene
 
         Super.OnCreate(director)
 
+#If TARGET="ios" Or TARGET="android"
+        moreGames = New Sprite("moregames.png")
+        moreGames.OnCreate(director)
+        moreGames.pos = director.size.Copy().Sub(moreGames.size)
+        moreGames.pos.y = 0
+        layer.Add(moreGames)
+#End
+
         easy.CenterX(director)
         normal.CenterX(director)
         advanced.CenterX(director)
@@ -50,6 +60,9 @@ Class MenuScene Extends Scene
     End
 
     Method OnTouchDown:Void(event:TouchEvent)
+#If TARGET="ios" Or TARGET="android"
+        If HandleMoreGames(event) Then Return
+#End
         If easy.Collide(event.pos) Then PlayEasy()
         If normal.Collide(event.pos) Then PlayNormal()
         If advanced.Collide(event.pos) Then PlayAdvanced()
@@ -70,6 +83,26 @@ Class MenuScene Extends Scene
     End
 
     Private
+
+    Method HandleMoreGames:Bool(touch:TouchEvent)
+        If Not moreGames.Collide(touch.pos) Then Return False
+
+        Local touchLength:Float = touch.pos.Length() - moreGames.pos.Length()
+        Local moreGamesHalfLength:Float = moreGames.size.Length() / 2
+
+        ' User clicked on the "restore purchases" button but only on the left
+        ' (transparent) side of it. Yes, this check is NOT 100% accurate (we're
+        ' only testing with a circle around restore.pos where r=restore.size / 2)
+        ' but this is fast and sufficient for our requirements.
+        If touchLength < moreGamesHalfLength Then Return False
+
+#If TARGET="ios"
+        UtilBackport.OpenUrl("itms://itunes.com/apps/coragames")
+#ElseIf TARGET="android"
+        UtilBackport.OpenUrl("market://search?q=pub:CoRa++Games")
+#End
+        Return True
+    End
 
     Method PlayEasy:Void()
         CurrentSeverity().Set(EASY)
