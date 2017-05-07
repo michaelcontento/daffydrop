@@ -104,6 +104,12 @@ Class Slider Extends BaseObject
         arrowLeft.OnRender()
     End
 
+    Method Match:Bool(shape:Shape)
+        If movementActive Then Return False
+        If shape.type = configArray[shape.lane] Then Return True
+        Return False
+    End
+
     Private
 
     Method GetMovementOffset:Float()
@@ -138,12 +144,6 @@ Class Slider Extends BaseObject
         End
 
         Return movementOffset
-    End
-
-    Method Match:Bool(shape:Shape)
-        If movementActive Then Return False
-        If shape.type = configArray[shape.lane] Then Return True
-        Return False
     End
 
     Method InitializeConfig:Void()
